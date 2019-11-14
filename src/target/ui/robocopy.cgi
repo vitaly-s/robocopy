@@ -10,8 +10,8 @@ BEGIN {
     my $exeDir = ($0 =~ /(.*)[\\\/]/) ? $1 : '.';
     
     # add lib directory at start of include path
-    unshift @INC, "$exeDir/../bin";
-    unshift @INC, "/var/packages/robocopy/target/bin";
+    unshift @INC, "$exeDir/../lib";
+    unshift @INC, "/var/packages/robocopy/target/lib";
 
     require "config.pl";
 }

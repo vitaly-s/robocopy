@@ -1,10 +1,9 @@
 package="robocopy"
 maintainer="Vitaly Shpachenko"
-version="0.2-0006"
+version="0.2-0008"
 description="RoboCopy is a free software tool for copying/moving files by rules."
 displayname="RoboCopy"
 dsmuidir="ui"
 dsmappname="SYNO.SDS.RoboCopy.Instance"
 arch="noarch"
-
-
+support_conf_folder="yes"

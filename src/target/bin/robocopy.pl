@@ -21,7 +21,6 @@ use File::Path;
 use File::Compare;
 use File::Copy;
 use Data::Dumper;
-use Image::ExifTool qw(:Public);
 use POSIX qw(strftime);
 use Time::Local;
 
@@ -29,10 +28,11 @@ use Time::Local;
 BEGIN {
     # get exe directory
     my $exeDir = ($0 =~ /(.*)[\\\/]/) ? $1 : '.';
+	print "$exeDir \n";
     
     # add lib directory at start of include path
-    unshift @INC, "$exeDir";
-    unshift @INC, "/var/packages/robocopy/target/bin";
+    unshift @INC, "$exeDir/../lib";
+    unshift @INC, "/var/packages/robocopy/target/lib";
 
     require "config.pl";
 #    # disable config file if specified
@@ -45,6 +45,7 @@ BEGIN {
 #{
 #	print "$lib_path\n";
 #}
+use Image::ExifTool qw(:Public);
 use constant ORIGINAL_SYNOUSBCOPY => '/usr/syno/bin/synousbcopy_bin';
 
 my $verbose = 0;

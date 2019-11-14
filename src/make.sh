@@ -24,6 +24,8 @@ make()
 	cp -af WIZARD_UIFILES _tmp/spk
 	if [ -d conf ]; then
 		cp -af conf _tmp/spk
+		mkdir _tmp/package/conf_pkgcenter
+		cp -af conf/* _tmp/package/conf_pkgcenter/
 	fi
 	
 	find _tmp -name '*.bak' -delete

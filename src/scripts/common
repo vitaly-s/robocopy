@@ -139,5 +139,10 @@ postinst() {
 	
 #	set >> /tmp/robocopy.postinst
 
+	# fix error status on DS 4.2
+	if [ -e ${PRIVATE_LOCATION}/conf_pkgcenter ]; then
+		cp -a ${PRIVATE_LOCATION}/conf_pkgcenter ${PACKAGE_DIR}/conf
+	fi
+
 	exit 0
 }
