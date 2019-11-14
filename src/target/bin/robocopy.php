@@ -1,18 +1,26 @@
-#!/usr/bin/php -d open_basedir=""
+#!/usr/bin/php -d safe_mode_exec_dir=""
 <?php
 
+
+function argvStr($arg_list, $onlyArgs = FALSE) {
+	if ($onlyArgs) {
+		array_shift($arg_list);
+	}
+	$arg_list = array_map('escapeshellarg', $arg_list);
+	return implode(' ', $arg_list);
+}
+
 // Run same self with valid permissions
-//if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
-//	$cmd = '/usr/bin/php -d open_basedir="" -d safe_mode_exec_dir="" "' . implode('" "', $argv) . '"';
-//	system($cmd, $result);
-//	exit($result);
-//}
+if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
+	$cmd = '/usr/bin/php -d open_basedir="" -d safe_mode_exec_dir="" ' . argvStr($argv);
+	system($cmd, $result);
+	exit($result);
+}
 
 require_once(__DIR__.'/config.php'); 
 
 define('__SYNOINFO__', '/etc/synoinfo.conf');
 define('__DEF_SYNOINFO__', '/etc.defaults/synoinfo.conf');
-define('__USBCOPYDIR__', 'USBCopy_');
 define('__USBCOPYBIN__', '/usr/syno/bin/synousbcopy_bin');
 
 // /etc/synoinfo.conf "language"
@@ -161,6 +169,7 @@ function file_original_time($file) {
 }
 
 // returns TRUE if files are the same, FALSE otherwise
+/*
 function files_identical_0($fn1, $fn2) {
     if(filetype($fn1) !== filetype($fn2))
         return FALSE;
@@ -191,6 +200,7 @@ function files_identical_0($fn1, $fn2) {
 
     return $same;
 }
+*/
 
 function files_identical($fn1, $fn2) {
 	return ((filesize($fn1) === filesize($fn2)) 
@@ -286,24 +296,46 @@ function process_php($src_path, $item) {
 //	if ($item['src_ext'] != '') {
 //		$cmd .= ' -ext ' . $item['src_ext'];
 //	}
-	
 
 	return TRUE;
 }
 
-///////////////////////////////////////////////////
-syno_beep();
+function syno_copy_folders() {
+	$result = array();
+	$synoinfo = @parse_ini_file(__SYNOINFO__);
+	if ($synoinfo !== FALSE) {
+		foreach (array('usbcopyfolder'=>'USBCopy*' , 'sdcopyfolder'=>'SDCopy*') as $name => $mask) {
+			$folder = $synoinfo[$name];
+			if ($folder != '') {
+				$folder_path = get_share_path($folder);
+				if ($folder_path !== FALSE) {
+					$result[$name] = $folder_path . '/' . $mask;
+				}
+				else {
+					syno_log('warn', "Can not get [$name] path");
+				}
+			}
+		}
+	}
+	return $result;
+}
 
+///////////////////////////////////////////////////
 if (basename($argv[0]) === 'synousbcopy') {
+
+	$dir_list = array();
+
+	$copy_dirs = syno_copy_folders();
+	foreach ($copy_dirs as $key => $mask) {
+		$list = glob($mask, GLOB_ONLYDIR);
+		if ($list !== FALSE) {
+			$dir_list[$key] = $list;
+		}
+	}
+
 	// Run original SynoUsbCopy
 	if (defined('__USBCOPYBIN__')) {
-		$arg_str = '';
-		if ($argc > 1) {
-			$arg_arr = $argv;
-			array_shift($arg_arr);
-			$arg_str = ' ' . implode('" "', $arg_arr);
-		}
-		exec(__USBCOPYBIN__ . $arg_str, $out, $result);
+		exec(__USBCOPYBIN__ . ' ' .  argvStr($argv, TRUE), $out, $result);
 
 //		print("Out:\n");
 //		var_dump($out);
@@ -316,23 +348,16 @@ if (basename($argv[0]) === 'synousbcopy') {
 		}
 	}
 
-	// Get usbcopy folders
-	$src_folder = syno_usbcopy_folder();
-	if ($src_folder === FALSE) {
-		syno_log('err', "Can not get usbcopy folder");
-		exit(1);
+	$dirs = array();
+	foreach ($copy_dirs as $key => $mask) {
+		$list = glob($mask, GLOB_ONLYDIR);
+		if ($list !== FALSE) {
+			$dirs = array_merge($dirs, array_diff($list, $dir_list[$key]));
+		}
 	}
-
-	$src_path = get_share_path($src_folder);
-	if ($src_path === FALSE) {
-		syno_log('err', "Can not get usbcopy path");
-		exit(1);
+	if (count($dirs) == 0) {
+		exit(0);
 	}
-
-	$dirs = glob($src_path . '/' . __USBCOPYDIR__ . '*');
-	rsort($dirs);
-	
-	$dirs = array(array_shift($dirs));
 }
 else {
 	// Run with parameters
@@ -344,6 +369,7 @@ else {
 	array_shift($dirs);
 }
 
+syno_beep();
 
 $cfg = config_read(true);
 
@@ -353,7 +379,6 @@ foreach ($dirs as $dir) {
 		process_php($dir, $line);
 	}
 	syno_log('info', 'Finished processing [' . basename($dir) . ']');
-//	syno_notify('RoboCopy', 'Finished processing "' . $dir . '"');
 }
 
 syno_notify('RoboCopy', 'Processing has been completed.');

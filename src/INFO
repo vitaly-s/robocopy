@@ -1,6 +1,6 @@
 package="robocopy"
 maintainer="Vitaly Shpachenko"
-version="0.1-0002"
+version="0.1-0003"
 description="RoboCopy is a free software tool for copying/moving files by rules."
 displayname="RoboCopy"
 dsmuidir="ui"

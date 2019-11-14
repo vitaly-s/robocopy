@@ -26,8 +26,7 @@ PACKAGE_ENABLED="${PACKAGE_DIR}/enabled"
 #PACKAGE_LIMIT=`get_key_value ${DSM_CONFIG} ${PACKAGE_LIMIT_KEY}`
 LOGFILE="/var/log/${PACKAGE_NAME}.log"
 
-#MY_USBCOPY="$PRIVATE_LOCATION/bin/robocopy.php"
-#MY_USBCOPY="$PRIVATE_LOCATION/bin/test.php"
+MY_USBCOPY="$PRIVATE_LOCATION/bin/robocopy.php"
 
 SYNO_DEF_INFO="/etc.defaults/synoinfo.conf"
 SYNO_BLOCK_AGENT="/usr/syno/hotplug/block.agent"
@@ -53,10 +52,10 @@ start() {
 #		[ -f "/usr/syno/bin/$file" ] || ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
 	done
 
-	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
+#	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
 	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.php /usr/syno/bin/robocopy
 	
-	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes"])
+	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
 	then
 		if [ -f ${SYNO_USBCOPY} -a ! -h ${SYNO_USBCOPY} ]; then
 			echo "Replace usbcopy" 1>>$LOGFILE
@@ -71,7 +70,7 @@ start() {
 
 stop() {
 	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
-	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes"])
+	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
 	then
 		if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
 			echo "Restore usbcopy" 1>>$LOGFILE
@@ -95,5 +94,16 @@ postupgrade() {
 
 postuninst() {
 	rm -f "${LOGFILE}"
+	exit 0
+}
+
+postinst() {
+	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
+#	chmod 0755 $PRIVATE_LOCATION/bin/block_agent.sh
+	chmod 0755 $PRIVATE_LOCATION/ui/robocopy.cgi
+#	if [ -f ${SYNO_USBCOPY}_bin ]; then
+#		echo "Restore usbcopy" 1>>$LOGFILE
+#		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
+#	fi
 	exit 0
 }

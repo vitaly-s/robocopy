@@ -12,24 +12,40 @@ make()
 		exit 1
 	fi
 	
-	rm -rf _spk_dst
-	mkdir _spk_dst
-#	mkdir _spk_dst/scripts
+	echo "== Copy sources"
+	rm -rf _tmp
+	mkdir _tmp
+	mkdir _tmp/package
+	mkdir _tmp/spk
+	
+	cp -af target/* _tmp/package
+	cp -af INFO _tmp/spk
+	cp -af scripts _tmp/spk
+#	cp -af WIZARD_UIFILES/* _tmp/spk/WIZARD_UIFILES
+	cp -af target/ui/images/icon_72.png _tmp/spk/PACKAGE_ICON.PNG
+	
+	for phpfile in `grep -rl '<?php' ./_tmp/package/`
+	do
+		php -l "$phpfile" >/dev/null 2>&1 >/dev/null
+		if [ "$?" -eq 0 ]
+		then
+			echo "pack $phpfile"
+			head -n 1 "$phpfile" | grep -e '^#!.*' > "$phpfile.new"
+			php -w "$phpfile" >> "$phpfile.new"
+			mv -f "$phpfile.new" "$phpfile"
+		fi
+	done
 
 	echo "== Compress to package.tgz"
-	cd target/
-	tar czf ../_spk_dst/package.tgz *
-	cd ..
+	cd _tmp/package/
+	tar czf ../spk/package.tgz *
+	cd ../..
 
-	cp -af INFO _spk_dst/
-	cp -af scripts _spk_dst/
-#	cp -af WIZARD_UIFILES/* _spk_dst/WIZARD_UIFILES
-	cp -af target/ui/images/icon_72.png _spk_dst/PACKAGE_ICON.PNG
 
 	echo "== Compress to $SPK_FILE"
-	cd _spk_dst/
-	tar -cvf ../"$SPK_FILE" *
-	cd ..
+	cd _tmp/spk/
+	tar cf ../../"$SPK_FILE" *
+	cd ../..
 }
 
 rm_rf()
@@ -43,8 +59,7 @@ rm_rf()
 make_clean()
 {
 	rm_rf "$SPK_FILE"
-	rm_rf "_spk_dst"
-#	rm_rf "_package_dst"
+	rm_rf "_tmp"
 }
 
 case $1 in
