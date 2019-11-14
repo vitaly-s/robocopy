@@ -1,12 +1,12 @@
-#!/usr/bin/php
+#!/usr/bin/php -d open_basedir=""
 <?php
 
 // Run same self with valid permissions
-if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
-	$cmd = '/usr/syno/bin/php -d open_basedir="" -d safe_mode_exec_dir="" "' . implode('" "', $argv) . '"';
-	system($cmd, $result);
-	exit($result);
-}
+//if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
+//	$cmd = '/usr/bin/php -d open_basedir="" -d safe_mode_exec_dir="" "' . implode('" "', $argv) . '"';
+//	system($cmd, $result);
+//	exit($result);
+//}
 
 require_once(__DIR__.'/config.php'); 
 
@@ -54,20 +54,29 @@ function get_share_path($name) {
 
 
 //see http://oinkzwurgl.org/?action=browse;oldid=ds106series;id=diskstation_ds106series
+function outTTYS1($data){
+	$dh = @fopen('/dev/ttyS1', 'r+b');
+	if ($dh !== FALSE)
+	{
+		@fwrite($dh, $data);
+		@fclose($dh);
+	}
+}
+	
 function syno_beep() {
-	system("echo 2 > /dev/ttyS1");
+	outTTYS1("2");
 }
 
 function syno_longbeep() {
-	exec("echo 3 > /dev/ttyS1");
+	outTTYS1("3");
 }
 
 function syno_copyled_off() {
-	exec("echo B > /dev/ttyS1");
+	outTTYS1("B");
 }
 
 function syno_copyled_on() {
-	exec("echo @ > /dev/ttyS1");
+	outTTYS1("@");
 }
 
 function syno_copyled_blink() {
@@ -106,13 +115,14 @@ function syno_copyled_blink() {
 
 //USAGE : synologset1 [sys | man | conn](copy netbkp)   [info | warn | err] eventID(%X) [substitution strings...]
 function syno_log($type, $str) {
-	exec('/usr/syno/bin/synologset1 sys ' . $type . ' 0x11800000 "RoboCopy: ' . $str . '"');
+	exec('/usr/syno/bin/synologset1 sys ' . $type . ' 0x11800000 ' . escapeshellarg('RoboCopy: ' . $str));
+	exec('/usr/syno/bin/synologset1 copy ' . $type . ' 0x11800000 ' . escapeshellarg('RoboCopy: ' . $str));
 //	print(strtoupper($type) . " : " . $str . ".\n");
 }
 
 //http://forum.synology.com/enu/viewtopic.php?f=27&t=55627
 function syno_notify($title, $message, $to = '@administrators') {
-	exec('/usr/syno/bin/synodsmnotify ' . $to . ' "' . $title . '" "' . $message . '"');
+	exec('/usr/syno/bin/synodsmnotify ' . $to . ' ' . escapeshellarg($title) . ' ' . escapeshellarg($message));
 }
 
 
@@ -282,6 +292,8 @@ function process_php($src_path, $item) {
 }
 
 ///////////////////////////////////////////////////
+syno_beep();
+
 if (basename($argv[0]) === 'synousbcopy') {
 	// Run original SynoUsbCopy
 	if (defined('__USBCOPYBIN__')) {
@@ -325,7 +337,7 @@ if (basename($argv[0]) === 'synousbcopy') {
 else {
 	// Run with parameters
 	if ($argc == 1) {
-		echo "Usage: " . basename($argv[0]) . " src_dir1 [src_dir1...]\n";
+		echo "Usage:\n\t" . basename($argv[0]) . " src_dir1 [src_dir1...]\n";
 		exit(1);
 	}
 	$dirs = $argv;
@@ -335,19 +347,17 @@ else {
 
 $cfg = config_read(true);
 
-//syno_copyled_blink();
-syno_beep();
-
 foreach ($dirs as $dir) {
-	syno_log('info', 'Start import from "' . $dir . '"');
+	syno_log('info', 'Started processing [' . basename($dir) . ']');
 	foreach ($cfg as $line) {
 		process_php($dir, $line);
 	}
-	syno_log('info', 'Finished import from "' . $dir . '"');
-	syno_notify('RoboCopy', 'Finished import from "' . $dir . '"');
+	syno_log('info', 'Finished processing [' . basename($dir) . ']');
+//	syno_notify('RoboCopy', 'Finished processing "' . $dir . '"');
 }
 
-//syno_copyled_off();
+syno_notify('RoboCopy', 'Processing has been completed.');
+
 syno_longbeep();
 
 ?>

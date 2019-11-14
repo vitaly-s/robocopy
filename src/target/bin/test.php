@@ -1,15 +1,17 @@
-#!/usr/bin/php
+#!/usr/bin/php -d open_basedir=""
 <?php
 
-define('__USBCOPYBIN__', '/usr/syno/bin/synousbcopy_bin');
+require_once(__DIR__.'/config.php'); 
 
+define('__USBCOPYBIN__', '/usr/syno/bin/synousbcopy_bin');
+/*
 // Run same self with valid permissions
 if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
-	$cmd = '/usr/syno/bin/php -d open_basedir="" -d safe_mode_exec_dir="" "' . implode('" "', $argv) . '"';
+	$cmd = '/usr/bin/php -d open_basedir="" -d safe_mode_exec_dir="" "' . implode('" "', $argv) . '"';
 	system($cmd, $result);
 	exit($result);
 }
-
+*/
 function syno_sys_log($type, $str) {
 	exec('/usr/syno/bin/synologset1 sys ' . $type . ' 0x11800000 "' . $str . '"');
 }
