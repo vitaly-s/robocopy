@@ -1,0 +1,28 @@
+{
+    "RoboCopy.js": {
+        "SYNO.SDS.RoboCopy.Instance": {
+            "type": "app",
+            "title": "app:app_name",
+            "icon": "images/icon_{0}.png",
+            "texts": "texts",
+            "allowMultiInstance": false,
+            "appWindow": "SYNO.SDS.RoboCopy.MainWindow",
+            "depend": ["SYNO.SDS.RoboCopy.MainWindow"]
+        },
+        "SYNO.SDS.RoboCopy.MainWindow": {
+            "type": "lib",
+            "title": "app:app_name",
+            "icon": "images/icon_{0}.png",
+            "texts": "texts",
+            "depend": ["SYNO.SDS.RoboCopy.INFO"]
+        },
+        "SYNO.SDS.RoboCopy.INFO": {
+            "type": "lib",
+            "depend": []
+        },
+        "SYNO.SDS.RoboCopy.ErrorMessageHandler": {
+            "type": "lib",
+            "depend": []
+        }
+    }
+}

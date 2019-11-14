@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# customized items of package
+if [ -z "$SYNOPKG_PKGNAME" ]; then
+	# prior DSM 3.2, start script will be run without environment variable
+	#  at boot time, thus we need a workaround to gather name and version info
+	PACKAGE_NAME="robocopy"
+	PACKAGE_VER=`get_key_value "/var/packages/${PACKAGE_NAME}/INFO" "version"`
+else
+	PACKAGE_NAME=$SYNOPKG_PKGNAME
+	PACKAGE_VER=$SYNOPKG_PKGVER
+fi
+PACKAGE_DIR="/var/packages/$PACKAGE_NAME"
+PRIVATE_LOCATION="/var/packages/$PACKAGE_NAME/target"
+#PACKAGE_LIMIT_KEY="synoav_limit"
+
+#PKG_APP_PATH="${PRIVATE_LOCATION}/app"
+#PKG_INDEXDB_PATH="${PRIVATE_LOCATION}/indexdb"
+#APP_PATH="/var/packages/${PACKAGE_NAME}/etc/enabled"
+
+# general routines
+#DSM_CONFIG="/etc.defaults/synoinfo.conf"
+#DSM_INDEX_ADD="/usr/syno/bin/pkgindexer_add"
+#DSM_INDEX_DEL="/usr/syno/bin/pkgindexer_del"
+PACKAGE_ENABLED="${PACKAGE_DIR}/enabled"
+#PACKAGE_LIMIT=`get_key_value ${DSM_CONFIG} ${PACKAGE_LIMIT_KEY}`
+LOGFILE="/var/log/${PACKAGE_NAME}.log"
+
+#MY_USBCOPY="$PRIVATE_LOCATION/bin/auto-import.php"
+#MY_USBCOPY="$PRIVATE_LOCATION/bin/test.php"
+
+SYNO_DEF_INFO="/etc.defaults/synoinfo.conf"
+SYNO_BLOCK_AGENT="/usr/syno/hotplug/block.agent"
+SYNO_USBCOPY="/usr/syno/bin/synousbcopy"
+
+SYNO_BIN_FILES="synoshare synouser synogroup synonet synoservice synowin"
+
+SUPPORT_USBCOPY=`get_key_value "${SYNO_DEF_INFO}" "usbcopy"`
+SUPPORT_SDCOPY=`get_key_value "${SYNO_DEF_INFO}" "sdcopy"`
+
+
+start() {
+	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+#	echo "SYNOPKG_PKGDEST: ${SYNOPKG_PKGDEST}" 1>>$LOGFILE
+
+	for file in $SYNO_BIN_FILES
+	do
+		if [ ! -e "/usr/syno/bin/$file" ]
+		then
+			echo "Create link to $file" 1>>$LOGFILE
+			ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
+		fi
+#		[ -f "/usr/syno/bin/$file" ] || ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
+	done
+
+	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
+	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.php /usr/syno/bin/robocopy
+	
+	if [ -n $MY_USBCOPY ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes"])
+	then
+		if [ -f ${SYNO_USBCOPY} -a ! -h ${SYNO_USBCOPY} ]; then
+			echo "Replace usbcopy" 1>>$LOGFILE
+			mv -f ${SYNO_USBCOPY} ${SYNO_USBCOPY}_bin
+			ln -s MY_USBCOPY ${SYNO_USBCOPY}
+		fi
+	else
+		echo "Add call block_agent.sh" 1>>$LOGFILE
+		echo ". ${PRIVATE_LOCATION}/bin/block_agent.sh" >> $SYNO_BLOCK_AGENT
+	fi
+}
+
+stop() {
+	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+	if [ -n $MY_USBCOPY ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes"])
+	then
+		if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
+			echo "Restore usbcopy" 1>>$LOGFILE
+			mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
+		fi
+	else
+		echo "Remove call block_agent.sh" 1>>$LOGFILE
+		sed -i '/block_agent.sh/d' ${SYNO_BLOCK_AGENT}
+	fi
+	rm -f /usr/syno/bin/robocopy
+}
+
+
+preupgrade() {
+	exit 0
+}
+
+postupgrade() {
+	exit 0
+}
+
+postuninst() {
+	rm -f "${LOGFILE}"
+	exit 0
+}

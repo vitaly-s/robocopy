@@ -1,0 +1,36 @@
+#!/bin/sh
+
+. `dirname "$0"`/common 
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		sleep 2
+		start
+		;;
+	status)
+		if [ -f ${PACKAGE_ENABLED} ]; then
+			exit 0
+		else
+			exit 1
+		fi 
+		;;
+	log)
+		echo "${LOGFILE}"
+		;;
+	clearlog)
+		rm -f "${LOGFILE}"
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|status}" >&2
+		exit 1
+		;;
+esac
+ 
+exit 0
