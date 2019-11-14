@@ -1,5 +1,5 @@
 #!/bin/sh
 
-#. `dirname "$0"`/common
-#`basename "$0"`
+. `dirname "$0"`/common
+`basename "$0"`
 exit 0

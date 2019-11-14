@@ -124,3 +124,53 @@ sub config_demo
 			'description' => 'Copy others'}
 	];
 }
+
+sub create_demo
+{
+	my $share = shift;
+	$share = 'photo' unless defined $share;
+	my $cfg = [
+		{'id' => rule_new_id(),
+			'priority' => 1,
+			'src_dir' => 'DCIM',
+			'src_ext' => 'jpg',
+			'src_remove' => 0,
+			'dest_folder' => $share,
+			'dest_dir' => 'image/%Y-%m-%d',
+			'dest_file' => '',
+			'dest_ext' => '',
+			'description' => 'Copy images'},
+		{'id' => rule_new_id(),
+			'priority' => 2,
+			'src_dir' => 'MP_ROOT',
+			'src_ext' => 'mpg',
+			'src_remove' => 0,
+			'dest_folder' => $share,
+			'dest_dir' => 'video/%Y-%m-%d',
+			'dest_file' => '',
+			'dest_ext' => '',
+			'description' => 'Copy videos'},
+		{'id' => rule_new_id(),
+			'priority' => 3,
+			'src_dir' => '',
+			'src_ext' => '3gp',
+			'src_remove' => 0,
+			'dest_folder' => $share,
+			'dest_dir' => 'video/%Y-%m-%d',
+			'dest_file' => '',
+			'dest_ext' => '',
+			'description' => 'Copy mobile videos'},
+		{'id' => rule_new_id(),
+			'priority' => 4,
+			'src_dir' => '',
+			'src_ext' => '',
+			'src_remove' => 0,
+			'dest_folder'=> $share,
+			'dest_dir' => 'other/%Y-%m-%d',
+			'dest_file' => '',
+			'dest_ext' => '',
+			'description' => 'Copy others'}
+	];
+
+	write_cfg($cfg, DEFAULT_CONFIG);
+}

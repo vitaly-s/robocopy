@@ -1,0 +1,11 @@
+[{
+	"step_title": "Package Settings",
+	"items": [{
+		"type": "multiselect",
+		"desc": "Demo configuration",
+		"subitems": [{
+			"key": "PKGWIZARD_CREATE_DEMO",
+			"desc": "Create demo configuration (uses first shared folder)"
+		}]
+	}]
+}]

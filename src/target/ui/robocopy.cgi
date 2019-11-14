@@ -69,7 +69,7 @@ sub action_post_shared
 	print to_json {'data' => \@share_list, 'total' => scalar(@share_list)};
 }
 
-sub action_get_demo
+sub _action_get_demo
 {
 	my $cfg = config_demo();
 	write_cfg($cfg, DEFAULT_CONFIG);

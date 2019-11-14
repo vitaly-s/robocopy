@@ -12,7 +12,9 @@ else
 fi
 PACKAGE_DIR="/var/packages/$PACKAGE_NAME"
 PRIVATE_LOCATION="/var/packages/$PACKAGE_NAME/target"
+PACKAGE_USERCONF_DIR="${PACKAGE_DIR}/etc"
 #PACKAGE_LIMIT_KEY="synoav_limit"
+#UPGRADE_FILE="/tmp/robocopy.upgrade"
 
 #PKG_APP_PATH="${PRIVATE_LOCATION}/app"
 #PKG_INDEXDB_PATH="${PRIVATE_LOCATION}/indexdb"
@@ -82,19 +84,41 @@ stop() {
 
 
 preupgrade() {
+#	$SYNOPKG_OLD_PKGVER
+#	$SYNOPKG_PKGVER
+#	touch ${UPGRADE_FILE}
+#	echo "PreUpgrade ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+#	set >> /tmp/robocopy.preupgrade
 	exit 0
 }
 
 postupgrade() {
+#	rm -f ${UPGRADE_FILE}
+	exit 0
+}
+
+preuninst() {
+#	if [ ! -e ${UPGRADE_FILE} ]; then
+	if [ "$SYNOPKG_PKG_STATUS" != "UPGRADE" ]; then
+		#remove user config file
+		rm -f "${PACKAGE_USERCONF_DIR}/rules.conf"
+		# remove LOG file
+		rm -f "${LOGFILE}"
+	fi
+	
 	exit 0
 }
 
 postuninst() {
-	rm -f "${LOGFILE}"
+#	if [ "$SYNOPKG_PKG_STATUS" != "UPGRADE" ]; then
+#		#remove user config file
+#		rm -f "/usr/syno/etc/packages/${PACKAGE_NAME}"
+#	fi
 	exit 0
 }
 
 postinst() {
+	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
 	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.pl
 	chmod 0755 $PRIVATE_LOCATION/bin/hotplug.sh
 	chmod 0755 $PRIVATE_LOCATION/ui/robocopy.cgi
@@ -102,5 +126,18 @@ postinst() {
 #		echo "Restore usbcopy" 1>>$LOGFILE
 #		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
 #	fi
+#	echo "PKGWIZARD_CREATE_DEMO: ${PKGWIZARD_CREATE_DEMO}" 1>>$LOGFILE
+	if [ "x${PKGWIZARD_CREATE_DEMO}" == "xtrue" ]; then
+		DEF_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
+		if [ -n "$DEF_SHARE" ]; then
+			echo "Create demo configuration [${DEF_SHARE}]." 1>>$LOGFILE
+			perl -e "require qw(${PRIVATE_LOCATION}/bin/config.pl) ; create_demo('${DEF_SHARE}');"
+		else
+			echo "Cannot create demo configuration." 1>>$LOGFILE
+		fi
+	fi
+	
+#	set >> /tmp/robocopy.postinst
+
 	exit 0
 }
