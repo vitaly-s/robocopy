@@ -21,9 +21,28 @@ make()
 	cp -af target/* _tmp/package
 	cp -af INFO _tmp/spk
 	cp -af scripts _tmp/spk
-#	cp -af WIZARD_UIFILES/* _tmp/spk/WIZARD_UIFILES
+	cp -af WIZARD_UIFILES _tmp/spk
+	if [ -d conf ]; then
+		cp -af conf _tmp/spk
+	fi
+	
+	find _tmp -name '*.bak' -delete
+
 	cp -af target/ui/images/icon_72.png _tmp/spk/PACKAGE_ICON.PNG
 	
+	
+	# check perl files
+	for srcfile in `grep -ril '^#!.*perl' ./_tmp/package/`
+	do
+		perl -c "$srcfile" >/dev/null 2>&1 >/dev/null
+		if [ "$?" -ne 0 ]
+		then
+			echo "Error in \"${srcfile##*/}\""
+			exit
+		fi
+	done
+
+	# pack php files
 	for phpfile in `grep -rl '<?php' ./_tmp/package/`
 	do
 		php -l "$phpfile" >/dev/null 2>&1 >/dev/null

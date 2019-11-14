@@ -1,143 +1,194 @@
-#!/usr/bin/php -d open_basedir=""
-<?php
+#!/usr/bin/perl -w
 
-/*
-if ((ini_get('open_basedir') != "") || (ini_get('safe_mode_exec_dir') != "")) {
-	$cmd = '/usr/syno/bin/php -d open_basedir="" -d safe_mode_exec_dir="" ' . $_SERVER['PHP_SELF'];
-	system($cmd, $result);
-	exit($result);
+use strict;
+use warnings;
+use CGI;
+#use CGI::Carp qw(fatalsToBrowser);
+use JSON::XS;
+
+BEGIN {
+    my $exeDir = ($0 =~ /(.*)[\\\/]/) ? $1 : '.';
+    
+    # add lib directory at start of include path
+    unshift @INC, "$exeDir/../bin";
+    unshift @INC, "/var/packages/robocopy/target/bin";
+
+    require "config.pl";
 }
-*/
 
-require_once(__DIR__ . '/../bin/config.php'); 
-require_once(__DIR__ . '/../bin/cgi.php');
+my $user;
+if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
+	$user=<IN>;
+	chop($user);
+	close(IN);
+}
+if ($user eq '') {
+#	print "Status: 403 Forbidden\n";
+#	print "Content-type: text/plain; charset=UTF-8\n\n";
+	print "403 Forbidden\n";
+	exit;
+}
 
-function get_share_list() {
-	exec('/usr/syno/bin/synoshare --enum local', $list);
-	unset($list[0]);
-	unset($list[1]);
-	$result = array();
-	foreach ($list as $name) {
-		exec('/usr/syno/bin/synoshare --get ' . $name, $out);
-		$pattern = '/Comment.*\[(.*)\]/';
-		$comment = '';
-		foreach ($out as $line){
-			if (preg_match($pattern, $line, $matches) === 1) {
-				$comment = $matches[1];
-			}
+my %query;
+
+if ($ENV{'REQUEST_METHOD'} eq "POST") {
+	my $buffer;
+	read(STDIN, $buffer, $ENV{"CONTENT_LENGTH"});
+	%query = parse_query($buffer);
+}
+elsif ($ENV{REQUEST_METHOD} eq 'GET') {
+	%query = parse_query($ENV{QUERY_STRING});
+}
+
+my $func_name = 'action_' . lc($ENV{'REQUEST_METHOD'});
+$func_name .= '_' . $query{action} if exists $query{action};
+if (defined &$func_name) {
+	&{\&{$func_name}}(%query);
+	exit;
+}
+
+#print "Status: 404 Not found\n";
+print "Content-type: text/plain; charset=UTF-8\n\n";
+print "Method: \"$func_name\" not found".
+print "404 Not found\n";
+
+#foreach (sort keys %ENV) { print "$_: $ENV{$_}\n"; }
+
+sub action_post_shared
+{
+	my @share_list;
+	foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
+		$name =~ s/\n//g;
+		my $comment = '';
+		if (`/usr/syno/sbin/synoshare --get $name` =~ /Comment.*\[(.*?)\]/) {
+			$comment = $1;
 		}
-		$result[] = array('name' => $name, 'comment' => $comment);
+		push @share_list, {'name' => $name, 'comment' => $comment};
 	}
-	return $result;
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	print to_json {'data' => \@share_list, 'total' => scalar(@share_list)};
 }
 
-function response_list($list) {
-	return array('data'=>$list, 'total'=>count($list));
+sub action_get_demo
+{
+	my $cfg = config_demo();
+	write_cfg($cfg, DEFAULT_CONFIG);
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	print to_json {'data' => $cfg, 'total' => scalar(@$cfg)};
 }
 
-function response_success($data) {
-	return array('data'=>$data, 'success'=>true);
-}
-//{
-//   "errinfo" : {
-//      "key" : "nonexist",
-//      "line" : 109,
-//      "sec" : "error"
-//   },
-//   "success" : false
-//}
-function response_error($key) {
-	return array('errorinfo'=>array('key'=>$key, 'sec'=>'error'), 'success'=>false);
-}
+sub action_post_list
+{
+	my %params = @_;
+	#TODO
+#	if (!isset($params['start'])) $params['start'] = 0;
+#	if (!isset($params['limit'])) $params['limit'] = count($cfg);
+	my $cfg = read_cfg(DEFAULT_CONFIG);
 
-function parse_item($params) {
-	return array('id' => $params['id'],
-		'priority' => (int)$params['priority'],
-		'src_dir' => $params['src_dir'],
-		'src_ext' => $params['src_ext'],
-		'dest_folder' => $params['dest_folder'],
-		'dest_dir' => $params['dest_dir'],
-		'dest_file' => $params['dest_file'],
-		'dest_ext' => $params['dest_ext'],
-		'description' => $params['description'],
-		'src_remove' => (bool)$params['src_remove']
-	);
-}
-
-/////
-function action_list($params) {
-	$cfg = config_read();
-	if (!isset($params['start'])) $params['start'] = 0;
-	if (!isset($params['limit'])) $params['limit'] = count($cfg);
-	$i = 0;
-	//foreach ()
- 
-	return response_list($cfg);
-}
-
-function action_shared($params) {
-	$list = get_share_list();
-
-	return response_list($list);
-}
-
-function action_add($params) {
-	$result = parse_item($params);
-	$result['id'] = mt_rand();
-
-	$cfg = config_read();
-	$cfg[]= $result;
-
-	if (config_write($cfg) === false) {
-		return response_error('config_write_error');
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	if (defined($cfg)) {
+		print to_json {'data' => $cfg, 'total' => scalar(@$cfg)};
 	}
-	return response_success($result);
+	else {
+		print '{"data":null,"total":0}';
+	}
 }
 
-function action_edit($params) {
-	$result = parse_item($params);
-	if (!isset($result['id'])) {
-		return response_error('invalid_id');
-	}
-	$cfg = config_read();
-	foreach($cfg as $key => $item) {
-		if ($item['id'] == $result['id'] ) {
-			$cfg[$key] = $result;
-			if (config_write($cfg) === false) {
-				return response_error('config_write_error');
-			}
-			return response_success(NULL);
-		}
-	}
-	return response_error('not_found');
+sub action_post_add
+{
+	my %rule = get_rule(@_);
+	$rule{'id'} = rule_new_id();
+	my $cfg = read_cfg(DEFAULT_CONFIG);
+	push @$cfg, \%rule;
+	write_cfg($cfg, DEFAULT_CONFIG);
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	print to_json {'data' => \%rule, 'success' => JSON::XS::true};
 }
 
-function action_remove($params) {
-	if (!isset($params['id'])) {
-		return response_error('invalid_id');
+sub action_post_edit
+{
+	my %rule = get_rule(@_);
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	unless (exists $rule{id}) {
+		print '{"errinfo" : {"key" : "invalid_id", "sec" : "error"}, "success" : false}';
+		return ;
 	}
-	$cfg = config_read();
-	foreach($cfg as $key => $item) {
-		if ($item['id'] == $params['id'] ) {
-			$result = $cfg[$key];
-			unset($cfg[$key]);
-			$cfg = array_values($cfg);
-			if (config_write($cfg) === false) {
-				return response_error('config_write_error');
-			}
-			return response_success($result);
+	my $cfg = read_cfg(DEFAULT_CONFIG);
+	for (my $i = $#{$cfg}; $i>=0; $i--) {
+		if ($cfg->[$i]->{'id'} == $rule{id}) {
+			$cfg->[$i] = \%rule;
+			write_cfg($cfg, DEFAULT_CONFIG);
+			print '{"data":null, "success":true}';
+			return;
 		}
 	}
-	return response_error('not_found');
+	print '{"errinfo" : {"key" : "not_found", "sec" : "error"}, "success" : false}';
 }
 
-function action_demo($params) {
-	$demo = config_demo();
-	print("2\n");
-	if (config_write($demo) === false) {
-		return response_error('config_write_error');
+sub action_post_remove 
+{
+	my %params = @_;
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	unless (exists $params{id}) {
+		print '{"errinfo" : {"key" : "invalid_id", "sec" : "error"}, "success" : false}';
+		return ;
 	}
-	return $demo;
+	my $cfg = read_cfg(DEFAULT_CONFIG);
+	for (my $i = $#{$cfg}; $i>=0; $i--) {
+		if ($cfg->[$i]->{'id'} == $params{id}) {
+			splice(@$cfg, $i, 1);
+			write_cfg($cfg, DEFAULT_CONFIG);
+			print '{"data":null, "success":true}';
+			return;
+		}
+	}
+	print '{"errinfo" : {"key" : "not_found", "sec" : "error"}, "success" : false}';
 }
 
-?>
+sub action_post_run
+{
+	my %params = @_;
+	unless (exists $params{folders}) {
+		print '{"errinfo" : {"key" : "invalid_params", "sec" : "error"}, "success" : false}';
+		return;
+	}
+
+	my $parent = $$;
+	my $pid;
+	unless ($pid = fork()) {
+		# Child process goes here
+		# $parent is parent and $$ is child
+		close(STDOUT);
+		close(STDERR);
+		close(STDIN);
+		exec('robocopy', split(/\|/, $params{folders}));
+		exit();
+	}
+	# Parent process goes here
+	# $pid is child, $$ is parent
+	print "Content-type: application/json; charset=UTF-8\n\n";
+	print '{"data" : {"pid" : ' . $pid . '}, "success" : true}';
+}
+
+#sub urldecode {    #очень полезная функция декодировани
+#	my ($val)=@_;  #запроса,будет почти в каждой вашей CGI-программе
+#	$val =~ tr/+/ /;
+#	$val =~ s/%([a-fA-F0-9]{2})/pack('C',hex($1))/ge;
+#	return $val;
+#}
+
+sub parse_query
+{
+	my $query = shift;
+	my %result;
+	
+	return %result unless defined $query;
+
+	foreach my $part (split(/\&/, $query)) {
+		my ($name, $value) = split(/=/, $part);
+		$value =~ tr/+/ /;
+		$value =~ s/%([a-fA-F0-9]{2})/pack('C',hex($1))/ge;
+		$result{$name} = $value;
+	}
+	return %result;
+}

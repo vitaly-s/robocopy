@@ -26,10 +26,10 @@ PACKAGE_ENABLED="${PACKAGE_DIR}/enabled"
 #PACKAGE_LIMIT=`get_key_value ${DSM_CONFIG} ${PACKAGE_LIMIT_KEY}`
 LOGFILE="/var/log/${PACKAGE_NAME}.log"
 
-MY_USBCOPY="$PRIVATE_LOCATION/bin/robocopy.php"
+MY_USBCOPY="$PRIVATE_LOCATION/bin/robocopy.pl"
 
 SYNO_DEF_INFO="/etc.defaults/synoinfo.conf"
-SYNO_BLOCK_AGENT="/usr/syno/hotplug/block.agent"
+#SYNO_BLOCK_AGENT="/usr/syno/hotplug/block.agent"
 SYNO_USBCOPY="/usr/syno/bin/synousbcopy"
 
 SYNO_BIN_FILES="synoshare synouser synogroup synonet synoservice synowin"
@@ -42,43 +42,40 @@ start() {
 	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
 #	echo "SYNOPKG_PKGDEST: ${SYNOPKG_PKGDEST}" 1>>$LOGFILE
 
-	for file in $SYNO_BIN_FILES
-	do
-		if [ ! -e "/usr/syno/bin/$file" ]
-		then
-			echo "Create link to $file" 1>>$LOGFILE
-			ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
-		fi
-#		[ -f "/usr/syno/bin/$file" ] || ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
-	done
+#	for file in $SYNO_BIN_FILES
+#	do
+#		if [ ! -e "/usr/syno/bin/$file" ]
+#		then
+#			echo "Create link to $file" 1>>$LOGFILE
+#			ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
+#		fi
+##		[ -f "/usr/syno/bin/$file" ] || ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
+#	done
 
-#	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
-	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.php /usr/syno/bin/robocopy
+	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.pl /usr/syno/bin/robocopy
 	
 	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
 	then
 		if [ -f ${SYNO_USBCOPY} -a ! -h ${SYNO_USBCOPY} ]; then
-			echo "Replace usbcopy" 1>>$LOGFILE
+			echo "Replace synousbcopy" 1>>$LOGFILE
 			mv -f ${SYNO_USBCOPY} ${SYNO_USBCOPY}_bin
 			ln -s ${MY_USBCOPY} ${SYNO_USBCOPY}
 		fi
 	else
-		echo "Add call block_agent.sh" 1>>$LOGFILE
-		echo ". ${PRIVATE_LOCATION}/bin/block_agent.sh" >> $SYNO_BLOCK_AGENT
+		echo "Add 99robocopy.hotplug" 1>>$LOGFILE
+		ln -s $PRIVATE_LOCATION/bin/hotplug.sh /usr/syno/hotplug.d/default/99robocopy.hotplug
 	fi
 }
 
 stop() {
 	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
-	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
-	then
-		if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
-			echo "Restore usbcopy" 1>>$LOGFILE
-			mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
-		fi
-	else
-		echo "Remove call block_agent.sh" 1>>$LOGFILE
-		sed -i '/block_agent.sh/d' ${SYNO_BLOCK_AGENT}
+	if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
+		echo "Restore synousbcopy" 1>>$LOGFILE
+		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
+	fi
+	if [ -e /usr/syno/hotplug.d/default/99robocopy.hotplug ]; then
+		echo "Remove 99robocopy.hotplug" 1>>$LOGFILE
+		rm -f /usr/syno/hotplug.d/default/99robocopy.hotplug
 	fi
 	rm -f /usr/syno/bin/robocopy
 }
@@ -98,8 +95,8 @@ postuninst() {
 }
 
 postinst() {
-	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.php
-#	chmod 0755 $PRIVATE_LOCATION/bin/block_agent.sh
+	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.pl
+	chmod 0755 $PRIVATE_LOCATION/bin/hotplug.sh
 	chmod 0755 $PRIVATE_LOCATION/ui/robocopy.cgi
 #	if [ -f ${SYNO_USBCOPY}_bin ]; then
 #		echo "Restore usbcopy" 1>>$LOGFILE

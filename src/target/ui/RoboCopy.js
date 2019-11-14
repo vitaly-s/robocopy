@@ -1,6 +1,194 @@
 /* Copyright (c) 2013 Synology Inc. All rights reserved. */
 
 Ext.ns("SYNO.SDS.RoboCopy");
+SYNO.SDS.RoboCopy.PIC_PREFIX = "3rdparty/robocopy/images/";
+SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
+
+SYNO.SDS.RoboCopy.SelectFolderTreePanel = Ext.extend(Ext.tree.TreePanel, {
+    constructor: function (b) {
+        this.startButtonId = b.okBtnID;
+        this.preCheckFolder = b.preCheckFolder;
+        this.treeroot = new Ext.tree.AsyncTreeNode({
+            cls: "root_node",
+            text: _S("hostname"),
+            icon: SYNO.SDS.RoboCopy.PIC_PREFIX + "my_ds.png",
+            draggable: false,
+            expanded: true,
+            id: "fm_root",
+            allowDrop: false,
+            uiProvider: Ext.tree.TriTreeNodeUI
+        });
+        this.dirTreeLoader = new Ext.tree.TreeLoader({
+            dataUrl: "/webman/modules/FileBrowser/webfm/webUI/file_share.cgi",
+            baseParams: {
+                action: "getshares",
+                needrw: "false",
+                bldisableist: "true"
+            },
+            baseAttrs: {
+                uiProvider: Ext.tree.TriTreeNodeUI
+            },
+            listeners: {
+                beforeload: {
+                    fn: function (e, d, c) {
+                        return !(true == d.disabled)
+                    },
+                    scope: this
+                },
+                load: {
+                    scope: this,
+                    fn: function (h, g, c) {
+                        if (g.id == this.treeroot.id) {
+                            this.attachCheckChangeHandler()
+                        }
+                        if (c.responseText) {
+                            var e = Ext.util.JSON.decode(c.responseText);
+                            if (e && e.errno) {
+                                this.getMsgBox().alert(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "error", "connection_error"))
+                            } else {
+                                for (var f = 0; f < e.length; f++) {
+                                    g.childNodes[f].realPath = e[f].path;
+                                    for (var d = 0; d < this.preCheckFolder.length; d++) {
+                                        if (this.preCheckFolder[d] == g.childNodes[f].realPath) {
+                                            g.childNodes[f].getUI().toggleCheck(true);
+                                            continue
+                                        }
+                                        if (0 == this.preCheckFolder[d].indexOf(g.childNodes[f].realPath)) {
+                                            g.childNodes[f].expand()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            createNode: function (c) {
+//                switch (c.text) {
+//                case "@quarantine":
+//                case "#recycle":
+//                    c.hidden = true;
+//                    break;
+//                default:
+//                    break
+//                }
+                return Ext.tree.TreeLoader.prototype.createNode.call(this, c)
+            }
+        });
+        var a = {
+            animate: false,
+            autoScroll: true,
+            loader: this.dirTreeLoader,
+            containerScroll: true,
+            enableDD: false,
+            rootVisible: true,
+            border: false,
+            useArrows: true,
+            root: this.treeroot,
+            tbar: [],
+            listeners: {
+                beforedestroy: {
+                    fn: function () {
+                        Ext.destroy(this.dirTree)
+                    },
+                    scope: this
+                }
+            },
+            getChecked: function (c, e, d) {
+                e = e || this.root;
+                var g = d || [];
+                var f = e.firstChild;
+                do {
+                    switch (f.getUI().getCheckIndex(f)) {
+                    case Ext.tree.TriTreeNodeUI.GRAYSTATE:
+                        if (f.firstChild) {
+                            this.getChecked(c, f, g)
+                        } else {
+                            this.getMsgBox().alert(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "error", "execution_failed"))
+                        }
+                        break;
+                    case Ext.tree.TriTreeNodeUI.CHECKSTATE:
+                        g.push(!c ? f : (c == "id" ? f.id : f.attributes[c]));
+                        break;
+                    default:
+                        break
+                    }
+                    f = f.nextSibling
+                } while (f);
+                return g
+            }
+        };
+        Ext.apply(a, b);
+        SYNO.LayoutConfig.fill(a);
+        SYNO.SDS.RoboCopy.SelectFolderTreePanel.superclass.constructor.call(this, a)
+    },
+    attachCheckChangeHandler: function () {
+        this.on("checkchange", this.checkCheckedSelection, this);
+        this.fireEvent("checkchange")
+    },
+    checkCheckedSelection: function () {
+        var a = this.getChecked();
+        if (0 == a.length) {
+            Ext.getCmp(this.startButtonId).disable()
+        } else {
+            Ext.getCmp(this.startButtonId).enable()
+        }
+    }
+});
+
+Ext.ns("SYNO.SDS.RoboCopy");
+SYNO.SDS.RoboCopy.RunWindow = Ext.extend(SYNO.SDS.ModalWindow, {
+    title: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "select_for_run"),
+    owner: null,
+    treePanel: null,
+    startButtonId: Ext.id(),
+    constructor: function (a) {
+        this.owner = a.owner;
+        this.caller = a.caller;
+        this.preCheckFolder = a.preCheckFolder;
+        SYNO.SDS.RoboCopy.RunWindow.superclass.constructor.call(this, Ext.apply(a, {
+            height: 450,
+            width: 300,
+            layout: "fit",
+            items: [this.treePanel = new SYNO.SDS.RoboCopy.SelectFolderTreePanel({
+                okBtnID: this.startButtonId,
+                preCheckFolder: this.preCheckFolder
+            })],
+            buttons: [{
+                text: _T("common", "apply"),
+                id: this.startButtonId,
+//                cls: "syno-av-button-default",
+                scope: this,
+                handler: this.onClickStart
+            }, {
+                text: _T("common", "cancel"),
+//                cls: "syno-av-button-default",
+                scope: this,
+                handler: this.onClickClose
+            }]
+        }))
+    },
+    onClickClose: function () {
+        if (typeof (this.caller.onBeforeScanTargetSelectorWinClosed) !== "undefined" && this.caller.onBeforeScanTargetSelectorWinClosed != null) {
+            this.caller.onBeforeScanTargetSelectorWinClosed()
+        }
+        this.close()
+    },
+    onClickStart: function () {
+        var b = this.treePanel.getChecked();
+        var a = new Array();
+        for (var c = 0; c < b.length; c++) {
+            a.push(b[c].realPath)
+        }
+        this.caller.commitRunTarget(a);
+        if (typeof (this.caller.onBeforeScanTargetSelectorWinClosed) !== "undefined" && this.caller.onBeforeScanTargetSelectorWinClosed != null) {
+            this.caller.onBeforeScanTargetSelectorWinClosed()
+        }
+        this.close()
+    }
+});
+
+Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
     constructor: function (cfg) {
         this.owner = cfg.owner;
@@ -134,13 +322,13 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
 //                vertical: true,
                 items: [{
                     boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "action_copy"),
-                    inputValue: "0",
+                    inputValue: 0,
                     name: "src_remove",
                     checked: !params.src_remove
                 }, {
                     boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "action_move"),
                     name: "src_remove",
-                    inputValue: "1",
+                    inputValue: 1,
                     checked: params.src_remove
                 }]
              },{
@@ -188,7 +376,6 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
 });
 
 Ext.ns("SYNO.SDS.RoboCopy");
-SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
 SYNO.SDS.RoboCopy.Instance = Ext.extend(SYNO.SDS.AppInstance, {
     appWindowName: "SYNO.SDS.RoboCopy.MainWindow",
     constructor: function () {
@@ -300,7 +487,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 renderer: function(value, metaData, record, rowIndex, colIndex, store) {
                     var action = (value ? "action_move" : "action_copy"); 
                     metaData.attr = 'ext:qtip="' + _TT("SYNO.SDS.RoboCopy.Instance", "ui", action) + '"';
-                    return '<img width="16" height="16" src="3rdparty/robocopy/images/' + action + '.png" >';
+                    return '<img width="16" height="16" src="' + SYNO.SDS.RoboCopy.PIC_PREFIX + action + '.png" >';
                 }
             }, {
                 header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_folder_short"),
@@ -344,6 +531,12 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                     disabled: true,
                     id: "mai_edit_button",
                     handler: this.handleEdit,
+                    scope: this
+                }, 
+                '-',
+                {
+                    text: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "run_now"),
+                    handler: this.handleRunNow,
                     scope: this
                 }]
             },
@@ -402,6 +595,14 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         };
         this.getMsgBox().confirm(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "ui", "remove_confirm"), callback, this)
     },
+    handleRunNow: function () {
+        var dlg = new SYNO.SDS.RoboCopy.RunWindow({
+            owner: this.app,
+            caller: this,
+            preCheckFolder: []
+        });
+        dlg.open()
+    },
     openInfo: function (item) {
         var edt = null;
         var cfg = {
@@ -416,6 +617,31 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         this.checkButtonStat();
         this.grid.getStore().reload();
         this.grid.getView().refresh()
+    },
+    commitRunTarget: function (a) {
+//        this.getMsgBox().alert("RUN", a)
+        this.setStatusBusy();
+        Ext.Ajax.request({
+            url: SYNO.SDS.RoboCopy.CGI,
+            params: {
+                    action: "run",
+                    folders: a.join("|")
+                },
+                scope: this,
+            success: function (response, opts) {
+                this.clearStatusBusy();
+                var obj = Ext.decode(response.responseText);
+                if (obj && !obj.success) {
+                    this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(obj))
+                }
+//                this.refresh()
+            },
+            failure: function (response, opts) {
+                this.clearStatusBusy();
+                this.getMsgBox().alert(_T("error", "error_error"), _T("error", "error_unknown"));
+//                this.refresh()
+            }
+        })
     }
 });
 
