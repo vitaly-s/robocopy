@@ -16,7 +16,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::XMP;
 
-$VERSION = '1.14';
+$VERSION = '1.16';
 
 sub RecoverTruncatedIPTC($$$);
 sub ListToString($);
@@ -58,7 +58,8 @@ my $mwgLoaded;  # flag set if we alreaded Load()ed the MWG tags
         Contrary to the EXIF specification, the MWG recommends that EXIF "ASCII"
         string values be stored as UTF-8.  To honour this, the exiftool application
         sets the default internal EXIF string encoding to "UTF8" when the MWG module
-        is loaded (but this setting does not change automatically via the API).
+        is loaded, but via the API this must be done manually by setting the
+        CharsetEXIF option.
 
         A complication of the MWG specification is that although the MWG:Creator
         property may consist of multiple values, the associated EXIF tag
@@ -421,6 +422,10 @@ my %sRegionStruct = (
     },
     BarCodeValue=> { },
     Extensions  => { Struct => \%sExtensions },
+    Rotation    => { # (observed in LR6 XMP)
+        Writable => 'real',
+        Notes => 'RegionsRegionListRotation, not part of MWG 2.0 spec',
+    },
     seeAlso => { Namespace => 'rdfs', Resource => 1 },
 );
 my %sKeywordStruct;
@@ -439,8 +444,7 @@ my %sKeywordStruct;
     NAMESPACE => 'mwg-rs',
     NOTES => q{
         Image region metadata defined by the MWG 2.0 specification.  These tags
-        belong to the ExifTool XMP-mwg-rs group, and as such they may be accessed
-        without the need to load the MWG Composite tags above.  See
+        may be accessed without the need to load the MWG Composite tags above.  See
         L<http://www.metadataworkinggroup.org/> for the official specification.
     },
     Regions => {
@@ -466,11 +470,11 @@ my %sKeywordStruct;
     GROUPS => { 0 => 'XMP', 1 => 'XMP-mwg-kw', 2 => 'Image' },
     NAMESPACE => 'mwg-kw',
     NOTES => q{
-        Hierarchical keywords metadata defined by the MWG 2.0 specification.  These
-        tags belong to the ExifTool XMP-mwg-kw group. ExifTool unrolls keyword
-        structures to an arbitrary depth of 6 to allow individual levels to be
-        accessed with different tag names, and to avoid infinite recursion.  See
-        L<http://www.metadataworkinggroup.org/> for the official specification.
+        Hierarchical keywords metadata defined by the MWG 2.0 specification. 
+        ExifTool unrolls keyword structures to an arbitrary depth of 6 to allow
+        individual levels to be accessed with different tag names, and to avoid
+        infinite recursion.  See L<http://www.metadataworkinggroup.org/> for the
+        official specification.
     },
     # arbitrarily define only the first 6 levels of the keyword hierarchy
     Keywords => {
@@ -507,8 +511,7 @@ my %sKeywordStruct;
     GROUPS => { 0 => 'XMP', 1 => 'XMP-mwg-coll', 2 => 'Image' },
     NAMESPACE => 'mwg-coll',
     NOTES => q{
-        Collections metadata defined by the MWG 2.0 specification.  These tags
-        belong to the ExifTool XMP-mwg-coll group.  See
+        Collections metadata defined by the MWG 2.0 specification.  See
         L<http://www.metadataworkinggroup.org/> for the official specification.
     },
     Collections => {
@@ -600,7 +603,7 @@ sub StringToList($$)
 
 #------------------------------------------------------------------------------
 # Handle logic for overwriting EXIF string-type list tag
-# Inputs: 0) new value hash ref, 1) new value hash ref,
+# Inputs: 0) ExifTool ref, 1) new value hash ref,
 #         2) old string value (or undef if it didn't exist), 3) new value ref
 # Returns: 1 and sets the new value for the tag
 sub OverwriteStringList($$$$)
@@ -677,7 +680,7 @@ sub RecoverTruncatedIPTC($$$)
             push @vals, RecoverTruncatedIPTC($$iptc[$i], $$xmp[$i], $limit);
         }
         return \@vals;
-    } elsif (defined $iptc and length $iptc == $limit) {    
+    } elsif (defined $iptc and length $iptc == $limit) {
         $xmp = $$xmp[0] if ref $xmp;    # take first element of list
         return $xmp if length $xmp > $limit and $iptc eq substr($xmp, 0, $limit);
     }
@@ -727,7 +730,7 @@ must be loaded explicitly as described above.
 
 =head1 AUTHOR
 
-Copyright 2003-2014, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2016, Phil Harvey (phil at owl.phy.queensu.ca)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

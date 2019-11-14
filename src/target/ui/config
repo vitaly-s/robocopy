@@ -7,7 +7,16 @@
             "texts": "texts",
             "allowMultiInstance": false,
             "appWindow": "SYNO.SDS.RoboCopy.MainWindow",
-            "depend": ["SYNO.SDS.RoboCopy.MainWindow"]
+            "depend": ["SYNO.SDS.RoboCopy.MainWindow", "SYNO.SDS.RoboCopy.utils"],
+            "fb_extern": [{
+                "multiple": false,
+                "dir": true,
+                "checkFn": "SYNO.SDS.RoboCopy.utils.checkFn",
+                "launchFn": "SYNO.SDS.RoboCopy.utils.launchFn",
+                "icon": "images/icon_16.png",
+                "text": "app:menu_apply"
+            }]
+
         },
         "SYNO.SDS.RoboCopy.MainWindow": {
             "type": "lib",
@@ -23,6 +32,12 @@
         "SYNO.SDS.RoboCopy.ErrorMessageHandler": {
             "type": "lib",
             "depend": []
-        }
+        },
+        "SYNO.SDS.RoboCopy.Action": {
+            "depend": [] 
+        },
+        "SYNO.SDS.RoboCopy.utils": [],
+        "SYNO.SDS.RoboCopy.utils.launchFn": [],
+        "SYNO.SDS.RoboCopy.utils.checkFn": []
     }
 }

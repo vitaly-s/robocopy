@@ -1,6 +1,7 @@
 [app]
 app_name	=	"RoboCopy"
 description	=	"RoboCopy is a free software tool for copying/moving files by rules."
+menu_apply      =       "Run RoboCopy"
 
 [ui]
 priority	=	"Priority"
@@ -27,12 +28,23 @@ remove_confirm	=	"The rule will be permanently removed. Are you sure you want to
 create_item	=	"Create Rule"
 edit_item	=	"Edit Rule"
 run_now	=	"Run now..."
+config =   "Config"
 select_for_run	=	"Select Folders"
 format_codes	=	"<b>Format codes</b><hr><u><b>Day:</b></u><br><b>%a</b> - abbreviated weekday name<br><b>%A</b> - full weekday name<br><b>%d</b> - day of month (01-31)<br><b>%j</b> - day of year (001-366)<br><b>%w</b> - weekday number (0-6)<br><u><b>Month:</b></u><br><b>%b</b> - abbreviated month name<br><b>%B</b> - full month name<br><b>%m</b> - month number (01-12)<br><u><b>Year:</b></u><br><b>%y</b> - 2-digit year (00-99)<br><b>%Y</b> - 4-digit year (ie. 2006)<br><b>%C</b> - 2-digit century (year divided by 100, truncated to an integer)<br><b>%W</b> - week number of the year (00-53)<br><u><b>Time:</b></u><br><b>%H</b> - hour on a 24-hour clock (00-23)<br><b>%I</b> - hour on a 12-hour clock (01-12)<br><b>%M</b> - minute (00-59)<br><b>%p</b> - 'AM' or 'PM'<br><b>%s</b> - number of seconds since the Epoch, UTC (see note 1 below)<br><b>%S</b> - seconds (00-59)<br><u><b>File:</b></u><br><b>%%d</b> - source file directory<br><b>%%f</b> - source file name (without the extension)<br><b>%%e</b> - source file extension (not including the ".")<br><b>%%</b> - a literal '%' character<br>"
 
+[config]
+title   =   "Configuration"
+autorun = "Autorun"
+run_on_attach_disk   =   "Run on attach external disk"
+run_after_usbcopy   =   "Run after USB/SD Copy"
+
+[task]
+calculating	=	"Calculating the file size"
+process         =       "Process"
+
 [error]
-config_write_error	=	"Write config error."
-invalid_id	=	"Invalide item"
-not_found	=	"Iten not found"
+config_write_error	=	"Write configuration error."
+invalid_id	=	"Invalid item id."
+not_found	=	"Item not found."
 connection_error	=	"Connection error. Please try again later."
 execution_failed	=	"The operation failed. Please log in to DSM again and retry."

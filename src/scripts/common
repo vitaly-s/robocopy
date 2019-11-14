@@ -54,32 +54,34 @@ start() {
 ##		[ -f "/usr/syno/bin/$file" ] || ln -s "/usr/syno/sbin/$file" "/usr/syno/bin/"
 #	done
 
-	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.pl /usr/syno/bin/robocopy
-	
-	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
-	then
-		if [ -f ${SYNO_USBCOPY} -a ! -h ${SYNO_USBCOPY} ]; then
-			echo "Replace synousbcopy" 1>>$LOGFILE
-			mv -f ${SYNO_USBCOPY} ${SYNO_USBCOPY}_bin
-			ln -s ${MY_USBCOPY} ${SYNO_USBCOPY}
-		fi
-	else
-		echo "Add 99robocopy.hotplug" 1>>$LOGFILE
-		ln -s $PRIVATE_LOCATION/bin/hotplug.sh /usr/syno/hotplug.d/default/99robocopy.hotplug
-	fi
+##	[ -e /usr/syno/bin/robocopy ] || ln -s $PRIVATE_LOCATION/bin/robocopy.pl /usr/syno/bin/robocopy
+##	
+##	if [ -n "$MY_USBCOPY" ] && ([ "x${SUPPORT_USBCOPY}" == "xyes" ] || [ "x${SUPPORT_SDCOPY}" == "xyes" ])
+##	then
+##		if [ -f ${SYNO_USBCOPY} -a ! -h ${SYNO_USBCOPY} ]; then
+##			echo "Replace synousbcopy" 1>>$LOGFILE
+##			mv -f ${SYNO_USBCOPY} ${SYNO_USBCOPY}_bin
+##			ln -s ${MY_USBCOPY} ${SYNO_USBCOPY}
+##		fi
+##	else
+##		echo "Add 99robocopy.hotplug" 1>>$LOGFILE
+##		ln -s $PRIVATE_LOCATION/bin/hotplug.sh /usr/syno/hotplug.d/default/99robocopy.hotplug
+##	fi
+	perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::restore_state();"
 }
 
 stop() {
 	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
-	if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
-		echo "Restore synousbcopy" 1>>$LOGFILE
-		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
-	fi
-	if [ -e /usr/syno/hotplug.d/default/99robocopy.hotplug ]; then
-		echo "Remove 99robocopy.hotplug" 1>>$LOGFILE
-		rm -f /usr/syno/hotplug.d/default/99robocopy.hotplug
-	fi
-	rm -f /usr/syno/bin/robocopy
+##	if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
+##		echo "Restore synousbcopy" 1>>$LOGFILE
+##		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
+##	fi
+##	if [ -e /usr/syno/hotplug.d/default/99robocopy.hotplug ]; then
+##		echo "Remove 99robocopy.hotplug" 1>>$LOGFILE
+##		rm -f /usr/syno/hotplug.d/default/99robocopy.hotplug
+##	fi
+##	rm -f /usr/syno/bin/robocopy
+	perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::save_state(1);"
 }
 
 
@@ -131,7 +133,8 @@ postinst() {
 		DEF_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
 		if [ -n "$DEF_SHARE" ]; then
 			echo "Create demo configuration [${DEF_SHARE}]." 1>>$LOGFILE
-			perl -e "require qw(${PRIVATE_LOCATION}/bin/config.pl) ; create_demo('${DEF_SHARE}');"
+#			echo "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');" 1>>$LOGFILE
+			perl -e "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');"
 		else
 			echo "Cannot create demo configuration." 1>>$LOGFILE
 		fi
