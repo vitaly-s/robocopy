@@ -24,6 +24,7 @@ PACKAGE_USERCONF_DIR="${PACKAGE_DIR}/etc"
 #DSM_CONFIG="/etc.defaults/synoinfo.conf"
 #DSM_INDEX_ADD="/usr/syno/bin/pkgindexer_add"
 #DSM_INDEX_DEL="/usr/syno/bin/pkgindexer_del"
+DSM_VERSION="${SYNOPKG_DSM_VERSION_MAJOR}.${SYNOPKG_DSM_VERSION_MINOR}-${SYNOPKG_DSM_VERSION_BUILD}"
 PACKAGE_ENABLED="${PACKAGE_DIR}/enabled"
 #PACKAGE_LIMIT=`get_key_value ${DSM_CONFIG} ${PACKAGE_LIMIT_KEY}`
 LOGFILE="/var/log/${PACKAGE_NAME}.log"
@@ -35,13 +36,20 @@ SYNO_DEF_INFO="/etc.defaults/synoinfo.conf"
 SYNO_USBCOPY="/usr/syno/bin/synousbcopy"
 
 SYNO_BIN_FILES="synoshare synouser synogroup synonet synoservice synowin"
+SRC_FILES="lib/integration.pm
+lib/rule.pm
+lib/rule_processor.pm
+lib/Syno.pm
+lib/task_info.pm
+bin/robocopy.pl
+ui/robocopy.cgi"
 
 SUPPORT_USBCOPY=`get_key_value "${SYNO_DEF_INFO}" "usbcopy"`
 SUPPORT_SDCOPY=`get_key_value "${SYNO_DEF_INFO}" "sdcopy"`
 
 
 start() {
-	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 #	echo "SYNOPKG_PKGDEST: ${SYNOPKG_PKGDEST}" 1>>$LOGFILE
 
 #	for file in $SYNO_BIN_FILES
@@ -67,11 +75,35 @@ start() {
 ##		echo "Add 99robocopy.hotplug" 1>>$LOGFILE
 ##		ln -s $PRIVATE_LOCATION/bin/hotplug.sh /usr/syno/hotplug.d/default/99robocopy.hotplug
 ##	fi
-	perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::restore_state();"
+	# Validate 
+	HAS_ERROR=0
+	for file in $SRC_FILES
+	do
+		VALID_RESULT=`perl -c "${PRIVATE_LOCATION}/${file}" 2>&1`
+		if [ "$?"  -ne 0 ]
+		then
+			HAS_ERROR=1
+			echo "   File '${file##*/}' - invalid" 1>>$LOGFILE
+#			echo "-------------------------------" 1>>$LOGFILE
+#			echo "${VALID_RESULT}" 1>>$LOGFILE
+#			echo "-------------------------------" 1>>$LOGFILE
+#		else
+#			echo "   File '${file##*/}' - valid" 1>>$LOGFILE
+		fi
+	done
+	if [ "$HAS_ERROR"  -ne 0 ]; then
+		exit 1
+	fi
+
+
+	if [ "$SYNOPKG_DSM_VERSION_MAJOR" == "4" ]; then
+		echo "   Restore integration setting" 1>>$LOGFILE
+		perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::restore_state();"
+	fi
 }
 
 stop() {
-	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 ##	if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
 ##		echo "Restore synousbcopy" 1>>$LOGFILE
 ##		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
@@ -81,7 +113,10 @@ stop() {
 ##		rm -f /usr/syno/hotplug.d/default/99robocopy.hotplug
 ##	fi
 ##	rm -f /usr/syno/bin/robocopy
-	perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::save_state(1);"
+	if [ "$SYNOPKG_DSM_VERSION_MAJOR" == "4" ]; then
+		echo "   Save integration settingd" 1>>$LOGFILE
+		perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::save_state(1);"
+	fi
 }
 
 
@@ -120,7 +155,7 @@ postuninst() {
 }
 
 postinst() {
-	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER}" 1>>$LOGFILE
+	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.pl
 	chmod 0755 $PRIVATE_LOCATION/bin/hotplug.sh
 	chmod 0755 $PRIVATE_LOCATION/ui/robocopy.cgi
@@ -132,11 +167,11 @@ postinst() {
 	if [ "x${PKGWIZARD_CREATE_DEMO}" == "xtrue" ]; then
 		DEF_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
 		if [ -n "$DEF_SHARE" ]; then
-			echo "Create demo configuration [${DEF_SHARE}]." 1>>$LOGFILE
+			echo "    Create demo configuration [${DEF_SHARE}]." 1>>$LOGFILE
 #			echo "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');" 1>>$LOGFILE
 			perl -e "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');"
 		else
-			echo "Cannot create demo configuration." 1>>$LOGFILE
+			echo "    Cannot create demo configuration." 1>>$LOGFILE
 		fi
 	fi
 	

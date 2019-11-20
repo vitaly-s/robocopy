@@ -1,7 +1,7 @@
 #!/bin/sh
 # Copyright is Copyright
 
-. INFO
+. `dirname "$0"`/INFO
 SPK_FILE="${package}_${version}.spk"
 
 make()
