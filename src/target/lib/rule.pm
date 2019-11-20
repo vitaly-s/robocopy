@@ -173,7 +173,7 @@ package rule;
             open my $fh, "<", $file || die "could not open $file: $!";
             <$fh>;
         };
-        my $cfg = from_json $cgf_text;
+        my $cfg = decode_json $cgf_text;
         my $result = [];
 
         if (ref($cfg) eq 'ARRAY') {

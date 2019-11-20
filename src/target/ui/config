@@ -9,21 +9,31 @@
             "appWindow": "SYNO.SDS.RoboCopy.MainWindow",
             "depend": ["SYNO.SDS.RoboCopy.MainWindow", "SYNO.SDS.RoboCopy.utils"],
             "fb_extern": [{
-                "multiple": false,
+                "multiple": true,
                 "dir": true,
-                "checkFn": "SYNO.SDS.RoboCopy.utils.checkFn",
-                "launchFn": "SYNO.SDS.RoboCopy.utils.launchFn",
-                "icon": "images/icon_16.png",
-                "text": "app:menu_apply"
+                "icon": "images\/icon_16.png",
+                "text": "app:menu_run",
+                "items": [{
+                    "checkFn": "SYNO.SDS.RoboCopy.utils.checkFn",
+                    "launchFn": "SYNO.SDS.RoboCopy.utils.launchFn",
+                    "text": "app:menu_run_default"
+                }, {
+                    "checkFn": "SYNO.SDS.RoboCopy.utils.checkFn",
+                    "launchFn": "SYNO.SDS.RoboCopy.utils.launchFnCopy",
+                    "text": "app:menu_run_copy"
+                }, {
+                    "checkFn": "SYNO.SDS.RoboCopy.utils.checkFn",
+                    "launchFn": "SYNO.SDS.RoboCopy.utils.launchFnMove",
+                    "text": "app:menu_run_move"
+                }]
             }]
-
         },
         "SYNO.SDS.RoboCopy.MainWindow": {
             "type": "lib",
             "title": "app:app_name",
             "icon": "images/icon_{0}.png",
             "texts": "texts",
-            "depend": ["SYNO.SDS.RoboCopy.INFO"]
+            "depend": ["SYNO.SDS.RoboCopy.INFO", "SYNO.SDS.App.FileStation3.Instance"]
         },
         "SYNO.SDS.RoboCopy.INFO": {
             "type": "lib",
@@ -38,6 +48,8 @@
         },
         "SYNO.SDS.RoboCopy.utils": [],
         "SYNO.SDS.RoboCopy.utils.launchFn": [],
+        "SYNO.SDS.RoboCopy.utils.launchFnCopy": [],
+        "SYNO.SDS.RoboCopy.utils.launchFnMove": [],
         "SYNO.SDS.RoboCopy.utils.checkFn": []
     }
 }

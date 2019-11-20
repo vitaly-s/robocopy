@@ -57,7 +57,7 @@ package task_info; {
             open my $fh, "<", $file || die "could not open $file: $!";
             <$fh>;
         };
-        my $self = from_json $text;
+        my $self = decode_json $text;
         $self = {} unless ref($self) eq 'HASH';
         $self->{id} = $taskid;
         $self->{user} = $user if defined($user);
@@ -113,7 +113,7 @@ package task_info; {
         my $file = filename($self->{id}, $self->{user});
 #       umask(0);
         mkpath(dirname($file), 0, 0777);
-        my $text = to_json {
+        my $text = encode_json {
             "finished" => $self->{finished},
             "progress" => $self->{progress},
             "data" => $self->{data}

@@ -6,15 +6,15 @@ use JSON::XS;
 use File::Basename;
 use File::Path;
 
-#BEGIN {
-#    my $scriptDir = dirname($0);
-#    
-#    # add lib directory at start of include path
-#    unshift @INC, "$scriptDir/../lib";
-#    unshift @INC, "/var/packages/robocopy/target/lib";
-#}
-use FindBin qw($Bin);
-use lib "$Bin/../lib";
+BEGIN {
+    my $scriptDir = dirname($0);
+    
+    # add lib directory at start of include path
+    unshift @INC, "$scriptDir/../lib";
+    unshift @INC, "/var/packages/robocopy/target/lib";
+}
+#use FindBin qw($Bin);
+#use lib "$Bin/../lib";
 
 use rule;
 use rule_processor;
@@ -25,31 +25,40 @@ use integration;
 use Data::Dumper;
 
 my $user;
-if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
-    $user=<IN>;
-    chop($user);
-    close(IN);
-}
-if ($user eq '') {
+#if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
+#    $user=<IN>;
+#    chop($user);
+#    close(IN);
+#}
+#if ($user eq '') {
 #	print "Status: 403 Forbidden\n";
 #	print "Content-type: text/plain; charset=UTF-8\n\n";
 #    print "403 Forbidden\n";
-    exit -1;
-}
+#    exit -1;
+#}
 
 my %query;
+my $method;
 
-if ($ENV{'REQUEST_METHOD'} eq "POST") {
-    my $buffer;
-    read(STDIN, $buffer, $ENV{"CONTENT_LENGTH"});
-    %query = parse_query($buffer);
+if (defined $ENV{'REQUEST_METHOD'}) {
+    $method = $ENV{'REQUEST_METHOD'};
+    if ($method eq "POST") {
+        my $buffer;
+        read(STDIN, $buffer, $ENV{"CONTENT_LENGTH"});
+        %query = parse_query($buffer);
+    }
+    elsif ($method eq 'GET') {
+        %query = parse_query($ENV{QUERY_STRING});
+    }
 }
-elsif ($ENV{REQUEST_METHOD} eq 'GET') {
-    %query = parse_query($ENV{QUERY_STRING});
+else {
+    $method = $ARGV[0];
+    %query = parse_query($ARGV[1]);
+    print Dumper \%query;
 }
 
-my $func_name = 'action_' . lc($ENV{'REQUEST_METHOD'});
-$func_name .= '_' . $query{action} if exists $query{action};
+my $func_name = 'action_' . lc($method);
+$func_name .= '_' . lc($query{action}) if exists $query{action};
 if (defined &$func_name) {
     &{\&{$func_name}}(%query);
     exit;
@@ -104,7 +113,22 @@ sub action_post_shared
         push @share_list, {'name' => $name, 'comment' => $comment};
     }
     print "Content-type: application/json; charset=UTF-8\n\n";
-    print to_json {'data' => \@share_list, 'total' => scalar(@share_list)};
+    print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
+}
+
+sub action_get_shared
+{
+    my @share_list;
+    foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
+        $name =~ s/\n//g;
+        my $comment = '';
+        if (`/usr/syno/sbin/synoshare --get $name` =~ /Comment.*\[(.*?)\]/) {
+            $comment = $1;
+        }
+        push @share_list, {'name' => $name, 'comment' => $comment};
+    }
+    print "Content-type: application/json; charset=UTF-8\n\n";
+    print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
 }
 
 sub _action_get_demo
@@ -121,6 +145,23 @@ sub _action_get_demo
 }
 
 sub action_post_list
+{
+    my %params = @_;
+    #TODO
+#	if (!isset($params['start'])) $params['start'] = 0;
+#	if (!isset($params['limit'])) $params['limit'] = count($cfg);
+    my $cfg = rule::load_list();
+
+    print "Content-type: application/json; charset=UTF-8\n\n";
+    if (defined($cfg)) {
+        print_json {'data' => $cfg, 'total' => scalar(@$cfg)};
+    }
+    else {
+        print '{"data":null,"total":0}';
+    }
+}
+
+sub action_get_list
 {
     my %params = @_;
     #TODO
@@ -215,7 +256,18 @@ sub action_post_run
         print_error('invalid_params');
         exit;
     }
+    
+    if (exists $params{src_remove}) {
+        for my $rule (@$cfg) {
+            $rule->set({
+                'src_remove' => $params{src_remove}
+            })
+        }
+    }
 
+#print Dumper \$cfg;
+#exit; 
+    
     my $task = new task_info($user);
     my $data = {};
     $task->data($data);
@@ -324,7 +376,7 @@ sub action_get_readprogress
         print '{"finished":true,"success":false}';
         exit;
     }
-    print to_json({
+    print encode_json({
         "data" => $task->data(),
         "progress" => $task->progress(),
         "finished" => $task->finished(),
@@ -355,7 +407,7 @@ sub action_get_cancelprogress
     $data->{result} = 'cancel';
     $task->remove($user);
 
-    print to_json({
+    print encode_json({
         "data" => $task->data(),
         "progress" => $task->progress(),
         "finished" => $task->finished(),
@@ -389,26 +441,26 @@ sub action_post_config
     print "Content-type: application/json; charset=UTF-8\n\n";
     if ($params{after_usbcopy} =~ /^(yes|true|1)$/) {
         unless ($after_usbcopy) {
-            integration::set_run_after_usbcopy();
+#            integration::set_run_after_usbcopy();
             $after_usbcopy = integration::is_run_after_usbcopy;
         }
     }
     else {
         if ($after_usbcopy) {
-            integration::remove_run_after_usbcopy();
+#            integration::remove_run_after_usbcopy();
             $after_usbcopy = integration::is_run_after_usbcopy;
         }
     }
     
     if ($params{on_attach_disk} =~ /^(yes|true|1)$/) {
         unless ($on_attach_disk) {
-            integration::set_run_on_disk_attach();
+#            integration::set_run_on_disk_attach();
             $on_attach_disk = integration::is_run_on_disk_attach;
         }
     }
     else {
         if ($on_attach_disk) {
-            integration::remove_run_on_disk_attach();
+#            integration::remove_run_on_disk_attach();
             $on_attach_disk = integration::is_run_on_disk_attach;
         }
     }
@@ -435,10 +487,17 @@ sub action_get_test
 #    };    
 #    action_post_edit %params;
 #    action_post_config %params;
-    print "$Bin/../lib\n";
+#    print "$Bin/../lib\n";
+    my $info = `whoami`;
+    print "Current user: $info\n";
+
+    my @shares = (`/usr/syno/sbin/synoshare --enum local | tail -n+3`);
+    print "Shares:\n @shares\n";
+
     my $scriptDir = dirname($0);
     print  "$scriptDir/../lib\n";
     print  "/var/packages/robocopy/target/lib\n";
+    print Dumper \%ENV;
 }
 
 

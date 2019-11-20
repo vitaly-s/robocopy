@@ -73,7 +73,7 @@ package integration;
 
         # write to file
         open my $fh, ">", $file || return 0;
-        print $fh to_json {'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk};
+        print $fh encode_json {'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk};
         close $fh;
         
         if ($remove) {
@@ -95,7 +95,8 @@ package integration;
         my $cgf = do {
             local $/ = undef;
             open my $fh, "<", $file || die "could not open $file: $!";
-            from_json <$fh>;
+            my $text = <$fh>;
+            decode_json $text;
         };
         set_run_after_usbcopy if defined $cgf->{after_usbcopy} && $cgf->{after_usbcopy};
         set_run_on_disk_attach if defined $cgf->{on_attach_disk} && $cgf->{on_attach_disk};

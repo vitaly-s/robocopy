@@ -1,7 +1,7 @@
 /* Copyright (c) 2013 Vitaly Shpachenko. All rights reserved. */
 
 Ext.ns("SYNO.SDS.RoboCopy");
-SYNO.SDS.RoboCopy.PIC_PREFIX = "3rdparty/robocopy/images/";
+SYNO.SDS.RoboCopy.PIC_PREFIX = "/webman/3rdparty/robocopy/images/";
 SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
 //SYNO.SDS.RoboCopy.TestCGI = "/webman/3rdparty/robocopy/test.cgi";
 
@@ -26,7 +26,7 @@ Ext.apply(SYNO.SDS.RoboCopy.utils, {
         }
         return f.join(", ");
     },
-    checkFn: function(a, c) {
+    checkFn0: function(a, c) {
         //["file_id", "filename", "filesize", "mt", "ct", "at", "privilege_str", "privilege", "owner", "group", "icon", "type", "path", "isdir", "uid", "gid", "is_compressed"]),
         if (1 !== c.length || !c[0].get("isdir")) {
             return false;
@@ -39,146 +39,70 @@ Ext.apply(SYNO.SDS.RoboCopy.utils, {
         return !mb || !mb.isVisible();
 //        return true;
     },
+    filterSelection: function(selected) {
+        //["file_id", "filename", "filesize", "mt", "ct", "at", "privilege_str", "privilege", "owner", "group", "icon", "type", "path", "isdir", "uid", "gid", "is_compressed"]),
+        var result = [];
+        if (Ext.isArray(selected)) {
+            Ext.each(selected, function(f, idx) {
+                var isdir = f.get("isdir");
+                if (isdir !== true) {
+                    return;
+                }
+                var real_path = f.get("real_path") || f.get("path");
+                if (!real_path || (-1 != result.indexOf(real_path))) {
+                    return
+                }
+                result.push(real_path)
+            }, this);
+        }
+        return result;
+    },
+    checkSingleton: function() {
+        var apps = SYNO.SDS.AppMgr.getByAppName("SYNO.SDS.RoboCopy.Instance");
+        if (!apps || 0 === apps.length) {
+            return true;
+        }
+        var mb = apps[0].window.getMsgBox(); //.getDialog();
+        return !mb || !mb.isVisible();
+    },
+    checkFn: function(a, c) {
+        var selected = SYNO.SDS.RoboCopy.utils.filterSelection(c);
+        return (selected.length > 0) && SYNO.SDS.RoboCopy.utils.checkSingleton();
+    },
     launchFn: function(b) {
-        SYNO.SDS.AppLaunch("SYNO.SDS.RoboCopy.Instance", 
-            {
-                fb_recs: b
-            }, 
-            false);
-    }
-});
-
-SYNO.SDS.RoboCopy.SelectFolderTreePanel = Ext.extend(Ext.tree.TreePanel, {
-    constructor: function (b) {
-        this.startButtonId = b.okBtnID;
-        this.preCheckFolder = b.preCheckFolder;
-        this.treeroot = new Ext.tree.AsyncTreeNode({
-            cls: "root_node",
-            text: _S("hostname"),
-            icon: SYNO.SDS.RoboCopy.PIC_PREFIX + "my_ds.png",
-            draggable: false,
-            expanded: true,
-            id: "fm_root",
-            allowDrop: false,
-            uiProvider: Ext.tree.TriTreeNodeUI
-        });
-        this.dirTreeLoader = new Ext.tree.TreeLoader({
-            dataUrl: "/webman/modules/FileBrowser/webfm/webUI/file_share.cgi",
-            baseParams: {
-                action: "getshares",
-                needrw: "false",
-                bldisableist: "true"
-            },
-            baseAttrs: {
-                uiProvider: Ext.tree.TriTreeNodeUI
-            },
-            listeners: {
-                beforeload: {
-                    fn: function (e, d, c) {
-                        return !(true == d.disabled)
-                    },
-                    scope: this
-                },
-                load: {
-                    scope: this,
-                    fn: function (h, g, c) {
-                        if (g.id == this.treeroot.id) {
-                            this.attachCheckChangeHandler();
-                        }
-                        if (c.responseText) {
-                            var e = Ext.util.JSON.decode(c.responseText);
-                            if (e && e.errno) {
-                                this.getMsgBox().alert(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "error", "connection_error"));
-                            } else {
-                                for (var f = 0; f < e.length; f++) {
-                                    g.childNodes[f].realPath = e[f].path;
-                                    for (var d = 0; d < this.preCheckFolder.length; d++) {
-                                        if (this.preCheckFolder[d] == g.childNodes[f].realPath) {
-                                            g.childNodes[f].getUI().toggleCheck(true);
-                                            continue;
-                                        }
-                                        if (0 == this.preCheckFolder[d].indexOf(g.childNodes[f].realPath)) {
-                                            g.childNodes[f].expand();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            createNode: function (c) {
-//                switch (c.text) {
-//                case "@quarantine":
-//                case "#recycle":
-//                    c.hidden = true;
-//                    break;
-//                default:
-//                    break
-//                }
-                return Ext.tree.TreeLoader.prototype.createNode.call(this, c)
-            }
-        });
-        var a = {
-            animate: false,
-            autoScroll: true,
-            loader: this.dirTreeLoader,
-            containerScroll: true,
-            enableDD: false,
-            rootVisible: true,
-            border: false,
-            useArrows: true,
-            root: this.treeroot,
-            tbar: [],
-            listeners: {
-                beforedestroy: {
-                    fn: function () {
-                        Ext.destroy(this.dirTree);
-                    },
-                    scope: this
-                }
-            },
-            getChecked: function (c, e, d) {
-                e = e || this.root;
-                var g = d || [];
-                var f = e.firstChild;
-                do {
-                    switch (f.getUI().getCheckIndex(f)) {
-                    case Ext.tree.TriTreeNodeUI.GRAYSTATE:
-                        if (f.firstChild) {
-                            this.getChecked(c, f, g);
-                        } else {
-                            this.getMsgBox().alert(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "error", "execution_failed"));
-                        }
-                        break;
-                    case Ext.tree.TriTreeNodeUI.CHECKSTATE:
-                        g.push(!c ? f : (c == "id" ? f.id : f.attributes[c]));
-                        break;
-                    default:
-                        break;
-                    }
-                    f = f.nextSibling;
-                } while (f);
-                return g;
-            }
-        };
-        Ext.apply(a, b);
-        SYNO.LayoutConfig.fill(a);
-        SYNO.SDS.RoboCopy.SelectFolderTreePanel.superclass.constructor.call(this, a);
+        var selected = SYNO.SDS.RoboCopy.utils.filterSelection(b);
+        if (selected.length > 0) {
+            SYNO.SDS.AppLaunch("SYNO.SDS.RoboCopy.Instance", 
+                {
+                    folders: selected
+                }, 
+                false);
+        }
     },
-    attachCheckChangeHandler: function () {
-        this.on("checkchange", this.checkCheckedSelection, this);
-        this.fireEvent("checkchange");
+    launchFnMove: function(b) {
+        var selected = SYNO.SDS.RoboCopy.utils.filterSelection(b);
+        if (selected.length > 0) {
+            SYNO.SDS.AppLaunch("SYNO.SDS.RoboCopy.Instance", 
+                {
+                    folders: selected,
+                    src_remove: 1
+                }, 
+                false);
+        }
     },
-    checkCheckedSelection: function () {
-        var a = this.getChecked();
-        if (0 == a.length) {
-            Ext.getCmp(this.startButtonId).disable();
-        } else {
-            Ext.getCmp(this.startButtonId).enable();
+    launchFnCopy: function(b) {
+        var selected = SYNO.SDS.RoboCopy.utils.filterSelection(b);
+        if (selected.length > 0) {
+            SYNO.SDS.AppLaunch("SYNO.SDS.RoboCopy.Instance", 
+                {
+                    folders: selected,
+                    src_remove: 0
+                }, 
+                false);
         }
     }
 });
+
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Request = Ext.extend(Ext.util.Observable, {
@@ -456,57 +380,6 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
     }
 });
 
-Ext.ns("SYNO.SDS.RoboCopy");
-SYNO.SDS.RoboCopy.RunWindow = Ext.extend(SYNO.SDS.ModalWindow, {
-    title: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "select_for_run"),
-    owner: null,
-    treePanel: null,
-    startButtonId: Ext.id(),
-    constructor: function (a) {
-        this.owner = a.owner;
-        this.caller = a.caller;
-        this.preCheckFolder = a.preCheckFolder;
-        SYNO.SDS.RoboCopy.RunWindow.superclass.constructor.call(this, Ext.apply(a, {
-            height: 450,
-            width: 300,
-            layout: "fit",
-            items: [this.treePanel = new SYNO.SDS.RoboCopy.SelectFolderTreePanel({
-                okBtnID: this.startButtonId,
-                preCheckFolder: this.preCheckFolder
-            })],
-            buttons: [{
-                text: _T("common", "apply"),
-                id: this.startButtonId,
-//                cls: "syno-av-button-default",
-                scope: this,
-                handler: this.onClickStart
-            }, {
-                text: _T("common", "cancel"),
-//                cls: "syno-av-button-default",
-                scope: this,
-                handler: this.onClickClose
-            }]
-        }));
-    },
-    onClickClose: function () {
-        if (typeof (this.caller.onBeforeScanTargetSelectorWinClosed) !== "undefined" && this.caller.onBeforeScanTargetSelectorWinClosed != null) {
-            this.caller.onBeforeScanTargetSelectorWinClosed();
-        }
-        this.close();
-    },
-    onClickStart: function () {
-        var b = this.treePanel.getChecked();
-        var a = new Array();
-        for (var c = 0; c < b.length; c++) {
-            a.push(b[c].realPath);
-        }
-        this.caller.commitRunTarget(a);
-        if (typeof (this.caller.onBeforeScanTargetSelectorWinClosed) !== "undefined" && this.caller.onBeforeScanTargetSelectorWinClosed != null) {
-            this.caller.onBeforeScanTargetSelectorWinClosed();
-        }
-        this.close();
-    }
-});
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
@@ -840,10 +713,10 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
     },
     onRequest: function(a) {
 //        this.testSend();
-        if (!a || !a.fb_recs || 1 !== a.fb_recs.length || !a.fb_recs[0].get("isdir")) {
+        if (!a || !a.folders || !Ext.isArray(a.folders) || (a.folders.length == 0)) {
             return;
         }
-        this.commitRunTarget([a.fb_recs[0].get("path")]);
+        this.runProcess(a.folders, a.src_remove);
         return SYNO.SDS.RoboCopy.MainWindow.superclass.onRequest.apply(this, arguments);
     },
     
@@ -880,6 +753,18 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
 //                ]
 //            });
 //    },
+    isDsmV4: function() {
+        var version = parseInt(_S("version"), 10);
+        if ((2198 <= version) && (version <= 4244)) {
+            return true;
+        }
+//        var majorversion = _S("majorversion");
+//        var fullversion = _S("fullversion");
+//        if (fullversion) {
+//            version = parseInt(fullversion.substr(fullversion.indexOf("-s") + 2), 10);
+//        }
+        return false;
+    },
     createGridPanel: function (store) {
         var result;
         var cfg;
@@ -971,6 +856,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 '->',
                 {
                     text: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "config"),
+                    hidden: !this.isDsmV4(),
                     handler: this.handleConfig,
                     scope: this
                 }]
@@ -1026,12 +912,63 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         this.getMsgBox().confirm(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "ui", "remove_confirm"), callback, this);
     },
     handleRunNow: function () {
-        var dlg = new SYNO.SDS.RoboCopy.RunWindow({
-            owner: this.app,
-            caller: this,
-            preCheckFolder: []
-        });
-        dlg.open();
+        //this.RELURL = this.jsConfig.jsBaseURL + "/webfm/";
+        this.RELURL = "/webfm/";
+        if (!this.selTree || this.selTree.isDestroyed) {
+            this.selTree = new SYNO.FileStation.SelTreeDialog({
+                    RELURL: this.RELURL,
+                    owner: this
+            });
+            //this.selTree.mon(this.selTree, "beforesubmit", this.onCheckPrivilege, this);
+            this.selTree.mon(this.selTree, "callback", this.onRunSelected, this)
+        }
+        var title = _TT("SYNO.SDS.RoboCopy.Instance", "ui", "select_for_run");
+        //this.selTree.load(_TT("SYNO.SDS.RoboCopy.Instance", "app", "app_name"));
+        this.selTree.title = title;
+        this.selTree.setTitle(title);
+        this.selTree.show();
+    },
+    onCheckPrivilege: function(a, b) {
+        if (_S("is_admin") === true || _S("domainUser") == "true") {
+            return true
+        }
+        var result = true;
+//        Ext.each(b, function(f) {
+//            var d = (f.parentNode.id != "fm_root") ? SYNO.webfm.utils.getShareRight(a, f) : f.attributes.right;
+//            if (!SYNO.webfm.utils.checkShareRight(d, SYNO.webfm.utils.RW | SYNO.webfm.utils.RO)) {
+//                this.owner.getMsgBox().alert(_WFT("filetable", "filetable_search"), 
+//                    _WFT("error", "error_privilege_not_enough"));
+//                c = false;
+//                return true
+//            }
+//            var e = 0;
+//            if (_S("is_admin") === true) {} else {
+//                if (f.parentNode.id != "fm_root") {
+//                    e = SYNO.webfm.utils.getShareFtpRight(a, f)
+//                } else {
+//                    e = f.attributes.ftpright
+//                }
+//            }
+//            c = (e & SYNO.webfm.utils.FTP_PRIV_DISABLE_LIST);
+//            if (c) {
+//                this.owner.getMsgBox().alert(_WFT("filetable", "filetable_search"), 
+//                    _WFT("error", "error_privilege_not_enough"));
+//                c = false;
+//                return true
+//            }
+//        }, this);
+        return result
+    },
+    onRunSelected: function(a, b) {
+        var folders = [];
+        Ext.each(b, function(f, idx) {
+            var real_path = f.attributes.real_path || f.attributes.path;
+            if (!real_path || (-1 != folders.indexOf(real_path))) {
+                return
+            }
+            folders.push(real_path)
+        }, this);
+        this.runProcess(folders);
     },
     handleConfig: function() {
         this.setStatusBusy();
@@ -1044,7 +981,8 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 callback: function (options, success, response) {
                     this.clearStatusBusy();
                     if (!success) {
-                        this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
+                        this.getMsgBox().alert(_T("error", "error_error"), 
+                            SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
                     }
                     else {
                         var cfg = {
@@ -1075,14 +1013,21 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         this.grid.getStore().reload();
         this.grid.getView().refresh();
     },
-    commitRunTarget: function (folders) {
+    runProcess: function (folders, src_remove) {
+        if (!folders || (folders.length == 0)) {
+            return;
+        }
         this.setStatusBusy();
-        var rqst = new SYNO.SDS.RoboCopy.Request({
-                url: SYNO.SDS.RoboCopy.CGI,
-                params: {
+        var params = {
                     action: "run",
                     folders: folders.join("|"),
-                },
+                };
+        if (Ext.isDefined(src_remove)) {
+            params = Ext.apply(params, {src_remove: src_remove});
+        }
+        var rqst = new SYNO.SDS.RoboCopy.Request({
+                url: SYNO.SDS.RoboCopy.CGI,
+                params: params,
                 callback: function (options, success, response) {
                     this.clearStatusBusy();
                     this.onRunDone(success, response, folders);
