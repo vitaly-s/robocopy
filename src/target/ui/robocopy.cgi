@@ -25,17 +25,11 @@ use integration;
 use Data::Dumper;
 
 my $user;
-#if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
-#    $user=<IN>;
-#    chop($user);
-#    close(IN);
-#}
-#if ($user eq '') {
-#	print "Status: 403 Forbidden\n";
-#	print "Content-type: text/plain; charset=UTF-8\n\n";
-#    print "403 Forbidden\n";
-#    exit -1;
-#}
+if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
+    $user=<IN>;
+    chop($user);
+    close(IN);
+}
 
 my %query;
 my $method;
@@ -52,10 +46,20 @@ if (defined $ENV{'REQUEST_METHOD'}) {
     }
 }
 else {
+    $user=`whoami`;
+    chop($user);
     $method = $ARGV[0];
     %query = parse_query($ARGV[1]);
-    print Dumper \%query;
+#    print Dumper \%query;
 }
+
+if ($user eq '') {
+    print "Status: 403 Forbidden\n";
+    print "Content-type: text/plain; charset=UTF-8\n\n";
+    print "403 Forbidden\n";
+    exit;
+}
+
 
 my $func_name = 'action_' . lc($method);
 $func_name .= '_' . lc($query{action}) if exists $query{action};
@@ -489,7 +493,9 @@ sub action_get_test
 #    action_post_config %params;
 #    print "$Bin/../lib\n";
     my $info = `whoami`;
+    chop($info);
     print "Current user: $info\n";
+    print "Authenticated user: $user\n";
 
     my @shares = (`/usr/syno/sbin/synoshare --enum local | tail -n+3`);
     print "Shares:\n @shares\n";
