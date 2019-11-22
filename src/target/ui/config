@@ -1,5 +1,15 @@
 {
     "RoboCopy.js": {
+        "SYNO.SDS.RoboCopy.Launcher": {
+            "type": "app",
+            "title": "app:app_name",
+            "icon": "images/icon_{0}.png",
+            "texts": "texts",
+            "allowMultiInstance": false,
+            "autoLaunch": true,
+            "hidden": true,
+            "allUsers": true
+        },
         "SYNO.SDS.RoboCopy.Instance": {
             "type": "app",
             "title": "app:app_name",

@@ -27,8 +27,8 @@ use Data::Dumper;
 my $user;
 if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
     $user=<IN>;
-    chop($user);
     close(IN);
+    chop($user) if defined($user);
 }
 
 my %query;
@@ -47,7 +47,7 @@ if (defined $ENV{'REQUEST_METHOD'}) {
 }
 else {
     $user=`whoami`;
-    chop($user);
+    chop($user) if defined($user);
     $method = $ARGV[0];
     %query = parse_query($ARGV[1]);
 #    print Dumper \%query;
@@ -69,10 +69,10 @@ if (defined &$func_name) {
 }
 
 #print "HTTP/1.0 404 Not found\n";
-#print "Status: 404 Not found\n";
-#print "Content-type: text/plain; charset=UTF-8\n\n";
-#print "Method \"$func_name\" not found".
-exit -1;
+print "Status: 404 Not found\n";
+print "Content-type: text/plain; charset=UTF-8\n\n";
+print "Method \"$func_name\" not found\n";
+exit;
 
 sub parse_query
 {
@@ -105,32 +105,16 @@ sub print_error
 ##############################################################################
 # Rules
 
-sub action_post_shared
+sub action_post_share_list
 {
-    my @share_list;
-    foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
-        $name =~ s/\n//g;
-        my $comment = '';
-        if (`/usr/syno/sbin/synoshare --get $name` =~ /Comment.*\[(.*?)\]/) {
-            $comment = $1;
-        }
-        push @share_list, {'name' => $name, 'comment' => $comment};
-    }
+    my @share_list = Syno::share_list();
     print "Content-type: application/json; charset=UTF-8\n\n";
     print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
 }
 
-sub action_get_shared
+sub action_get_share_list
 {
-    my @share_list;
-    foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
-        $name =~ s/\n//g;
-        my $comment = '';
-        if (`/usr/syno/sbin/synoshare --get $name` =~ /Comment.*\[(.*?)\]/) {
-            $comment = $1;
-        }
-        push @share_list, {'name' => $name, 'comment' => $comment};
-    }
+    my @share_list = Syno::share_list();
     print "Content-type: application/json; charset=UTF-8\n\n";
     print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
 }
@@ -148,7 +132,7 @@ sub _action_get_demo
     }
 }
 
-sub action_post_list
+sub action_post_rule_list
 {
     my %params = @_;
     #TODO
@@ -165,7 +149,7 @@ sub action_post_list
     }
 }
 
-sub action_get_list
+sub action_get_rule_list
 {
     my %params = @_;
     #TODO
@@ -182,7 +166,7 @@ sub action_get_list
     }
 }
 
-sub action_post_add
+sub action_post_rule_add
 {
     my %params = @_;
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -194,7 +178,7 @@ sub action_post_add
     print_json {'data' => $rule, 'success' => JSON::XS::true};
 }
 
-sub action_post_edit
+sub action_post_rule_edit
 {
     my %params = @_;
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -216,7 +200,7 @@ sub action_post_edit
     print_error('not_found');
 }
 
-sub action_post_remove 
+sub action_post_rule_remove 
 {
     my %params = @_;
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -238,7 +222,7 @@ sub action_post_remove
 
 ##############################################################################
 # Execution
-sub action_post_run
+sub action_post_task_run
 {
     my %params = @_;
     my $epoc = time();
@@ -303,7 +287,7 @@ sub action_post_run
     };
 
     $data->{pid} = $$;
-    $task->update($user);
+    $task->write();
     
     # Prepare for work
     my @workers;
@@ -343,7 +327,7 @@ sub action_post_run
             $data->{pfile} = $file;
             $data->{pdir} = $processor->prepared_path();
             $task->progress($processed / $total_size);
-            $task->update();
+            $task->write();
             #
             my $size = -s $file;
             $processed += $size;
@@ -366,7 +350,7 @@ sub action_post_run
     Syno::log('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".");
 }
 
-sub action_get_readprogress
+sub action_get_task_progress
 {
     my %params = @_;
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -389,7 +373,7 @@ sub action_get_readprogress
     $task->remove($user) if $task->finished;
 }
 
-sub action_get_cancelprogress
+sub action_get_task_cancel
 {
     my %params = @_;
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -419,9 +403,33 @@ sub action_get_cancelprogress
     });
 }
 
+sub action_post_task_list
+{
+    my %params = @_;
+    my $list = task_info::load_list($user);
+    my @result;
+
+
+    print "Content-type: application/json; charset=UTF-8\n\n";
+    if (defined($list)) {
+        foreach my $task (@$list) {
+            if ($task->finished()) {
+                $task->remove();
+            }
+            else {
+                push @result, $task;
+            }
+        }
+        print_json {'data' => \@result, 'total' => scalar(@result), 'success' => 1};
+    }
+    else {
+        print '{"data":null,"total":0, "success":true}';
+    }
+}
+
 ##############################################################################
 # Configuration
-sub action_get_config
+sub action_get_integration
 {
     my $after_usbcopy = integration::is_run_after_usbcopy;
     my $on_attach_disk = integration::is_run_on_disk_attach;
@@ -436,7 +444,7 @@ sub action_get_config
     print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
 }
 
-sub action_post_config
+sub action_post_integration
 {
     my %params = @_;
     my $after_usbcopy = integration::is_run_after_usbcopy;
@@ -445,26 +453,26 @@ sub action_post_config
     print "Content-type: application/json; charset=UTF-8\n\n";
     if ($params{after_usbcopy} =~ /^(yes|true|1)$/) {
         unless ($after_usbcopy) {
-#            integration::set_run_after_usbcopy();
+            integration::set_run_after_usbcopy();
             $after_usbcopy = integration::is_run_after_usbcopy;
         }
     }
     else {
         if ($after_usbcopy) {
-#            integration::remove_run_after_usbcopy();
+            integration::remove_run_after_usbcopy();
             $after_usbcopy = integration::is_run_after_usbcopy;
         }
     }
     
     if ($params{on_attach_disk} =~ /^(yes|true|1)$/) {
         unless ($on_attach_disk) {
-#            integration::set_run_on_disk_attach();
+            integration::set_run_on_disk_attach();
             $on_attach_disk = integration::is_run_on_disk_attach;
         }
     }
     else {
         if ($on_attach_disk) {
-#            integration::remove_run_on_disk_attach();
+            integration::remove_run_on_disk_attach();
             $on_attach_disk = integration::is_run_on_disk_attach;
         }
     }
@@ -497,13 +505,26 @@ sub action_get_test
     print "Current user: $info\n";
     print "Authenticated user: $user\n";
 
-    my @shares = (`/usr/syno/sbin/synoshare --enum local | tail -n+3`);
-    print "Shares:\n @shares\n";
+    my @shares = Syno::share_list();
+    print "Shares:\n", Dumper \@shares;
 
     my $scriptDir = dirname($0);
     print  "$scriptDir/../lib\n";
     print  "/var/packages/robocopy/target/lib\n";
     print Dumper \%ENV;
+    
+    my $task = new task_info($user);
+    my $data = {};
+    $task->data($data);
+    $task->write();
+    
+    my @task_list = task_info::load_list($user);
+    print Dumper \@task_list;
+    
+#    $task->remove();
+
+#    @task_list = task_info::load_list($user);
+#    print Dumper \@task_list;
 }
 
 

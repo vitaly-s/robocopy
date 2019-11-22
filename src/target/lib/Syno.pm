@@ -78,10 +78,16 @@ sub share_list
     foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
         $name =~ s/\n//g;
         my $comment = '';
-        if (`/usr/syno/sbin/synoshare --get $name` =~ /Comment.*\[(.*?)\]/) {
-            $comment = $1;
+        my $real_path = '';
+        foreach (`/usr/syno/sbin/synoshare --get $name`) {
+            if (/Comment.*\[(.*)\]/) {
+                $comment = $1;
+            }
+            if (/Path.*\[(.*)\]/) {
+                $real_path = $1;
+            }
         }
-        push @share_list, {'name' => $name, 'comment' => $comment};
+        push @share_list, {'name' => $name, 'comment' => $comment, 'real_path' => $real_path};
     }
     return @share_list;
 }
