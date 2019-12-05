@@ -1,10 +1,12 @@
-/* Copyright (c) 2013 Vitaly Shpachenko. All rights reserved. */
+/* Copyright (c) 2013-2019 Vitaly Shpachenko. All rights reserved. */
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.PIC_PREFIX = "/webman/3rdparty/robocopy/images/";
 SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
 //SYNO.SDS.RoboCopy.TestCGI = "/webman/3rdparty/robocopy/test.cgi";
-
+_RC_STR = function(b, a) {
+    return _TT("SYNO.SDS.RoboCopy.Instance", b, a)
+};
 
 Ext.ns("SYNO.SDS.RoboCopy.utils");
 Ext.apply(SYNO.SDS.RoboCopy.utils, {
@@ -201,11 +203,11 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         this.blMsgMinimized = (this.blMsgMinimized === true) ? true : ((cfg.msgCfg && cfg.msgCfg.blMsgMinimized) ? cfg.msgCfg.blMsgMinimized : false);
 //        this.actionStr = cfg.actionStr;
 //        this.actingStr = cfg.actingStr;
-        this.actionText = _TT("SYNO.SDS.RoboCopy.Instance", "app", "app_name");
+        this.actionText = _RC_STR("app", "app_name");
 //        this.actingText = "actingText"; //SYNO.webfm.utils.getLangText(this.actingStr)
     },
     genBkTitle: function (a, b) {
-        return ["{0}: {1}", _TT("SYNO.SDS.RoboCopy.Instance", "app", "app_name"), b];
+        return ["{0}: {1}", _RC_STR("app", "app_name"), b];
     },
     onCancelCallBack: function (a) {
         a.cancel()
@@ -392,10 +394,10 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
         this.panel = this.createPanel(cfg);
         //
         cfg = Ext.apply({
-            title: _TT("SYNO.SDS.RoboCopy.Instance", "config", "title"),
+            title: _RC_STR("config", "title"),
             resizable: false,
             layout: "fit",
-            width: 300,
+            width: 500,
             height: 200,
             buttons: [{
                 text: _T("common", "apply"),
@@ -422,17 +424,17 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             border: false,
             items: [{
                 xtype: "fieldset",
-                title: _TT("SYNO.SDS.RoboCopy.Instance", "config", "autorun"),
+                title: _RC_STR("config", "autorun"),
                 items: [{
                     synotype: "check",
                     id: "run_after_usbcopy",
                     disabled: ((_D("usbcopy", "no") === "no") && (_D("sdcopy", "no") === "no")),
-                    boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "config", "run_after_usbcopy"),
+                    boxLabel: _RC_STR("config", "run_after_usbcopy"),
                     checked: params.data.after_usbcopy
                 }, {
                     synotype: "check",
                     id: "run_on_attach_disk",
-                    boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "config", "run_on_attach_disk"),
+                    boxLabel: _RC_STR("config", "run_on_attach_disk"),
                     checked: params.data.on_attach_disk
                 }]
             }]
@@ -476,11 +478,11 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
 //        Ext.QuickTips.init();
         var title = "";
         if (cfg.id) {
-//            title = String.format(_TT("SYNO.SDS.RoboCopy.Instance", "ui", "edit_item"), this.name)
-            title = _TT("SYNO.SDS.RoboCopy.Instance", "ui", "edit_item");
+//            title = String.format(_RC_STR("ui", "edit_item"), this.name)
+            title = _RC_STR("ui", "edit_item");
         } else {
-//            title = String.format(_TT("SYNO.SDS.RoboCopy.Instance", "ui", "create_item"), "")
-            title = _TT("SYNO.SDS.RoboCopy.Instance", "ui", "create_item");
+//            title = String.format(_RC_STR("ui", "create_item"), "")
+            title = _RC_STR("ui", "create_item");
         }
         this.panel = this.createPanel(cfg);
         //
@@ -488,8 +490,8 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             title: title,
             resizable: false,
             layout: "fit",
-            width: 550,
-            height: 400,
+            width: 560,
+            height: 350,
             buttons: [{
                 text: _T("common", "ok"),
                 scope: this,
@@ -505,9 +507,9 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
         SYNO.SDS.RoboCopy.INFO.superclass.constructor.call(this, cfg);
         this.mon(this.panel, "afterlayout", function (c, d) {
             SYNO.SDS.Utils.AddTip(this.panel.getForm().findField('mai_info_dest_dir').getEl(), 
-                                _TT("SYNO.SDS.RoboCopy.Instance", "ui", "format_codes"));
-            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_file").getEl(), _TT("SYNO.SDS.RoboCopy.Instance", "ui", "format_codes"));
-//            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_ext").getEl(), _TT("SYNO.SDS.RoboCopy.Instance", "ui", "format_codes"));
+                                _RC_STR("ui", "format_codes"));
+            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_file").getEl(), _RC_STR("ui", "format_codes"));
+//            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_ext").getEl(), _RC_STR("ui", "format_codes"));
         }, this, {
             single: true
         });
@@ -565,7 +567,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             border: false,
             items: [{
                 synotype: "number",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "priority"),
+                fieldLabel: _RC_STR("ui", "priority"),
                 minValue: 1,
                 maxlength: 4,
                 allowBlank: false,
@@ -574,19 +576,19 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 value: params.priority
             },{
                 synotype: "text",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "description"),
+                fieldLabel: _RC_STR("ui", "description"),
                 maxlength: 255,
                 id: "mai_info_description",
                 width: 300,
                 value: params.description
             },{
                 synotype: "text",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_ext"),
+                fieldLabel: _RC_STR("ui", "src_ext"),
                 id: "mai_info_src_ext",
                 value: params.src_ext
             },{
                 synotype: "text",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_dir"),
+                fieldLabel: _RC_STR("ui", "src_dir"),
                 id: "mai_info_src_dir",
                 width: 300,
                 value: params.src_dir
@@ -594,23 +596,24 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 xtype: "radiogroup",
                 id: "mai_info_src_remove",
                 itemId: "src_remove",
-                fieldLabel: "Action",
+                fieldLabel: _RC_STR("ui", "src_remove"),
+//                fieldLabel: "Action",
 //                columns: 1,
 //                vertical: true,
                 items: [{
-                    boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "action_copy"),
+                    boxLabel: _RC_STR("ui", "action_copy"),
                     inputValue: 0,
                     name: "src_remove",
                     checked: !params.src_remove
                 }, {
-                    boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "action_move"),
+                    boxLabel: _RC_STR("ui", "action_move"),
                     name: "src_remove",
                     inputValue: 1,
                     checked: params.src_remove
                 }]
              },{
                 synotype: "combo",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_folder"),
+                fieldLabel: _RC_STR("ui", "dest_folder"),
                 id: "mai_info_dest_folder",
                 editable: false,
                 store: storeShares,
@@ -624,26 +627,26 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 queryMode: 'remote'
             },{
                 synotype: "text",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_dir"),
+                fieldLabel: _RC_STR("ui", "dest_dir"),
                 id: "mai_info_dest_dir",
                 width: 300,
                 value: params.dest_dir,
                 boxLabel: ""
             },{
                 synotype: "text",
-                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_file"),
+                fieldLabel: _RC_STR("ui", "dest_file"),
                 id: "mai_info_dest_file",
                 width: 300,
                 value: params.dest_file
 //            },{
 //                synotype: "text",
-//                fieldLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_ext"),
+//                fieldLabel: _RC_STR("ui", "dest_ext"),
 //                id: "mai_info_dest_ext",
 //                value: params.dest_ext
 //            }, {
 //                synotype: "check",
 //                id: "mai_info_src_remove",
-//                boxLabel: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_remove"),
+//                boxLabel: _RC_STR("ui", "src_remove"),
 //                checked: params.src_remove
             }]
         };
@@ -799,6 +802,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
 //        if (fullversion) {
 //            version = parseInt(fullversion.substr(fullversion.indexOf("-s") + 2), 10);
 //        }
+//        return true;
         return false;
     },
     createGridPanel: function (store) {
@@ -814,53 +818,53 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             loadMask: true,
             enableHdMenu: false,
             columns: [{
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "priority_short"),
+                header:  _RC_STR("ui", "priority_short"),
                 dataIndex: "priority",
                 id: "mai_grid_priority",
                 sortable: true,
                 width: 50
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_ext_short"),
+                header:  _RC_STR("ui", "src_ext_short"),
                 dataIndex: "src_ext",
                 id: "mai_grid_src_ext",
                 width: 50
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_dir_short"),
+                header:  _RC_STR("ui", "src_dir_short"),
                 dataIndex: "src_dir",
                 id: "mai_grid_src_dir",
                 width: 100
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "src_remove_short"),
+                header:  _RC_STR("ui", "src_remove_short"),
                 dataIndex: "src_remove",
                 id: "mai_grid_src_remove",
                 width: 50,
                 renderer: function(value, metaData, record, rowIndex, colIndex, store) {
                     var action = (value ? "action_move" : "action_copy"); 
-                    metaData.attr = 'ext:qtip="' + _TT("SYNO.SDS.RoboCopy.Instance", "ui", action) + '"';
+                    metaData.attr = 'ext:qtip="' + _RC_STR("ui", action) + '"';
                     return '<img width="16" height="16" src="' + SYNO.SDS.RoboCopy.PIC_PREFIX + action + '.png" >';
                 }
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_folder_short"),
+                header:  _RC_STR("ui", "dest_folder_short"),
                 dataIndex: 'dest_folder',
                 id: "mai_grid_dest_folder",
-                width: 75
+                width: 100
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_dir_short"),
+                header:  _RC_STR("ui", "dest_dir_short"),
                 dataIndex: 'dest_dir',
                 id: "mai_grid_dest_dir",
                 width: 150
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_file_short"),
+                header:  _RC_STR("ui", "dest_file_short"),
                 dataIndex: 'dest_file',
                 id: "mai_grid_dest_file",
                 width: 150
 //            }, {
-//                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "dest_ext_short"),
+//                header:  _RC_STR("ui", "dest_ext_short"),
 //                dataIndex: 'dest_ext',
 //                id: "mai_grid_dest_ext",
 //                width: 50
             }, {
-                header:  _TT("SYNO.SDS.RoboCopy.Instance", "ui", "description_short"),
+                header:  _RC_STR("ui", "description_short"),
                 dataIndex: 'description',
                 id: "mai_grid_description"
             }],
@@ -869,31 +873,37 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 items: [{
                     text: _T("common", "add"),
                     handler: this.handleAdd,
-                    scope: this
-                }, {
-                    text: _T("common", "remove"),
-                    disabled: true,
-                    id: "mai_remove_button",
-                    handler: this.handleRemove,
+                    xtype: "syno_button",
                     scope: this
                 }, {
                     text: _T("common", "alt_edit"),
                     disabled: true,
                     id: "mai_edit_button",
                     handler: this.handleEdit,
+                    xtype: "syno_button",
+                    scope: this
+                }, {
+                    text: _T("common", "remove"),
+                    disabled: true,
+                    id: "mai_remove_button",
+                    handler: this.handleRemove,
+                    xtype: "syno_button",
                     scope: this
                 }, 
-                '-',
+//                '-',
+                { xtype: 'tbspacer', width: 30 },
                 {
-                    text: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "run_now"),
+                    text: _RC_STR("ui", "run_now"),
                     handler: this.handleRunNow,
+                    xtype: "syno_button",
                     scope: this
                 },
                 '->',
                 {
-                    text: _TT("SYNO.SDS.RoboCopy.Instance", "ui", "config"),
+                    text: _RC_STR("ui", "config"),
                     hidden: !this.isDsmV4(),
                     handler: this.handleConfig,
+                    xtype: "syno_button",
                     scope: this
                 }]
             },
@@ -945,7 +955,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             });
             rqst.send();
         };
-        this.getMsgBox().confirm(this.title, _TT("SYNO.SDS.RoboCopy.Instance", "ui", "remove_confirm"), callback, this);
+        this.getMsgBox().confirm(this.title, _RC_STR("ui", "remove_confirm"), callback, this);
     },
     handleRunNow: function () {
         //this.RELURL = this.jsConfig.jsBaseURL + "/webfm/";
@@ -958,8 +968,8 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             //this.selTree.mon(this.selTree, "beforesubmit", this.onCheckPrivilege, this);
             this.selTree.mon(this.selTree, "callback", this.onRunSelected, this)
         }
-        var title = _TT("SYNO.SDS.RoboCopy.Instance", "ui", "select_for_run");
-        //this.selTree.load(_TT("SYNO.SDS.RoboCopy.Instance", "app", "app_name"));
+        var title = _RC_STR("ui", "select_for_run");
+        //this.selTree.load(_RC_STR("app", "app_name"));
         this.selTree.title = title;
         this.selTree.setTitle(title);
         this.selTree.show();
@@ -1122,16 +1132,16 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
     if (result && result.key) {
 //        switch(result.key) {
 //            case 'config_write_error':
-//                return _TT("SYNO.SDS.RoboCopy.Instance", "error", "config_write_error");
+//                return _RC_STR("error", "config_write_error");
 //            case 'invalid_id':
-//                return _TT("SYNO.SDS.RoboCopy.Instance", "error", "invalid_id");
+//                return _RC_STR("error", "invalid_id");
 //            case 'not_found':
-//                return _TT("SYNO.SDS.RoboCopy.Instance", "error", "not_found");
+//                return _RC_STR("error", "not_found");
 //            case 'invalid_params':
 //            default:
 //                return _T("error", "error_unknown");
 //        }
-        var msg = _TT("SYNO.SDS.RoboCopy.Instance", result.sec, result.key);
+        var msg = _RC_STR(result.sec, result.key);
         if (!msg || msg === "")
 //            return result.sec + ":" + result.key; 
             return _T("error", "error_unknown");
@@ -1139,15 +1149,15 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
     }
 //    if (result && !result.success) {
 ////        if (result.errinfo.sec === "error" && result.errinfo.key === "config_write_error") {
-////            return _TT("SYNO.SDS.RoboCopy.Instance", "error", "config_write_error");
+////            return _RC_STR("error", "config_write_error");
 ////        }
 ////        if (result.errinfo.sec === "error" && result.errinfo.key === "invalid_id") {
-////            return _TT("SYNO.SDS.RoboCopy.Instance", "error", "invalid_id");
+////            return _RC_STR("error", "invalid_id");
 ////        }
 ////        if (result.errinfo.sec === "error" && result.errinfo.key === "not_found") {
-////            return _TT("SYNO.SDS.RoboCopy.Instance", "error", "not_found");
+////            return _RC_STR("error", "not_found");
 ////        }
-//        var msg = _TT("SYNO.SDS.RoboCopy.Instance", result.errinfo.sec, result.errinfo.key);
+//        var msg = _RC_STR(result.errinfo.sec, result.errinfo.key);
 //        if (msg === "")
 //            return _T("error", "error_unknown");
 //        return msg;
