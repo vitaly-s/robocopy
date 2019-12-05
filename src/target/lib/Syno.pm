@@ -7,6 +7,10 @@
 
 package Syno;
 
+use strict;
+use utf8;
+use Encode;
+
 1;
 
 #see http://oinkzwurgl.org/?action=browse;oldid=ds106series;id=diskstation_ds106series
@@ -36,6 +40,7 @@ sub copyled_blink
 }
 
 #USAGE : synologset1 [sys | man | conn](copy netbkp)   [info | warn | err] eventID(%X) [substitution strings...]
+# eventIDs /usr/syno/synosdk/texts/enu/events
 sub log
 {
     my ($msg, $type, $log) = @_;
@@ -62,10 +67,10 @@ sub share_path
 {
     my $share = shift;
     if (defined $share) {
-        my @out = `/usr/syno/sbin/synoshare --get $share`; 
+        my @out = `/usr/syno/sbin/synoshare --get "$share"`; 
         foreach  (@out) {
             if (/Path.*\[(.*)\]/) {
-                return $1;
+                return decode("UTF-8", $1);
             }
         }
     }
@@ -74,21 +79,22 @@ sub share_path
 
 sub share_list
 {
-    my @share_list;
+    my @share_list = ();
     foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
         $name =~ s/\n//g;
+        $name = decode("UTF-8", $name);
         my $comment = '';
         my $real_path = '';
-        foreach (`/usr/syno/sbin/synoshare --get $name`) {
+        foreach (`/usr/syno/sbin/synoshare --get "$name"`) {
             if (/Comment.*\[(.*)\]/) {
-                $comment = $1;
+                $comment = decode("UTF-8", $1);
             }
             if (/Path.*\[(.*)\]/) {
-                $real_path = $1;
+                $real_path = decode("UTF-8", $1);
             }
         }
         push @share_list, {'name' => $name, 'comment' => $comment, 'real_path' => $real_path};
     }
-    return @share_list;
+    return (wantarray ? @share_list : \@share_list);
 }
 

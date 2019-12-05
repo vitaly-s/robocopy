@@ -8,6 +8,8 @@
 package task_info; {
 
     use strict;
+    use utf8;
+    use Encode;
     use JSON::XS;
     use File::Basename;
     use File::Spec::Functions;
@@ -64,13 +66,41 @@ package task_info; {
             open my $fh, "<", $file || die "could not open $file: $!";
             <$fh>;
         };
-        my $self = JSON::XS->new->utf8->decode($text);
+        my $self = decode_json($text);
         return undef unless ref($self) eq 'HASH';
         return undef unless defined $self->{id};
         return undef unless defined $self->{created};
+#        utf8decode($self);
         bless $self, __PACKAGE__;
        
         return $self;
+    }
+    
+    sub utf8decode {
+        my $arg = shift;
+        return $arg unless defined $arg;
+        
+        if (ref($arg) eq 'HASH') {
+            # HASH
+            foreach my $key (keys %$arg) {
+                $arg->{$key} = task_info::utf8decode($arg->{$key});
+            }
+        }
+        else {
+            if ( ref($arg) eq 'ARRAY') {
+                # ARRAY
+                for (my $i = $#{$arg}; $i>=0; $i--) {
+                    $arg->[$i] = task_info::utf8decode($arg->[$i]);
+                }
+            }
+            else {
+                if ($arg ^ $arg) {
+                    # STRING
+                    utf8::decode($arg);
+                }
+            }
+        }
+        return $arg;
     }
     
     sub write($;$)
@@ -79,7 +109,7 @@ package task_info; {
         $file = filename($self->{id}, $self->{user}) unless defined $file;
 #       umask(0);
         mkpath(dirname($file), 0, 0777);
-        my $text = JSON::XS->new->utf8->convert_blessed->encode($self);
+        my $text = JSON::XS->new->ascii->convert_blessed->encode($self);
 
         open my $fh, ">", $file || die "could not write $file: $!";
         print $fh $text;

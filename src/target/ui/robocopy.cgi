@@ -2,9 +2,15 @@
 
 use strict;
 use warnings;
+use utf8;
+use Encode;
+use Encode::Locale;
 use JSON::XS;
 use File::Basename;
 use File::Path;
+#use open ':std' => ':utf8';
+#use open qw(:std :utf8);
+use List::Util qw(min max);
 
 BEGIN {
     my $scriptDir = dirname($0);
@@ -34,8 +40,19 @@ if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
 my %query;
 my $method;
 
-if (defined $ENV{'REQUEST_METHOD'}) {
-    $method = $ENV{'REQUEST_METHOD'};
+if (-t) { # see IO::Interactive
+    # is terminal mode
+    binmode(STDIN, ":encoding(console_in)");
+    binmode(STDOUT, ":encoding(console_out)");
+    binmode(STDERR, ":encoding(console_out)");
+
+    $user=`whoami`;
+    chop($user) if defined($user);
+    $method = $ARGV[0];
+    %query = parse_query($ARGV[1]) if defined $ARGV[1];
+}
+else {
+    $method = $ENV{'REQUEST_METHOD'} if defined $ENV{'REQUEST_METHOD'};
     if ($method eq "POST") {
         my $buffer;
         read(STDIN, $buffer, $ENV{"CONTENT_LENGTH"});
@@ -44,13 +61,6 @@ if (defined $ENV{'REQUEST_METHOD'}) {
     elsif ($method eq 'GET') {
         %query = parse_query($ENV{QUERY_STRING});
     }
-}
-else {
-    $user=`whoami`;
-    chop($user) if defined($user);
-    $method = $ARGV[0];
-    %query = parse_query($ARGV[1]);
-#    print Dumper \%query;
 }
 
 if ($user eq '') {
@@ -61,7 +71,8 @@ if ($user eq '') {
 }
 
 
-my $func_name = 'action_' . lc($method);
+my $func_name = 'action';
+$func_name .= '_' . lc($method) if defined $method;
 $func_name .= '_' . lc($query{action}) if exists $query{action};
 if (defined &$func_name) {
     &{\&{$func_name}}(%query);
@@ -76,23 +87,34 @@ exit;
 
 sub parse_query
 {
-	my $query = shift;
-	my %result;
-	
-	return %result unless defined $query;
+    my $query = shift;
+    return undef unless defined $query;
+    
+    my %result;
+#    $query = decode("UTF-8", $query);
 
-	foreach my $part (split(/\&/, $query)) {
-		my ($name, $value) = split(/=/, $part);
-		$value =~ tr/+/ /;
-		$value =~ s/%([a-fA-F0-9]{2})/pack('C',hex($1))/ge;
-		$result{$name} = $value;
-	}
-	return %result;
+    return %result unless defined $query;
+    utf8::downgrade($query, 1);
+    
+    foreach my $part (split(/\&/, $query)) {
+        my ($name, $value) = split(/=/, $part);
+#        print STDERR "$name = '$value'", (utf8::is_utf8($value) ? "[UTF-8]" : "[bytes]"), "\n";
+#        #$value =~ tr/+/ /;
+        $value =~ y/+/\x20/;
+#        print STDERR "\t'$value'", (utf8::is_utf8($value) ? "[UTF-8]" : "[bytes]"), "\n";
+        $value =~ s/%([0-9A-Za-z]{2})/pack('C',hex($1))/ge;
+#        print STDERR "\t'$value'", (utf8::is_utf8($value) ? "[UTF-8]" : "[bytes]"), "\n";
+#        $value = decode("UTF-8", $value);
+        utf8::decode($value);
+#        print STDERR "\t'$value'", (utf8::is_utf8($value) ? "[UTF-8]" : "[bytes]"), "\n";
+        $result{$name} = $value;
+    }
+    return %result;
 }
 
 sub print_json($)
 {
-    print JSON::XS->new->utf8->convert_blessed->encode(@_);
+    print decode("UTF-8", JSON::XS->new->utf8->convert_blessed->encode(@_));
 }
 
 sub print_error
@@ -107,16 +129,16 @@ sub print_error
 
 sub action_post_share_list
 {
-    my @share_list = Syno::share_list();
+    my $share_list = Syno::share_list();
     print "Content-type: application/json; charset=UTF-8\n\n";
-    print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
+    print_json {'data' => $share_list, 'total' => scalar(@$share_list)};
 }
 
 sub action_get_share_list
 {
-    my @share_list = Syno::share_list();
+    my $share_list = Syno::share_list();
     print "Content-type: application/json; charset=UTF-8\n\n";
-    print encode_json {'data' => \@share_list, 'total' => scalar(@share_list)};
+    print_json {'data' => $share_list, 'total' => scalar(@$share_list)};
 }
 
 sub _action_get_demo
@@ -125,7 +147,7 @@ sub _action_get_demo
 
     print "Content-type: application/json; charset=UTF-8\n\n";
     if (defined($cfg)) {
-        print rule::obj_to_json {'data' => $cfg, 'total' => scalar(@$cfg)};
+        print_json {'data' => $cfg, 'total' => scalar(@$cfg)};
     }
     else {
         print '{"data":null,"total":0}';
@@ -134,10 +156,16 @@ sub _action_get_demo
 
 sub action_post_rule_list
 {
+    _action_rule_list(@_);
+}
+sub action_get_rule_list
+{
+    _action_rule_list(@_);
+}
+
+sub __action_rule_list
+{
     my %params = @_;
-    #TODO
-#	if (!isset($params['start'])) $params['start'] = 0;
-#	if (!isset($params['limit'])) $params['limit'] = count($cfg);
     my $cfg = rule::load_list();
 
     print "Content-type: application/json; charset=UTF-8\n\n";
@@ -149,26 +177,40 @@ sub action_post_rule_list
     }
 }
 
-sub action_get_rule_list
+sub _action_rule_list
 {
     my %params = @_;
-    #TODO
-#	if (!isset($params['start'])) $params['start'] = 0;
-#	if (!isset($params['limit'])) $params['limit'] = count($cfg);
     my $cfg = rule::load_list();
-
+    
     print "Content-type: application/json; charset=UTF-8\n\n";
-    if (defined($cfg)) {
-        print_json {'data' => $cfg, 'total' => scalar(@$cfg)};
-    }
-    else {
+
+    unless (defined $cfg) {
         print '{"data":null,"total":0}';
+        return;
     }
+    
+    my $total = scalar(@$cfg);
+
+    my $start;
+    my $limit;
+    $start = int($params{'start'}) if exists($params{'start'});
+    $start = 0 unless defined $start;
+    $start = 0 if ($start < 0) || ($start > $total);
+    
+    $limit = int($params{'limit'}) if exists($params{'limit'});
+    $limit = $total - $start unless defined $limit;
+    $limit = $total - $start if ($limit < 0) || ($limit > ($total - $start));
+    
+
+    my @result = splice @$cfg, $start, $limit;
+
+    print_json {'data' => \@result, 'total' => $total};
 }
 
 sub action_post_rule_add
 {
     my %params = @_;
+    # TODO: Check share folder
     print "Content-type: application/json; charset=UTF-8\n\n";
     my $rule = new rule(\%params);
     my $cfg = rule::load_list();
@@ -181,6 +223,7 @@ sub action_post_rule_add
 sub action_post_rule_edit
 {
     my %params = @_;
+    # TODO: Check share folder
     print "Content-type: application/json; charset=UTF-8\n\n";
     unless (exists $params{id}) {
         print_error('invalid_id');
@@ -193,7 +236,7 @@ sub action_post_rule_edit
         if ($cfg->[$i]->{'id'} == $rule->id()) {
             $cfg->[$i] = $rule;
             rule::save_list($cfg);
-            print '{"data":null, "success":true}';
+            print_json {'data' => $rule, 'success' => JSON::XS::true};
             return;
         }
     }
@@ -226,8 +269,8 @@ sub action_post_task_run
 {
     my %params = @_;
     my $epoc = time();
-    my $timeout = 60;
-    $timeout = int($params{timeout}) if exists $params{timeout} && int($params{timeout}) > 0;
+#    my $timeout = 60;
+#    $timeout = int($params{timeout}) if exists $params{timeout} && int($params{timeout}) > 0;
     print "Content-type: application/json; charset=UTF-8\n\n";
 
     # check folders parameter
@@ -246,7 +289,7 @@ sub action_post_task_run
     }
     
     if (exists $params{src_remove}) {
-        for my $rule (@$cfg) {
+        foreach my $rule (@$cfg) {
             $rule->set({
                 'src_remove' => $params{src_remove}
             })
@@ -294,8 +337,8 @@ sub action_post_task_run
     my $total_size = 0;
     my $error;
 
-    for my $rule (@$cfg) {
-        for my $dir (@dirs) {
+    foreach my $rule (@$cfg) {
+        foreach my $dir (@dirs) {
             # Create processor
             my $processor = new rule_processor($rule);
             if ($processor->prepare($dir, \$error)) {
@@ -318,10 +361,10 @@ sub action_post_task_run
     # Process files
     my $processed = 0;
     my $error_count = 0;
-    for my $worker (@workers) {
+    foreach my $worker (@workers) {
         my $processor = $worker->{'processor'};
         my $files_size = $worker->{'size'};
-        for my $file (@{$worker->{'files'}}) {
+        foreach my $file (@{$worker->{'files'}}) {
             # Update task info
             $data->{prule} = $processor->description();
             $data->{pfile} = $file;
@@ -333,7 +376,7 @@ sub action_post_task_run
             $processed += $size;
             $files_size -= $size;
             # process file
-#            sleep 3;
+            sleep 3;
             unless ($processor->process_file($file, \$error)) {
                 Syno::log($error, 'warn');
                 ++$error_count;
@@ -364,7 +407,7 @@ sub action_get_task_progress
         print '{"finished":true,"success":false}';
         exit;
     }
-    print encode_json({
+    print_json({
         "data" => $task->data(),
         "progress" => $task->progress(),
         "finished" => $task->finished(),
@@ -395,7 +438,7 @@ sub action_get_task_cancel
     $data->{result} = 'cancel';
     $task->remove($user);
 
-    print encode_json({
+    print_json({
         "data" => $task->data(),
         "progress" => $task->progress(),
         "finished" => $task->finished(),
@@ -487,44 +530,204 @@ sub action_post_integration
     print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
 }
 
-###
-sub action_get_test
+##############################################################################
+# Tests
+sub print_str($$;@)
+{
+    my ($text, $str, $end_line) = @_;
+    print "$text'$str' [", (utf8::is_utf8($str) ? "UTF-8" : "bytes"), "]";
+    print $end_line if defined $end_line;
+}
+
+sub print_array_hash(\@$;$@)
+{
+    my ($arr, $columns, $titles, @suffix) = @_;
+
+    my %colWidth = ();
+    my %colNames = ();
+    # calc columns width
+    for (my $i = 0; $i <= $#{$columns}; $i++) {
+        my $key = $columns->[$i];
+        my $title = $key;
+        $title =~ tr/_/ /;
+        $title  =~ s/(\w+)/\u\L$1/g;
+
+        $title = $titles->[$i] if defined($titles) && defined($titles->[$i]);
+        $colWidth{$key} = max (map length, map( {$_->{$key}} @$arr), $title);
+        $colNames{$key} = $title;
+    }
+
+    # print  titles 
+    foreach my $key (@$columns) {
+        printf( "  %-*s", 
+            $colWidth{$key}, $colNames{$key});
+    }
+    print("\n");
+    # print delimiter
+    foreach my $key (@$columns) {
+        printf( "  %-*s", 
+            $colWidth{$key}, '-' x $colWidth{$key});
+    }
+    print("\n");
+    # print data
+    foreach my $item (@$arr) {
+        foreach my $key (@$columns) {
+            printf( "  %-*s", 
+                $colWidth{$key}, $item->{$key});
+        }
+        print("\n");
+    }
+    print @suffix;
+}
+
+sub action_post_test {
+    _action_test(@_);
+}
+
+sub action_get_test {
+    _action_test(@_);
+}
+
+sub _action_test
 {
     my %params = @_;
     print "Content-type: text/plain; charset=UTF-8\n\n";
-#    print Dumper \%params;
-#    local $SIG{__DIE__} = sub {
-#        my $message = shift;
-#        print "WARN: $message\n";
-#    };    
-#    action_post_edit %params;
-#    action_post_config %params;
+    
+    use PerlIO;
+    print "STDIN = ", join(" ", PerlIO::get_layers(STDIN)), "\n";
+    print "STDOUT = ", join(" ", PerlIO::get_layers(STDOUT)), "\n";
+    print "STDERR = ", join(" ", PerlIO::get_layers(STDERR)), "\n\n";
+
+    print "Parameters:\n", Dumper(\%params), "\n\n";
+
+#    print_str "Param:", $params{dest_folder}, "\n";
+
 #    print "$Bin/../lib\n";
     my $info = `whoami`;
     chop($info);
     print "Current user: $info\n";
     print "Authenticated user: $user\n";
 
-    my @shares = Syno::share_list();
-    print "Shares:\n", Dumper \@shares;
-
     my $scriptDir = dirname($0);
     print  "$scriptDir/../lib\n";
     print  "/var/packages/robocopy/target/lib\n";
-    print Dumper \%ENV;
+#    print "ENV:\n", Dumper(\%ENV), "\n\n";
+
+    my $shares;
+    $shares = Syno::share_list();
+    if (defined($shares)) {
+        print "\nShares:\n";
+        print_array_hash(@$shares, ['name', 'real_path', 'comment'], ['Name', 'Path', 'Comment']);
+        print "\n\n";
+    }
+
     
-    my $task = new task_info($user);
-    my $data = {};
-    $task->data($data);
-    $task->write();
+
+#    my $task = new task_info($user);
+#    my $rus_text = decode("UTF-8", "пример Русского текста");
     
-    my @task_list = task_info::load_list($user);
-    print Dumper \@task_list;
+#    print "$rus_text\n";
+#    print "UTF-8 flag set!\n" if utf8::is_utf8($rus_text);
+#    print "--\n";
+#    my $data = { 'text' => $rus_text };
+#    $task->data($data);
+#    print Dumper \$task;
+#    $task->write();
+    
+#    exit;
+    
+    
+#    my @task_list = task_info::load_list($user);
+#    print Dumper \@task_list;
     
 #    $task->remove();
 
 #    @task_list = task_info::load_list($user);
 #    print Dumper \@task_list;
-}
 
+    my $cfg;
+    $cfg    = rule::load_list(undef, 'priority');
+    if (defined($cfg)) {
+        print "\nRules:\n";
+        print_array_hash(@$cfg, 
+            [
+                'priority', 
+                'src_ext',
+                'src_dir',
+                'dest_folder',
+                'dest_dir',
+                'dest_file',
+                'dest_ext',
+                'description',
+                'src_remove'
+            ], 
+                        [
+                'NN', 
+                'Ext',
+                'From',
+                'dest_folder',
+                'dest_dir',
+                'dest_file',
+                'dest_ext',
+                'Description',
+                'DEL'
+            ]);
+        print "\n\n";
+    }
+
+    if (defined($cfg) && exists($params{folders})) {
+        my @dirs = split(/\|/, $params{folders});
+        my $dir_count = scalar(@dirs);
+        my $error;
+
+        my $task = new task_info($user);
+        my $data = {};
+        $task->data($data);
+
+        my $rule_count = scalar(@$cfg);
+        my $rule_idx = 0;
+        foreach my $rule (@$cfg) {
+            # Create processor
+            print_str "[". $rule->priority()."] - ", $rule->description(), "\n";
+            my $processor = new rule_processor($rule);
+            my $dir_idx = 0;
+            foreach my $dir(@dirs) {
+                print_str "  path: ", $dir, "\n";
+                if ($processor->prepare($dir, \$error)) {
+                    my $size = 0;
+                    my @files = $processor->find_files(\$size);
+                    my $file_count = scalar(@files);
+                    my $file_idx = 0;
+                    print "    Found $file_count files\n";
+                    foreach my $file (@files) {
+                        my $file_size = -s "$file";
+                        print_str "    ", $file, " - $file_size\n";
+                        if (defined $task) {
+                            # Update task info
+                            $data->{prule} = $processor->description();
+                            $data->{pfile} = $file;
+                            $data->{pdir} = $processor->prepared_path();
+                            $task->progress(($rule_idx + ($dir_idx + $file_idx / $file_count) / $dir_count) / $rule_count);
+                            $task->write();
+                            
+                            # Read task info
+                            my $task_r = task_info::load($task->id, $user);
+                            print_str "      task: [" . $task->progress() . "] ", $task_r->data()->{pfile}, "\n";
+                        }
+                        ++$file_idx;
+                    }
+                }
+                else {
+                    print "    Preparing error: '$error'\n";
+                }
+                ++$rule_idx;
+            }
+            ++$dir_idx;
+        }
+        if (defined $task) {
+            $task->set_finished();
+            $task->remove();
+        }
+    }
+}
 

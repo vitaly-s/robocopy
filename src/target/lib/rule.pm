@@ -8,11 +8,13 @@
 package rule;
 {
     use strict;
+    use utf8;
+    use Encode;
     use JSON::XS;
     use Data::Dumper;
 #    use File::Glob;
     use File::Find;
-    
+   
     use constant DEFAULT_CONFIG    => '/var/packages/robocopy/etc/rules.conf';
     use constant CONFIG_FIELDS => {
                     'id' => 0,
@@ -30,10 +32,10 @@ package rule;
 
     sub new {
         my($class, $args) = @_;
-        # создаем хэш
+        # create hash
         my $self = init($args);
         $self->{id} = int(rand(4294967296));
-        # хэш превращается, превращается... в объект
+        # hash to ... object
         bless $self, $class;
        
         return $self;
@@ -41,11 +43,11 @@ package rule;
 
     sub parse {
         my($args) = @_;
-        # создаем хэш
+        # create hash
         my $self = init($args);
 #        $self->{id} = int(rand(4294967296)) unless exists $self->{id};
 
-        # хэш превращается, превращается... в объект
+        # hash to ... object
         bless $self, __PACKAGE__;
        
         return $self;
@@ -173,10 +175,14 @@ package rule;
             open my $fh, "<", $file || die "could not open $file: $!";
             <$fh>;
         };
-        my $cfg = decode_json $cgf_text;
-        my $result = [];
+
+#        print STDERR "rules data: '$cgf_text' [", (utf8::is_utf8($cgf_text) ? "" : "NO "), "UTF-8]";
+        
+        my $cfg = decode_json($cgf_text);
+        my @result = ();
 
         if (ref($cfg) eq 'ARRAY') {
+            # sort rules
             if (defined($sort_name)) {
                 if (is_number_field($sort_name)) {
                     @$cfg = sort {$a->{$sort_name} <=> $b->{$sort_name}} @$cfg;
@@ -186,12 +192,18 @@ package rule;
                 }
             }
             foreach my $item (@$cfg) {
-                my $rule = init($item);
-                bless $rule, __PACKAGE__;
-                push @$result, $rule;
+                # decode 
+                foreach my $key (keys %{CONFIG_FIELDS()}) {
+                    if (!is_number_field($key)) {
+#                        $item->{$key} = decode("UTF-8", $item->{$key}) if defined $item->{$key};
+                    }
+                }
+                
+                my $rule = parse($item);
+                push @result, $rule;
             }
         }
-        return $result;
+        return (wantarray ? @result : \@result);
     }
     
     sub save_list
@@ -204,17 +216,18 @@ package rule;
         close $fh;
     }
     
-    sub obj_to_json
-    {
-        my $obj = shift;
-        return JSON::XS->new->utf8->convert_blessed->encode($obj);
-    }
+#    sub obj_to_json
+#    {
+#        my $obj = shift;
+#        return JSON::XS->new->utf8->convert_blessed->encode($obj);
+#    }
     
     sub demo_list
     {
         my ($share) = @_;
         $share = 'photo' unless defined $share;
-        return [
+        my @demo = 
+        (
             new rule({
                 'priority' => 1,
                 'src_dir' => 'DCIM',
@@ -259,7 +272,8 @@ package rule;
                 'dest_ext'=>'',
                 'description' => 'Copy others'
             })
-        ];
+        );
+        return (wantarray ? @demo : \@demo);
     }
 
     

@@ -8,12 +8,15 @@
 package rule_processor;
 {
     use strict;
+    use utf8;
+    use Encode;
     use File::Basename;
     use File::Find;
     use File::Spec::Functions;
     use File::Path;
     use File::Compare;
     use File::Copy;
+#    use File::stat;
     use POSIX qw(strftime);
     use Time::Local;
 
@@ -107,7 +110,7 @@ package rule_processor;
         $src_ext = '*' if !defined($src_ext) || $src_ext eq '';
         $self->{src_mask} = $src_ext eq '*' ? '(\..*?|)$' : "\.$src_ext\$";
 
-	my $syno_folder = Syno::share_path($self->{'dest_folder'});
+        my $syno_folder = Syno::share_path($self->{'dest_folder'});
         unless (defined $syno_folder) {
             $$error = "Invalid destination share name: \"$self->{dest_folder}\".";
             return 0;
@@ -133,7 +136,7 @@ package rule_processor;
     
     sub find_files(;\$)
     {
-        my $files = [];
+        my @files = ();
         my ($self, $total_size) = @_;
         $$total_size = 0 if ref($total_size) eq 'SCALAR';
 
@@ -144,14 +147,24 @@ package rule_processor;
             if ( -d $src_path) {
 #                   print "\t$src_path\n" if $verbose;
                 find sub {
-                    if ( -f && /$self->{src_mask}/i) { 
-                        push @$files, $File::Find::name;
-                        $$total_size += -s $File::Find::name if ref($total_size) eq 'SCALAR';
+                    my $file_name = $_;
+                    utf8::decode($file_name);
+                    my $file_path = catfile(dirname($File::Find::name), $file_name);
+#                    print STDERR "0: '$_'" . (utf8::is_utf8($_) ? "[UTF8]" : "[bytes]") . "\n";
+                    if ( -f "$file_name" && $file_name =~ /$self->{src_mask}/i) { 
+#                        print STDERR "1: '$file_path" . (utf8::is_utf8($file_path) ? "[UTF8]" : "[bytes]") . "\n";
+                        push @files, $file_path;
+                        if (ref($total_size) eq 'SCALAR') {
+                            my $file_size = -s "$file_path";
+#                            $file_size = (stat $file_name)[7] unless defined $file_size;
+                            print STDERR "Cannot get file size for '$file_path'\n" unless defined $file_size;
+                            $$total_size += $file_size if defined $file_size;
+                        }
                     } 
                 }, $src_path;
             }
         }
-        return $files
+        return (wantarray ? @files : \@files);
     }
 
     sub process_file($$;\$)
@@ -171,8 +184,8 @@ package rule_processor;
         my $src_path = $self->{src_path};
 
         # Make output file name
-	my $file_time = file_original_time($file);
-	my $dest_file = strftime($self->{dest_path}, localtime($file_time));
+        my $file_time = file_original_time($file);
+        my $dest_file = strftime($self->{dest_path}, localtime($file_time));
         my @parts = ($file =~ /^(.*?)([^\/]*?)(\.[^.\/]*)?$/);
         $parts[2] = $parts[2] ? substr($parts[2], 1) : '';
         $parts[0] = substr($parts[0], length($src_path));
@@ -187,7 +200,7 @@ package rule_processor;
 #        print "\t\t$file -> $dest_file\n" if $verbose;
         # Create destination dir
         mkpath(dirname($dest_file), 0, 0755);
-			
+
         if (-d $dest_file) {
             $$error = "Cannot overwrite directory \"$dest_file\"";
             return 0;
