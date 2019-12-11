@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use utf8;
 use Encode;
-use Encode::Locale;
+#use Encode::Locale;
 use JSON::XS;
 use File::Basename;
 use File::Path;
@@ -42,9 +42,9 @@ my $method;
 
 if (-t) { # see IO::Interactive
     # is terminal mode
-    binmode(STDIN, ":encoding(console_in)");
-    binmode(STDOUT, ":encoding(console_out)");
-    binmode(STDERR, ":encoding(console_out)");
+    binmode(STDIN, ":utf8");
+    binmode(STDOUT, ":utf8");
+    binmode(STDERR, ":utf8");
 
     $user=`whoami`;
     chop($user) if defined($user);
@@ -646,7 +646,7 @@ sub _action_test
 #    print Dumper \@task_list;
 
     my $cfg;
-    $cfg    = rule::load_list(undef, 'priority');
+    $cfg = rule::load_list(undef, 'priority');
     if (defined($cfg)) {
         print "\nRules:\n";
         print_array_hash(@$cfg, 
@@ -680,9 +680,10 @@ sub _action_test
         my $dir_count = scalar(@dirs);
         my $error;
 
-        my $task = new task_info($user);
+        my $task;
+#        $task = new task_info($user);
         my $data = {};
-        $task->data($data);
+        $task->data($data) if defined $task;
 
         my $rule_count = scalar(@$cfg);
         my $rule_idx = 0;
@@ -694,6 +695,7 @@ sub _action_test
             foreach my $dir(@dirs) {
                 print_str "  path: ", $dir, "\n";
                 if ($processor->prepare($dir, \$error)) {
+                    print_str "  Prepared: ", $processor->prepared_path(), "\n";
                     my $size = 0;
                     my @files = $processor->find_files(\$size);
                     my $file_count = scalar(@files);
@@ -714,6 +716,8 @@ sub _action_test
                             my $task_r = task_info::load($task->id, $user);
                             print_str "      task: [" . $task->progress() . "] ", $task_r->data()->{pfile}, "\n";
                         }
+                        my $dest_file = $processor->make_dest_file($file);
+                        print_str "      -> ", $dest_file, "\n";
                         ++$file_idx;
                     }
                 }

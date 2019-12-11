@@ -147,9 +147,16 @@ package rule_processor;
             if ( -d $src_path) {
 #                   print "\t$src_path\n" if $verbose;
                 find sub {
+                    # Skip @eaDir folders
+                    if (-d && /\@eaDir/) {
+                        $File::Find::prune = 1;
+                        return;
+                    }
                     my $file_name = $_;
-                    utf8::decode($file_name);
-                    my $file_path = catfile(dirname($File::Find::name), $file_name);
+                    utf8::decode($file_name) unless utf8::is_utf8($file_name);
+                    my $file_dir = $File::Find::dir;
+                    utf8::decode($file_dir) unless utf8::is_utf8($file_dir);
+                    my $file_path = catfile($file_dir, $file_name);
 #                    print STDERR "0: '$_'" . (utf8::is_utf8($_) ? "[UTF8]" : "[bytes]") . "\n";
                     if ( -f "$file_name" && $file_name =~ /$self->{src_mask}/i) { 
 #                        print STDERR "1: '$file_path" . (utf8::is_utf8($file_path) ? "[UTF8]" : "[bytes]") . "\n";
@@ -167,6 +174,34 @@ package rule_processor;
         return (wantarray ? @files : \@files);
     }
 
+    sub make_dest_file($$;$)
+    {
+        my ($self, $file, $file_time) = @_;
+
+        my $src_path = $self->{src_path};
+
+        # Make output file name
+        $file_time = file_original_time($file) unless defined $file_time;
+        return undef unless defined $file_time;
+#        print STDERR "0: '$self->{dest_path}'" . (utf8::is_utf8($self->{dest_path}) ? "[UTF8]" : "[bytes]") . "\n";
+        my $dest_file = strftime($self->{dest_path}, localtime($file_time));
+        utf8::decode($dest_file) unless utf8::is_utf8($dest_file);
+#        print STDERR "1: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+        my @parts = ($file =~ /^(.*?)([^\/]*?)(\.[^.\/]*)?$/);
+        $parts[2] = $parts[2] ? substr($parts[2], 1) : '';
+        $parts[0] = substr($parts[0], length($src_path));
+        foreach my $key ('d','f','e') {
+                my $val = shift @parts;
+                while ($dest_file =~ /%$key/g) {
+                        $dest_file =~ s/%$key/$val/;
+                }
+        }
+#        print STDERR "2: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+        $dest_file = canonpath($dest_file);
+#        print STDERR "3: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+        return $dest_file;
+    }
+
     sub process_file($$;\$)
     {
         my $tmp_error;
@@ -180,23 +215,32 @@ package rule_processor;
 
         my $src_remove = $self->{src_remove};
         $src_remove = 0 unless defined $src_remove;
-        
-        my $src_path = $self->{src_path};
 
-        # Make output file name
+#        my $src_path = $self->{src_path};
+#
+#        # Make output file name
+#        my $file_time = file_original_time($file);
+#        my $dest_file = strftime($self->{dest_path}, localtime($file_time));
+##        print STDERR "0: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+#        my @parts = ($file =~ /^(.*?)([^\/]*?)(\.[^.\/]*)?$/);
+#        $parts[2] = $parts[2] ? substr($parts[2], 1) : '';
+#        $parts[0] = substr($parts[0], length($src_path));
+#        foreach my $key ('d','f','e') {
+#                my $val = shift @parts;
+#                while ($dest_file =~ /%$key/g) {
+#                        $dest_file =~ s/%$key/$val/;
+#                }
+#        }
+##        print STDERR "1: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+#        $dest_file = canonpath($dest_file);
+##        print STDERR "2: '$dest_file'" . (utf8::is_utf8($dest_file) ? "[UTF8]" : "[bytes]") . "\n";
+
         my $file_time = file_original_time($file);
-        my $dest_file = strftime($self->{dest_path}, localtime($file_time));
-        my @parts = ($file =~ /^(.*?)([^\/]*?)(\.[^.\/]*)?$/);
-        $parts[2] = $parts[2] ? substr($parts[2], 1) : '';
-        $parts[0] = substr($parts[0], length($src_path));
-        foreach my $key ('d','f','e') {
-                my $val = shift @parts;
-                while ($dest_file =~ /%$key/g) {
-                        $dest_file =~ s/%$key/$val/;
-                }
+        my $dest_file = $self->make_dest_file($file, $file_time);
+        unless (defined $dest_file) {
+            $$error = "Cannot make destination file for \"$file\"";
+            return 0;
         }
-        $dest_file = canonpath($dest_file);
-
 #        print "\t\t$file -> $dest_file\n" if $verbose;
         # Create destination dir
         mkpath(dirname($dest_file), 0, 0755);
@@ -242,6 +286,8 @@ package rule_processor;
     {
         my $file = shift;
         return undef unless defined $file;
+        return undef unless -f $file;
+        
         my $info = ImageInfo($file, 'DateTimeOriginal', 'DateTimeDigitized');#, 'DateTime');
         if (exists $info->{'DateTimeOriginal'}) {
             my @date = reverse(split(/[: ]/, $info->{'DateTimeOriginal'}));

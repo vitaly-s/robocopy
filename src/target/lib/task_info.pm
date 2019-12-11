@@ -66,7 +66,7 @@ package task_info; {
             open my $fh, "<", $file || die "could not open $file: $!";
             <$fh>;
         };
-        my $self = decode_json($text);
+        my $self = JSON::XS->new->utf8->decode($text);
         return undef unless ref($self) eq 'HASH';
         return undef unless defined $self->{id};
         return undef unless defined $self->{created};

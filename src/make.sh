@@ -59,13 +59,14 @@ make()
 
 	echo "== Compress to package.tgz"
 	cd _tmp/package/
-	tar czf ../spk/package.tgz *
+	tar czf ../spk/package.tgz --owner='' --group='' --mode=0755 *
 	cd ../..
 
+	echo "create_time=\"`date +%Y%m%d-%H:%M:%S`\"" >> _tmp/spk/INFO
 
 	echo "== Compress to $SPK_FILE"
 	cd _tmp/spk/
-	tar cf ../../"$SPK_FILE" *
+	tar cf ../../"$SPK_FILE" --owner='' --group='' --mode=0755 *
 	cd ../..
 }
 

@@ -3,9 +3,29 @@
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.PIC_PREFIX = "/webman/3rdparty/robocopy/images/";
 SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
-//SYNO.SDS.RoboCopy.TestCGI = "/webman/3rdparty/robocopy/test.cgi";
 _RC_STR = function(b, a) {
     return _TT("SYNO.SDS.RoboCopy.Instance", b, a)
+};
+var getXType = function() {
+    for (var i = 0; i < arguments.length; i++) {
+        if (Ext.ComponentMgr.isRegistered(arguments[i])) {
+            return arguments[i];
+        }
+    }
+    return undefined;
+};
+isDsmV4 = function() {
+    var version = parseInt(_S("version"), 10);
+    if ((2198 <= version) && (version <= 4244)) {
+        return true;
+    }
+//        var majorversion = _S("majorversion");
+//        var fullversion = _S("fullversion");
+//        if (fullversion) {
+//            version = parseInt(fullversion.substr(fullversion.indexOf("-s") + 2), 10);
+//        }
+//        return true;
+    return false;
 };
 
 Ext.ns("SYNO.SDS.RoboCopy.utils");
@@ -792,19 +812,6 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
 //                ]
 //            });
 //    },
-    isDsmV4: function() {
-        var version = parseInt(_S("version"), 10);
-        if ((2198 <= version) && (version <= 4244)) {
-            return true;
-        }
-//        var majorversion = _S("majorversion");
-//        var fullversion = _S("fullversion");
-//        if (fullversion) {
-//            version = parseInt(fullversion.substr(fullversion.indexOf("-s") + 2), 10);
-//        }
-//        return true;
-        return false;
-    },
     createGridPanel: function (store) {
         var result;
         var cfg;
@@ -870,24 +877,22 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             }],
             autoExpandColumn: "mai_grid_description",
             tbar: {
+                defaultType: getXType('syno_button', 'button'),
                 items: [{
                     text: _T("common", "add"),
                     handler: this.handleAdd,
-                    xtype: "syno_button",
                     scope: this
                 }, {
                     text: _T("common", "alt_edit"),
                     disabled: true,
                     id: "mai_edit_button",
                     handler: this.handleEdit,
-                    xtype: "syno_button",
                     scope: this
                 }, {
                     text: _T("common", "remove"),
                     disabled: true,
                     id: "mai_remove_button",
                     handler: this.handleRemove,
-                    xtype: "syno_button",
                     scope: this
                 }, 
 //                '-',
@@ -895,15 +900,13 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 {
                     text: _RC_STR("ui", "run_now"),
                     handler: this.handleRunNow,
-                    xtype: "syno_button",
                     scope: this
                 },
                 '->',
                 {
                     text: _RC_STR("ui", "config"),
-                    hidden: !this.isDsmV4(),
+                    hidden: !isDsmV4(),
                     handler: this.handleConfig,
-                    xtype: "syno_button",
                     scope: this
                 }]
             },

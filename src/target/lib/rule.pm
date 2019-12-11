@@ -178,7 +178,7 @@ package rule;
 
 #        print STDERR "rules data: '$cgf_text' [", (utf8::is_utf8($cgf_text) ? "" : "NO "), "UTF-8]";
         
-        my $cfg = decode_json($cgf_text);
+        my $cfg = JSON::XS->new->utf8->decode($cgf_text);
         my @result = ();
 
         if (ref($cfg) eq 'ARRAY') {
