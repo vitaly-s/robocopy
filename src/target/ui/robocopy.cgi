@@ -341,6 +341,7 @@ sub action_post_task_run
         foreach my $dir (@dirs) {
             # Create processor
             my $processor = new rule_processor($rule);
+            $processor->user($user) if defined $user;
             if ($processor->prepare($dir, \$error)) {
                 my $size;
                 my $files = $processor->find_files(\$size);
@@ -376,7 +377,7 @@ sub action_post_task_run
             $processed += $size;
             $files_size -= $size;
             # process file
-            sleep 3;
+#            sleep 3;
             unless ($processor->process_file($file, \$error)) {
                 Syno::log($error, 'warn');
                 ++$error_count;
@@ -606,7 +607,7 @@ sub _action_test
     my $info = `whoami`;
     chop($info);
     print "Current user: $info\n";
-    print "Authenticated user: $user\n";
+    print "Authenticated user: $user\n" if defined $user;
 
     my $scriptDir = dirname($0);
     print  "$scriptDir/../lib\n";

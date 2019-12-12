@@ -99,6 +99,18 @@ package rule_processor;
         return $self->{src_path};
     }
     
+    sub user {
+        my ($self, $value) = @_;
+        if (defined($value)) {
+            $self->{user} = $value;
+            my ($user_uid, $user_gid);
+            (undef, undef, $user_uid, $user_gid) = getpwnam($value);
+            $self->{user_uid} = $user_uid;
+            $self->{user_gid} = $user_gid;
+        }
+        return undef unless defined $self->{user};
+        return $self->{user};
+    }
     sub prepare($$;\$) {
         my $tmp_error;
         my($self, $dir, $error) = @_;
@@ -243,7 +255,8 @@ package rule_processor;
         }
 #        print "\t\t$file -> $dest_file\n" if $verbose;
         # Create destination dir
-        mkpath(dirname($dest_file), 0, 0755);
+        my @created = mkpath(dirname($dest_file), 0, 0755);
+        chown $self->{user_uid}, $self->{user_gid}, @created if defined($self->{user_uid}) && defined ($self->{user_gid});
 
         if (-d $dest_file) {
             $$error = "Cannot overwrite directory \"$dest_file\"";
@@ -275,6 +288,7 @@ package rule_processor;
                     $$error = "Cannot copy file \"$file\" to \"$dest_file\"";
                     return 0;
                 }
+                chown $self->{user_uid}, $self->{user_gid}, ($dest_file) if defined($self->{user_uid}) && defined ($self->{user_gid});
             }
             utime($file_time, $file_time, $dest_file);
             undef $writed_file;
