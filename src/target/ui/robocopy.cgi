@@ -10,6 +10,7 @@ use File::Basename;
 use File::Path;
 #use open ':std' => ':utf8';
 #use open qw(:std :utf8);
+use POSIX qw(strftime);
 use List::Util qw(min max);
 
 BEGIN {
@@ -117,41 +118,109 @@ sub print_json($)
     print decode("UTF-8", JSON::XS->new->utf8->convert_blessed->encode(@_));
 }
 
-sub print_error
-{
-    my ($error) = @_;
-    $error = 'error_unknown' unless defined $error;
-    print '{"errinfo" : {"key" : "' . $error . '", "sec" : "error"}, "success" : false}';
+
+#sub print_error
+#{
+#    my ($error) = @_;
+#    $error = 'error_unknown' unless defined $error;
+#    print '{"errinfo" : {"key" : "' . $error . '", "sec" : "error"}, "success" : false}';
+#}
+
+sub PRINT_RESPONSE_HEADER_JSON
+{ 
+    print "Content-type: application/json; charset=UTF-8\n\n"; 
 }
 
+sub ERROR_NOT_FOUND($)
+{
+    my $value = shift;
+
+    PRINT_RESPONSE_HEADER_JSON;
+    print '{"errinfo" : {"key" : "not_found", "sec" : "error", "value":"' . $value . '"}, "success" : false}';
+    exit;
+}
+
+sub ERROR_INVALID_PARAMS(;$$\@)
+{
+    my ($name, $value, $details) = @_;
+    PRINT_RESPONSE_HEADER_JSON;
+    my $errinfo = {'key' => 'invalid_params', 'sec' => 'error'};
+    $errinfo->{name} = $name if defined $name;
+    $errinfo->{value} = $value if defined $value;
+    $errinfo->{details} = $details if defined $details;
+    print_json {'errinfo' => $errinfo, 'success' => JSON::XS::false};
+    exit;
+}
+
+sub ERROR_RUN_TASK($)
+{
+    my $reason = shift;
+    PRINT_RESPONSE_HEADER_JSON;
+    print '{"errinfo" : {"key" : "not_run", "sec" : "error", "value":"' . $reason . '"}, "success" : false}';
+    exit;
+}
+
+sub RESPONSE_LIST(\@;$)
+{
+    my ($list, $total) = @_;
+    $total = scalar(@$list) unless defined $total;
+
+    PRINT_RESPONSE_HEADER_JSON;
+    print_json {'data' => $list, 'total' => $total, 'success' => JSON::XS::true};
+    exit;
+}
+
+sub RESPONSE(;$)
+{
+    my $obj = shift;
+
+    PRINT_RESPONSE_HEADER_JSON;
+    print_json {'data' => $obj, 'success' => JSON::XS::true};
+    exit;
+}
+
+sub RESPONSE_TASK($)
+{
+    my $task = shift;
+
+    PRINT_RESPONSE_HEADER_JSON;
+    if (defined $task) {
+        print_json({
+            'taskid' => $task->id,
+            'data' => $task->data(),
+            'progress' => $task->progress(),
+            'finished' => $task->finished(),
+            'success' => JSON::XS::true
+        });
+    }
+    else {
+        print '{"finished":true,"success":false}';
+    }
+    exit;
+}
 ##############################################################################
 # Rules
 
+sub _action_share_list
+{
+    my @share_list = Syno::share_list();
+    RESPONSE_LIST(@share_list)
+}
+
 sub action_post_share_list
 {
-    my $share_list = Syno::share_list();
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    print_json {'data' => $share_list, 'total' => scalar(@$share_list)};
+    &_action_share_list;
 }
 
 sub action_get_share_list
 {
-    my $share_list = Syno::share_list();
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    print_json {'data' => $share_list, 'total' => scalar(@$share_list)};
+    &_action_share_list;
 }
 
 sub _action_get_demo
 {
-    my $cfg = rule::demo_list;
-
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    if (defined($cfg)) {
-        print_json {'data' => $cfg, 'total' => scalar(@$cfg)};
-    }
-    else {
-        print '{"data":null,"total":0}';
-    }
+    my @cfg = rule::demo_list;
+    RESPONSE_LIST(@cfg)
 }
 
 sub action_post_rule_list
@@ -163,33 +232,12 @@ sub action_get_rule_list
     _action_rule_list(@_);
 }
 
-sub __action_rule_list
-{
-    my %params = @_;
-    my $cfg = rule::load_list();
-
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    if (defined($cfg)) {
-        print_json {'data' => $cfg, 'total' => scalar(@$cfg)};
-    }
-    else {
-        print '{"data":null,"total":0}';
-    }
-}
-
 sub _action_rule_list
 {
     my %params = @_;
-    my $cfg = rule::load_list();
-    
-    print "Content-type: application/json; charset=UTF-8\n\n";
+    my @cfg = rule::load_list();
 
-    unless (defined $cfg) {
-        print '{"data":null,"total":0}';
-        return;
-    }
-    
-    my $total = scalar(@$cfg);
+    my $total = scalar(@cfg);
 
     my $start;
     my $limit;
@@ -202,65 +250,85 @@ sub _action_rule_list
     $limit = $total - $start if ($limit < 0) || ($limit > ($total - $start));
     
 
-    my @result = splice @$cfg, $start, $limit;
+    my @result = splice(@cfg, $start, $limit);
+    RESPONSE_LIST(@result, $total);
+}
 
-    print_json {'data' => \@result, 'total' => $total};
+sub _validate_rule($)
+{
+    my $rule = shift;
+    # TODO: Check share folder
+    my $syno_folder = Syno::share_path($rule->dest_folder());
+    ERROR_INVALID_PARAMS('dest_folder', $rule->dest_folder()) unless defined $syno_folder;
+    
+    # TODO Validate templates
+    my @errors;
+    ERROR_INVALID_PARAMS('dest_dir', $rule->dest_dir(), @errors) if rule_processor::validate_template($rule->dest_dir(), @errors);
+    ERROR_INVALID_PARAMS('dest_file', $rule->dest_file(), @errors) if rule_processor::validate_template($rule->dest_file(), @errors);
+    ERROR_INVALID_PARAMS('dest_ext', $rule->dest_ext(), @errors) if rule_processor::validate_template($rule->dest_ext(), @errors);
 }
 
 sub action_post_rule_add
 {
     my %params = @_;
-    # TODO: Check share folder
-    print "Content-type: application/json; charset=UTF-8\n\n";
     my $rule = new rule(\%params);
-    my $cfg = rule::load_list();
-    push @$cfg, $rule;
-    rule::save_list($cfg);
     
-    print_json {'data' => $rule, 'success' => JSON::XS::true};
+    _validate_rule($rule);
+
+    my @cfg = rule::load_list();
+    push @cfg, $rule;
+    rule::save_list(@cfg);
+    
+    RESPONSE($rule);
 }
+
 
 sub action_post_rule_edit
 {
     my %params = @_;
-    # TODO: Check share folder
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    unless (exists $params{id}) {
-        print_error('invalid_id');
-        return ;
-    }
+    
+    ERROR_INVALID_PARAMS('id') unless exists $params{id};
+
     my $rule = rule::parse(\%params);
     
-    my $cfg = rule::load_list();
-    for (my $i = $#{$cfg}; $i>=0; $i--) {
-        if ($cfg->[$i]->{'id'} == $rule->id()) {
-            $cfg->[$i] = $rule;
-            rule::save_list($cfg);
-            print_json {'data' => $rule, 'success' => JSON::XS::true};
-            return;
+    _validate_rule($rule);
+
+    my @cfg = rule::load_list();
+    for (my $i = $#cfg; $i>=0; $i--) {
+        if ($cfg[$i]->id() == $rule->id()) {
+            $cfg[$i] = $rule;
+            rule::save_list(@cfg);
+#            print_json {'data' => $rule, 'success' => JSON::XS::true};
+#            return;
+            RESPONSE($rule);
         }
     }
-    print_error('not_found');
+#    print_error('not_found');
+    ERROR_NOT_FOUND('rule');
 }
 
 sub action_post_rule_remove 
 {
     my %params = @_;
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    unless (exists $params{id}) {
-        print_error('invalid_id');
-        return ;
-    }
-    my $cfg = rule::load_list();
-    for (my $i = $#{$cfg}; $i>=0; $i--) {
-        if ($cfg->[$i]->{'id'} == $params{id}) {
-            splice(@$cfg, $i, 1);
-            rule::save_list($cfg);
-            print '{"data":null, "success":true}';
-            return;
+#    print "Content-type: application/json; charset=UTF-8\n\n";
+#    unless (exists $params{id}) {
+#        print_error('invalid_id');
+#        return ;
+#    }
+    ERROR_INVALID_PARAMS('id') unless exists $params{id};
+
+    my @cfg = rule::load_list();
+    for (my $i = $#cfg; $i>=0; $i--) {
+        if ($cfg[$i]->id() == $params{id}) {
+            splice(@cfg, $i, 1);
+            rule::save_list(@cfg);
+            RESPONSE;
+#            print '{"data":null, "success":true}';
+#            return;
         }
     }
-    print_error('not_found');
+#    print_error('not_found');
+    ERROR_NOT_FOUND('rule');
 }
 
 ##############################################################################
@@ -271,31 +339,33 @@ sub action_post_task_run
     my $epoc = time();
 #    my $timeout = 60;
 #    $timeout = int($params{timeout}) if exists $params{timeout} && int($params{timeout}) > 0;
-    print "Content-type: application/json; charset=UTF-8\n\n";
+#    print "Content-type: application/json; charset=UTF-8\n\n";
 
     # check folders parameter
-    unless (exists $params{folders}) {
-        print_error('invalid_params');
-        exit;
-    }
+    ERROR_INVALID_PARAMS('folders') unless (exists $params{folders});
 
     my @dirs = split(/\|/, $params{folders});
     
     # load rules
-    my $cfg = rule::load_list(undef, 'priority');
-    unless (defined($cfg)) {
-        print_error('invalid_params');
-        exit;
-    }
+    my @cfg = rule::load_list(undef, 'priority');
+#    unless (defined(@cfg)) {
+#        print_error('invalid_params');
+#        exit;
+#    }
     
     if (exists $params{src_remove}) {
-        foreach my $rule (@$cfg) {
+        foreach my $rule (@cfg) {
             $rule->set({
                 'src_remove' => $params{src_remove}
             })
         }
     }
-
+    
+    # TODO: Check share folder
+    # TODO Validate template
+    foreach my $rule (@cfg) {
+        _validate_rule($rule);
+    }
 #print Dumper \$cfg;
 #exit; 
     
@@ -306,12 +376,15 @@ sub action_post_task_run
     my $pid;
     # TODO check PID file /val/run/robocopy.pid
    
+#    PRINT_RESPONSE_HEADER_JSON;
     if (!defined($pid = fork)) {
-        print '{"progress":0,"running":0,"success":false}';
+        ERROR_RUN_TASK($!);
+#        print '{"progress":0,"running":0,"success":false}';
         exit;
     }
     if ($pid) {
-        print '{"progress":0,"running":1,"success":true,"taskid":"' . $task->id . '"}';
+        RESPONSE_TASK($task);
+#        print '{"progress":0,"running":1,"success":true,"taskid":"' . $task->id . '"}';
         exit;
     }
     
@@ -337,7 +410,7 @@ sub action_post_task_run
     my $total_size = 0;
     my $error;
 
-    foreach my $rule (@$cfg) {
+    foreach my $rule (@cfg) {
         foreach my $dir (@dirs) {
             # Create processor
             my $processor = new rule_processor($rule);
@@ -397,40 +470,28 @@ sub action_post_task_run
 sub action_get_task_progress
 {
     my %params = @_;
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    unless (exists $params{taskid}) {
-        print_error('invalid_params');
-        return;
-    }
+#    print "Content-type: application/json; charset=UTF-8\n\n";
+
+    ERROR_INVALID_PARAMS('taskid') unless exists $params{taskid};
     my $taskid = $params{taskid};
     my $task = task_info::load($taskid, $user);
-    unless (defined($task)) {
-        print '{"finished":true,"success":false}';
-        exit;
-    }
-    print_json({
-        "data" => $task->data(),
-        "progress" => $task->progress(),
-        "finished" => $task->finished(),
-        "success" => 1
-    });
+    ERROR_NOT_FOUND('task') unless defined($task);
+
     $task->remove($user) if $task->finished;
+    RESPONSE_TASK($task);
 }
 
 sub action_get_task_cancel
 {
     my %params = @_;
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    unless (exists $params{taskid}) {
-        print_error('invalid_params');
-        return;
-    }
+#    print "Content-type: application/json; charset=UTF-8\n\n";
+
+    ERROR_INVALID_PARAMS('taskid') unless exists $params{taskid};
+
     my $taskid = $params{taskid};
     my $task = task_info::load($taskid, $user);
-    unless (defined($task)) {
-        print '{"finished":true,"success":false}';
-        exit;
-    }
+    
+    ERROR_NOT_FOUND('task') unless defined($task);
 
     my $data = $task->data() || {};
     my $pid = $data->{pid};
@@ -438,37 +499,28 @@ sub action_get_task_cancel
 
     $data->{result} = 'cancel';
     $task->remove($user);
+    $task->finished(1);
 
-    print_json({
-        "data" => $task->data(),
-        "progress" => $task->progress(),
-        "finished" => $task->finished(),
-        "success" => 1
-    });
+    RESPONSE_TASK($task);
 }
 
 sub action_post_task_list
 {
     my %params = @_;
-    my $list = task_info::load_list($user);
+    my @list = task_info::load_list($user);
     my @result;
 
+#    print "Content-type: application/json; charset=UTF-8\n\n";
 
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    if (defined($list)) {
-        foreach my $task (@$list) {
-            if ($task->finished()) {
-                $task->remove();
-            }
-            else {
-                push @result, $task;
-            }
+    foreach my $task (@list) {
+        if ($task->finished()) {
+            $task->remove();
         }
-        print_json {'data' => \@result, 'total' => scalar(@result), 'success' => 1};
+        else {
+            push @result, $task;
+        }
     }
-    else {
-        print '{"data":null,"total":0, "success":true}';
-    }
+    RESPONSE_LIST(@result);
 }
 
 ##############################################################################
@@ -484,8 +536,9 @@ sub action_get_integration
 #        $on_attach_disk = 1 if $conf->{global}->{on_attach_disk} eq 'yes';
 #    }
     
-    print "Content-type: application/json; charset=UTF-8\n\n";
-    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
+    RESPONSE({'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk});
+#    print "Content-type: application/json; charset=UTF-8\n\n";
+#    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
 }
 
 sub action_post_integration
@@ -494,7 +547,7 @@ sub action_post_integration
     my $after_usbcopy = integration::is_run_after_usbcopy;
     my $on_attach_disk = integration::is_run_on_disk_attach;
 
-    print "Content-type: application/json; charset=UTF-8\n\n";
+#    print "Content-type: application/json; charset=UTF-8\n\n";
     if ($params{after_usbcopy} =~ /^(yes|true|1)$/) {
         unless ($after_usbcopy) {
             integration::set_run_after_usbcopy();
@@ -528,7 +581,8 @@ sub action_post_integration
 #    $conf->{global}->{on_attach_disk} = $on_attach_disk;
 #    ini_write(DEFAULT_GLOBALS, $conf);
 #    
-    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
+#    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
+    RESPONSE({'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk});
 }
 
 ##############################################################################
@@ -595,9 +649,9 @@ sub _action_test
     print "Content-type: text/plain; charset=UTF-8\n\n";
     
     use PerlIO;
-    print "STDIN = ", join(" ", PerlIO::get_layers(STDIN)), "\n";
-    print "STDOUT = ", join(" ", PerlIO::get_layers(STDOUT)), "\n";
-    print "STDERR = ", join(" ", PerlIO::get_layers(STDERR)), "\n\n";
+#    print "STDIN = ", join(" ", PerlIO::get_layers(STDIN)), "\n";
+#    print "STDOUT = ", join(" ", PerlIO::get_layers(STDOUT)), "\n";
+#    print "STDERR = ", join(" ", PerlIO::get_layers(STDERR)), "\n\n";
 
     print "Parameters:\n", Dumper(\%params), "\n\n";
 
@@ -718,7 +772,7 @@ sub _action_test
                             print_str "      task: [" . $task->progress() . "] ", $task_r->data()->{pfile}, "\n";
                         }
                         my $dest_file = $processor->make_dest_file($file);
-                        print_str "      -> ", $dest_file, "\n";
+                        print_str "      -> ", $dest_file, "\n" if defined $dest_file;
                         ++$file_idx;
                     }
                 }

@@ -125,15 +125,15 @@ package task_info; {
         my $folder = FILES_PATH;
         $folder = catdir($folder, $user) if defined $user;
 
-        my $task_list = [];
+        my @task_list = ();
         if ( -d $folder) {
             my $mask = catfile($folder, "*");
             foreach my $file (glob($mask)) {
                 my $task = task_info::read($file);
-                push(@$task_list, $task) if defined($task);
+                push(@task_list, $task) if defined($task);
             };
         }
-        return $task_list;
+        return (wantarray ? @task_list : \@task_list);
     }
 
     sub TO_JSON {

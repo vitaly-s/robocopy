@@ -165,7 +165,7 @@ package rule;
  
     #####################################################################
     #
-    sub load_list
+    sub load_list(;$$)
     {
         my ($file, $sort_name) = @_;
         $file = DEFAULT_CONFIG unless defined $file;
@@ -206,7 +206,7 @@ package rule;
         return (wantarray ? @result : \@result);
     }
     
-    sub save_list
+    sub save_list(\@;$)
     {
         my ($cfg, $file) = @_;
         return unless ref($cfg) eq "ARRAY";
@@ -234,7 +234,7 @@ package rule;
                 'src_ext' => 'jpg',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'image/%Y-%m-%d',
+                'dest_dir'=>'image/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy images'
@@ -245,7 +245,7 @@ package rule;
                 'src_ext' => 'mpg',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'video/%Y-%m-%d',
+                'dest_dir'=>'video/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy videos'
@@ -256,7 +256,7 @@ package rule;
                 'src_ext' => '3gp',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'video/%Y-%m-%d',
+                'dest_dir'=>'video/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy mobile videos'
@@ -267,7 +267,7 @@ package rule;
                 'src_ext' => '',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'other/%Y-%m-%d',
+                'dest_dir'=>'other/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy others'
@@ -287,7 +287,7 @@ package rule;
     
     sub create_demo
     {
-        my $cfg = demo_list(@_);
-        save_list($cfg);
+        my @cfg = demo_list(@_);
+        save_list(@cfg);
     }
 }

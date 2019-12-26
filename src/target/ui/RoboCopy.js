@@ -246,7 +246,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onFinishTask: function (a, b) {
-        console.log("RoboCopy.Action.onFinishTask");
+        SYNO.Debug.debug("RoboCopy.Action.onFinishTask");
         if ((b.result && b.result == "fail") || a === -1) {
             this.showErrItems(b);
         } else {
@@ -254,7 +254,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onCompleteTask: function (a) {
-        console.log("RoboCopy.Action.onCompleteTask");
+        SYNO.Debug.debug("RoboCopy.Action.onCompleteTask");
         this.hideProgress();
 //        this.refreshTreeNode(this.srcIdArr, this.destId, "move" == this.action && a.bldir);
 //        if (Ext.isDefined(a.sdbid) && Ext.isDefined(a.sdbvol)) {
@@ -262,7 +262,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
 //        }
     },
     onProgressTask: function (progress, data) {
-        console.log("RoboCopy.Action.onProgressTask");
+        SYNO.Debug.debug("RoboCopy.Action.onProgressTask");
         if (this.blMsgMinimized || this.isOwnerDestroyed()) {
             return;
         }
@@ -274,7 +274,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onTaskCallBack: function (a, c, finished, progress, data) {
-        console.log("RoboCopy.Action.onTaskCallBack("+c+", finished:" + finished + ", progress:" + progress+")");
+        SYNO.Debug.debug("RoboCopy.Action.onTaskCallBack("+c+", finished:" + finished + ", progress:" + progress+")");
         if (!data) {
             return;
         }
@@ -695,7 +695,7 @@ SYNO.SDS.RoboCopy.Launcher = Ext.extend(SYNO.SDS.AppInstance, {
                         action: "task_list",
                     },
                     callback: function (options, success, response) {
-                        console.log("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
+                        SYNO.Debug.debug("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
                         if (success) {
                             if (!response.data || !Ext.isArray(response.data) || !response.data[0]) {
                                 return;
@@ -1133,37 +1133,59 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
 
 SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
     if (result && result.key) {
-//        switch(result.key) {
+        switch(result.key) {
 //            case 'config_write_error':
 //                return _RC_STR("error", "config_write_error");
 //            case 'invalid_id':
 //                return _RC_STR("error", "invalid_id");
-//            case 'not_found':
-//                return _RC_STR("error", "not_found");
-//            case 'invalid_params':
+            case 'not_found': //result.value
+                return _RC_STR("error", "not_found"); 
+            case 'not_run': //result.value
+                return _RC_STR("error", "system_error"); 
+            case 'invalid_params': //result.name, result.value, result.details
+                var name = "",
+                    value = "";
+                if (result.name && result.name !== "") {
+                    name = _RC_STR("ui", result.name);
+                }
+                if (name === "") {
+                    return _T("error", "error_unknown");
+                }
+                if (result.value && result.value !== "") {
+                    value = result.value;
+                    if (result.details && Ext.isArray(result.details)) {
+                        result.details.sort((a,b) => (a.pos < b.pos) ? 1 : ((b.pos < a.pos) ? -1 : 0));
+                        for (var i = 0; i < result.details.length; i++) {
+                            var pos = -1,
+                                len = 0;
+                            if (result.details[i].pos) {
+                                pos = result.details[i].pos-1;
+                            }
+                            if (result.details[i].text) {
+                                len = result.details[i].text.length;
+                            }
+                            if ((pos != -1) && (len > 0)) {
+//                                SYNO.Debug.debug("");
+                                value = value.substr(0, pos) 
+                                    + '<font color="red"><u><b>' + value.substr(pos, len) + '</b></u></font>'
+                                    + value.substr(pos + len);
+                            }
+                        }
+                    }
+                }
+//                SYNO.Debug.debug("Error value: " + value);
+                if (value === "") {
+                    return String.format(_RC_STR("error", "bad_field"), name);
+                }
+                return String.format(_RC_STR("error", "bad_field_value"), name, value);
 //            default:
 //                return _T("error", "error_unknown");
-//        }
-        var msg = _RC_STR(result.sec, result.key);
-        if (!msg || msg === "")
+        }
+//        var msg = _RC_STR(result.sec, result.key);
+//        if (!msg || msg === "")
 //            return result.sec + ":" + result.key; 
             return _T("error", "error_unknown");
-        return msg;
-    }
-//    if (result && !result.success) {
-////        if (result.errinfo.sec === "error" && result.errinfo.key === "config_write_error") {
-////            return _RC_STR("error", "config_write_error");
-////        }
-////        if (result.errinfo.sec === "error" && result.errinfo.key === "invalid_id") {
-////            return _RC_STR("error", "invalid_id");
-////        }
-////        if (result.errinfo.sec === "error" && result.errinfo.key === "not_found") {
-////            return _RC_STR("error", "not_found");
-////        }
-//        var msg = _RC_STR(result.errinfo.sec, result.errinfo.key);
-//        if (msg === "")
-//            return _T("error", "error_unknown");
 //        return msg;
-//    }
+    }
     return "";
 };
