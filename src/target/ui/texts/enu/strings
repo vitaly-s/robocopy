@@ -2,7 +2,7 @@
 app_name           = "RoboCopy"
 #description       = "RoboCopy is a free software tool for copying/moving files by rules."
 menu_run           = "Run RoboCopy"
-menu_run_default   = "Run - default"
+menu_run_default   = "Run"
 menu_run_copy      = "Run - Copy"
 menu_run_move      = "Run - Move"
 

@@ -270,7 +270,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             var percent = (progress * 100).toFixed(0);
             var progressText = "<center>" + percent + "&#37;</center>";
             var msg = SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pdir) + " / " + SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pfile);
-            this.getMsgBox().updateProgress(progress, progressText, msg);
+            this.getMsgBox().updateProgress(progress, progressText, Ext.util.Format.ellipsis(msg, 50, true));
         }
     },
     onTaskCallBack: function (a, c, finished, progress, data) {
