@@ -6,6 +6,9 @@ SYNO.SDS.RoboCopy.CGI = "/webman/3rdparty/robocopy/robocopy.cgi";
 _RC_STR = function(b, a) {
     return _TT("SYNO.SDS.RoboCopy.Instance", b, a)
 };
+_DEBUG = function(msg){
+    console.log(msg);
+};
 var getXType = function() {
     for (var i = 0; i < arguments.length; i++) {
         if (Ext.ComponentMgr.isRegistered(arguments[i])) {
@@ -124,7 +127,56 @@ Ext.apply(SYNO.SDS.RoboCopy.utils, {
         }
     }
 });
+/*
+    onChooseDest: function() {
+        if (!this.TreeDialog || this.TreeDialog.isDestroyed) {
+            this.TreeDialog = new SYNO.FileStation.TreeDialog({
+                RELURL: this.RELURL,
+                blDynamicForm: false,
+                owner: this,
+                webfm: this.webfm
+            });
+            this.TreeDialog.mon(this.TreeDialog, "beforesubmit", this.onCheckDestPrivilege, this);
+            this.TreeDialog.mon(this.TreeDialog, "callback", this.onTreeDialogHide, this)
+        }
+        var a = this.TreeDialog;
+        a.load(_WFT("filetable", "filetable_extract"), false, this.gUID, this.gGID)
+    },
+    onCheckDestPrivilege: function(a) {
+        var b = this.TreeDialog;
+        if (b) {
+            if (_S("is_admin") === true || _S("domainUser") == "true") {
+                return true
+            }
+            if (!SYNO.webfm.utils.checkShareRight(a.shareRight, SYNO.webfm.utils.RW)) {
+                b.getMsgBox().alert(_WFT("filetable", "filetable_extract"), _WFT("error", "error_privilege_not_enough"));
+                return false
+            }
+            if (Ext.isDefined(a.folderRight)) {
+                var c = {
+                    right: a.folderRight,
+                    needRight: SYNO.webfm.utils.ReqPrivilege.DestFolder.Extract
+                };
+                if (!SYNO.webfm.utils.checkFileRight(c)) {
+                    b.getMsgBox().alert(_WFT("filetable", "filetable_extract"), _WFT("error", "error_privilege_not_enough"));
+                    return false
+                }
+            }
+            return true
+        }
+    },
+    onTreeDialogHide: function() {
+        var a = this.TreeDialog;
+        if (!a) {
+            return
+        }
+        var b = a.getParameters();
+        if (b.fdrName) {
+            this.UpdateTargetPath(b.fdrName)
+        }
+    },
 
+*/
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Request = Ext.extend(Ext.util.Observable, {
@@ -246,7 +298,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onFinishTask: function (a, b) {
-        SYNO.Debug.debug("RoboCopy.Action.onFinishTask");
+        _DEBUG("RoboCopy.Action.onFinishTask");
         if ((b.result && b.result == "fail") || a === -1) {
             this.showErrItems(b);
         } else {
@@ -254,7 +306,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onCompleteTask: function (a) {
-        SYNO.Debug.debug("RoboCopy.Action.onCompleteTask");
+        _DEBUG("RoboCopy.Action.onCompleteTask");
         this.hideProgress();
 //        this.refreshTreeNode(this.srcIdArr, this.destId, "move" == this.action && a.bldir);
 //        if (Ext.isDefined(a.sdbid) && Ext.isDefined(a.sdbvol)) {
@@ -262,7 +314,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
 //        }
     },
     onProgressTask: function (progress, data) {
-        SYNO.Debug.debug("RoboCopy.Action.onProgressTask");
+        _DEBUG("RoboCopy.Action.onProgressTask");
         if (this.blMsgMinimized || this.isOwnerDestroyed()) {
             return;
         }
@@ -274,7 +326,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
     },
     onTaskCallBack: function (a, c, finished, progress, data) {
-        SYNO.Debug.debug("RoboCopy.Action.onTaskCallBack("+c+", finished:" + finished + ", progress:" + progress+")");
+        _DEBUG("RoboCopy.Action.onTaskCallBack("+c+", finished:" + finished + ", progress:" + progress+")");
         if (!data) {
             return;
         }
@@ -695,7 +747,7 @@ SYNO.SDS.RoboCopy.Launcher = Ext.extend(SYNO.SDS.AppInstance, {
                         action: "task_list",
                     },
                     callback: function (options, success, response) {
-                        SYNO.Debug.debug("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
+                        _DEBUG("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
                         if (success) {
                             if (!response.data || !Ext.isArray(response.data) || !response.data[0]) {
                                 return;
@@ -1165,7 +1217,6 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
                                 len = result.details[i].text.length;
                             }
                             if ((pos != -1) && (len > 0)) {
-//                                SYNO.Debug.debug("");
                                 value = value.substr(0, pos) 
                                     + '<font color="red"><u><b>' + value.substr(pos, len) + '</b></u></font>'
                                     + value.substr(pos + len);
@@ -1173,7 +1224,7 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
                         }
                     }
                 }
-//                SYNO.Debug.debug("Error value: " + value);
+//                _DEBUG("Error value: " + value);
                 if (value === "") {
                     return String.format(_RC_STR("error", "bad_field"), name);
                 }

@@ -9,8 +9,8 @@
 # References:   1) http://park2.wakwak.com/~tsuruzoh/Computer/Digicams/exif-e.html
 #               2) http://www.cybercom.net/~dcoffin/dcraw/
 #               3) http://www.ozhiker.com/electronics/pjmt/jpeg_info/olympus_mn.html
-#               4) Markku HŠnninen private communication (tests with E-1)
-#               5) RŽmi Guyomarch from http://forums.dpreview.com/forums/read.asp?forum=1022&message=12790396
+#               4) Markku Hanninen private communication (tests with E-1)
+#               5) Remi Guyomarch from http://forums.dpreview.com/forums/read.asp?forum=1022&message=12790396
 #               6) Frank Ledwon private communication (tests with E/C-series cameras)
 #               7) Michael Meissner private communication
 #               8) Shingo Noguchi, PhotoXP (http://www.daifukuya.com/photoxp/)
@@ -39,7 +39,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::APP12;
 
-$VERSION = '2.44';
+$VERSION = '2.62';
 
 sub PrintLensInfo($$$);
 
@@ -101,9 +101,12 @@ my %olympusLensTypes = (
     '0 26 10' => 'Olympus M.Zuiko Digital ED 12-100mm F4.0 IS Pro', #IB/NJ
     '0 27 10' => 'Olympus M.Zuiko Digital ED 30mm F3.5 Macro', #IB/NJ
     '0 28 10' => 'Olympus M.Zuiko Digital ED 25mm F1.2 Pro', #IB/NJ
+    '0 29 10' => 'Olympus M.Zuiko Digital ED 17mm F1.2 Pro', #IB
     '0 30 00' => 'Olympus Zuiko Digital ED 50-200mm F2.8-3.5 SWD', #7
+    '0 30 10' => 'Olympus M.Zuiko Digital ED 45mm F1.2 Pro', #IB
     '0 31 00' => 'Olympus Zuiko Digital ED 12-60mm F2.8-4.0 SWD', #7
     '0 32 00' => 'Olympus Zuiko Digital ED 14-35mm F2.0 SWD', #PH
+    '0 32 10' => 'Olympus M.Zuiko Digital ED 12-200mm F3.5-6.3', #IB
     '0 33 00' => 'Olympus Zuiko Digital 25mm F2.8', #PH
     '0 34 00' => 'Olympus Zuiko Digital ED 9-18mm F4.0-5.6', #7
     '0 35 00' => 'Olympus Zuiko Digital 14-54mm F2.8-3.5 II', #PH
@@ -121,6 +124,7 @@ my %olympusLensTypes = (
     '1 06 00' => 'Sigma APO 50-500mm F4.0-6.3 EX DG HSM', #6
     '1 06 10' => 'Sigma 30mm F1.4 DC DN | C', #NJ
     '1 07 00' => 'Sigma Macro 105mm F2.8 EX DG', #PH
+    '1 07 10' => 'Sigma 16mm F1.4 DC DN | C (017)', #IB
     '1 08 00' => 'Sigma APO Macro 150mm F2.8 EX DG HSM', #PH
     '1 09 00' => 'Sigma 18-50mm F2.8 EX DC Macro', #NJ
     '1 10 00' => 'Sigma 24mm F1.8 EX DG Aspherical Macro', #PH
@@ -165,6 +169,13 @@ my %olympusLensTypes = (
     '2 26 10' => 'Lumix G 25mm F1.7 Asph.', #NJ
     '2 27 10' => 'Leica DG Vario-Elmar 100-400mm F4.0-6.3 Asph. Power OIS', #NJ
     '2 28 10' => 'Lumix G Vario 12-60mm F3.5-5.6 Asph. Power OIS', #NJ
+    '2 29 10' => 'Leica DG Summilux 12mm F1.4 Asph.', #IB
+    '2 30 10' => 'Leica DG Vario-Elmarit 12-60mm F2.8-4 Asph. Power OIS', #IB
+    '2 33 10' => 'Lumix G X Vario 12-35mm F2.8 II Asph. Power OIS', #IB
+    '2 35 10' => 'Leica DG Vario-Elmarit 8-18mm F2.8-4 Asph.', #IB
+    '2 36 10' => 'Leica DG Elmarit 200mm F2.8 Power OIS', #IB
+    '2 37 10' => 'Leica DG Vario-Elmarit 50-200mm F2.8-4 Asph. Power OIS', #IB
+    '2 38 10' => 'Leica DG Vario-Summilux 10-25mm F1.7 Asph.', #IB
     '3 01 00' => 'Leica D Vario Elmarit 14-50mm F2.8-3.5 Asph.', #11
     '3 02 00' => 'Leica D Summilux 25mm F1.4 Asph.', #11
     # Tamron lenses
@@ -359,6 +370,8 @@ my %olympusCameraTypes = (
     D4586 => 'TG-4',
     D4587 => 'TG-860',
     D4591 => 'TG-870',
+    D4593 => 'TG-5', #IB
+    D4603 => 'TG-6', #IB
     D4809 => 'C2500L',
     D4842 => 'E-10',
     D4856 => 'C-1',
@@ -399,6 +412,11 @@ my %olympusCameraTypes = (
     S0059 => 'E-M10MarkII',
     S0061 => 'PEN-F', #forum7005
     S0065 => 'E-PL8',
+    S0067 => 'E-M1MarkII',
+    S0068 => 'E-M10MarkIII',
+    S0076 => 'E-PL9', #IB
+    S0080 => 'E-M1X', #IB
+    S0089 => 'E-M5MarkIII',
     SR45 => 'D220',
     SR55 => 'D320L',
     SR83 => 'D340L',
@@ -723,8 +741,8 @@ my %indexInfo = (
         Name => 'CameraID',
         Format => 'string', # this really should have been a string
     },
-    0x020b => { Name => 'EpsonImageWidth',  Writable => 'int16u' }, #PH
-    0x020c => { Name => 'EpsonImageHeight', Writable => 'int16u' }, #PH
+    0x020b => { Name => 'EpsonImageWidth',  Writable => 'int32u' }, #PH
+    0x020c => { Name => 'EpsonImageHeight', Writable => 'int32u' }, #PH
     0x020d => { Name => 'EpsonSoftware',    Writable => 'string' }, #PH
     0x0280 => { #PH
         %Image::ExifTool::previewImageTagInfo,
@@ -747,9 +765,17 @@ my %indexInfo = (
     0x0303 => { Name => 'WhiteBalanceBracket',  Writable => 'int16u' }, #11
     0x0304 => { Name => 'WhiteBalanceBias',     Writable => 'int16u' }, #11
    # 0x0305 => 'PrintMatching', ? #11
+    0x0400 => { #IB
+        Name => 'SensorArea',
+        Condition => '$$self{TIFF_TYPE} eq "ERF"',
+        Writable => 'undef',
+        Format => 'int16u',
+        Count => 4,
+        Notes => 'found in Epson ERF images',
+    },
     0x0401 => { #IB
         Name => 'BlackLevel',
-        Condition => '$format eq "int32u" and $count == 4',
+        Condition => '$$self{TIFF_TYPE} eq "ERF"',
         Writable => 'int32u',
         Count => 4,
         Notes => 'found in Epson ERF images',
@@ -812,6 +838,7 @@ my %indexInfo = (
             TagTable => 'Image::ExifTool::PrintIM::Main',
         },
     },
+    # 0x0e80 - undef[256] - offset 0x30: uint16[2] WB_RGBLevels = val[0]*561,65536,val[1]*431 (ref IB)
     0x0f00 => {
         Name => 'DataDump',
         Writable => 0,
@@ -1047,6 +1074,7 @@ my %indexInfo = (
     0x1035 => { #6
         Name => 'PreviewImageValid',
         Writable => 'int32u',
+        DelValue => 0,
         PrintConv => { 0 => 'No', 1 => 'Yes' },
     },
     0x1036 => { #6
@@ -1055,6 +1083,7 @@ my %indexInfo = (
         OffsetPair => 0x1037, # point to associated byte count
         DataTag => 'PreviewImage',
         Writable => 'int32u',
+        WriteGroup => 'MakerNotes',
         Protected => 2,
     },
     0x1037 => { #6
@@ -1063,6 +1092,7 @@ my %indexInfo = (
         OffsetPair => 0x1036, # point to associated offset
         DataTag => 'PreviewImage',
         Writable => 'int32u',
+        WriteGroup => 'MakerNotes',
         Protected => 2,
     },
     0x1038 => { Name => 'AFResult',             Writable => 'int16u' }, #11
@@ -1567,14 +1597,14 @@ my %indexInfo = (
         Writable => 'int8u',
         Count => 6,
         Notes => q{
-            6 numbers: 0. Make, 1. Unknown, 2. Model, 3. Sub-model, 4-5. Unknown.  Only
+            6 numbers: 1. Make, 2. Unknown, 3. Model, 4. Sub-model, 5-6. Unknown.  Only
             the Make, Model and Sub-model are used to identify the lens type
         },
         SeparateTable => 'LensType',
         # Have seen these values for the unknown numbers:
-        # 1: 0
-        # 4: 0, 2(Olympus lenses for which I have also seen 0 for this number)
-        # 5: 0, 16(new Lumix lenses)
+        # 2: 0
+        # 5: 0, 2(Olympus lenses for which I have also seen 0 for this number)
+        # 6: 0, 16(new Lumix lenses)
         ValueConv => 'my @a=split(" ",$val); sprintf("%x %.2x %.2x",@a[0,2,3])',
         # set unknown values to zero when writing
         ValueConvInv => 'my @a=split(" ",$val); hex($a[0])." 0 ".hex($a[1])." ".hex($a[2])." 0 0"',
@@ -1639,7 +1669,7 @@ my %indexInfo = (
         Writable => 'int8u',
         Count => 6,
         Notes => q{
-            6 numbers: 0. Make, 1. Unknown, 2. Model, 3. Sub-model, 4-5. Unknown.  Only
+            6 numbers: 1. Make, 2. Unknown, 3. Model, 4. Sub-model, 5-6. Unknown.  Only
             the Make and Model are used to identify the extender
         },
         ValueConv => 'my @a=split(" ",$val); sprintf("%x %.2x",@a[0,2])',
@@ -1671,6 +1701,7 @@ my %indexInfo = (
             0 => 'None',
             2 => 'Simple E-System',
             3 => 'E-System',
+            4 => 'E-System (body powered)', #forum9740
         },
     },
     0x1001 => { #6
@@ -1688,6 +1719,8 @@ my %indexInfo = (
             7 => 'FL-36R', #11
             9 => 'FL-14', #11
             11 => 'FL-600R', #11
+            13 => 'FL-LM3', #forum9740
+            15 => 'FL-900R', #7
         },
     },
     0x1002 => { #6
@@ -1722,6 +1755,7 @@ my %indexInfo = (
         OffsetPair => 0x102,
         DataTag => 'PreviewImage',
         Writable => 'int32u',
+        WriteGroup => 'MakerNotes',
         Protected => 2,
     },
     0x102 => { #PH
@@ -1729,6 +1763,7 @@ my %indexInfo = (
         OffsetPair => 0x101,
         DataTag => 'PreviewImage',
         Writable => 'int32u',
+        WriteGroup => 'MakerNotes',
         Protected => 2,
     },
     0x200 => { #4
@@ -2388,20 +2423,27 @@ my %indexInfo = (
             5 => 'Green',
         },
     },
-    0x600 => { #PH/4
+    0x600 => { #PH/4/22
         Name => 'DriveMode',
         Writable => 'int16u',
         Count => -1,
-        Notes => '2 or 3 numbers: 1. Mode, 2. Shot number, 3. Mode bits',
+        Notes => '2, 3 or 5 numbers: 1. Mode, 2. Shot number, 3. Mode bits, 5. Shutter mode',
         PrintConv => q{
-            my ($a,$b,$c) = split ' ',$val;
-            return 'Single Shot' unless $a;
+            my ($a,$b,$c,$d,$e) = split ' ',$val;
+            if ($e) {
+                $e = '; ' . ({ 2 => 'Anti-shock 0', 4 => 'Electronic shutter' }->{$e} || "Unknown ($e)");
+            } else {
+                $e = '';
+            }
+            return "Single Shot$e" unless $a;
             if ($a == 5 and defined $c) {
                 $a = DecodeBits($c, { #6
                     0 => 'AE',
                     1 => 'WB',
                     2 => 'FL',
                     3 => 'MF',
+                    4 => 'ISO', #forum8906
+                    5 => 'AE Auto', #forum8906
                     6 => 'Focus', #PH
                 }) . ' Bracketing';
                 $a =~ s/, /+/g;
@@ -2414,7 +2456,7 @@ my %indexInfo = (
                 );
                 $a = $a{$a} || "Unknown ($a)";
             }
-            return "$a, Shot $b";
+            return "$a, Shot $b$e";
         },
     },
     0x601 => { #6
@@ -2430,7 +2472,7 @@ my %indexInfo = (
                 3 => 'Bottom to Top',
                 4 => 'Top to Bottom',
             );
-            return ($a{$a} || "Unknown ($a)") . ', Shot ' . $b;
+            return(($a{$a} || "Unknown ($a)") . ', Shot ' . $b);
         },
     },
     0x603 => { #PH/4
@@ -2463,7 +2505,29 @@ my %indexInfo = (
         Count => 2,
         PrintConv => {
             '0 0' => 'No',
+            '3 2' => 'ND2 (1EV)', #IB
+            '3 4' => 'ND4 (2EV)', #IB
+            '3 8' => 'ND8 (3EV)', #IB
+            '3 16' => 'ND16 (4EV)', #IB
+            '3 32' => 'ND32 (5EV)', #IB
+            '5 4' => 'HDR1', #forum8906
+            '6 4' => 'HDR2', #forum8906
+            '8 8' => 'Tripod high resolution', #IB
+            '9 2' => 'Focus-stacked (2 images)', #IB
+            '9 3' => 'Focus-stacked (3 images)', #IB
+            '9 4' => 'Focus-stacked (4 images)', #IB
+            '9 5' => 'Focus-stacked (5 images)', #IB
+            '9 6' => 'Focus-stacked (6 images)', #IB
+            '9 7' => 'Focus-stacked (7 images)', #IB
             '9 8' => 'Focus-stacked (8 images)',
+            '9 9' => 'Focus-stacked (9 images)', #IB
+            '9 10' => 'Focus-stacked (10 images)', #IB
+            '9 11' => 'Focus-stacked (11 images)', #IB
+            '9 12' => 'Focus-stacked (12 images)', #IB
+            '9 13' => 'Focus-stacked (13 images)', #IB
+            '9 14' => 'Focus-stacked (14 images)', #IB
+            '9 15' => 'Focus-stacked (15 images)', #IB
+            '11 16' => 'Hand-held high resolution', #IB
         },
     },
     0x900 => { #11
@@ -2790,7 +2854,7 @@ my %indexInfo = (
     # 0x801 LensShadingParams, int16u[16] (ref 11)
     0x0805 => { #IB
         Name => 'SensorCalibration',
-        Notes => '2 numbers: 1. recommended maximum, 2. calibration midpoint',
+        Notes => '2 numbers: 1. Recommended maximum, 2. Calibration midpoint',
         Writable => 'int16s',
         Count => 2,
     },
@@ -3140,7 +3204,7 @@ my %indexInfo = (
         Writable => 'int16s',
         RawConv => '($val and $val ne "-32768") ? $val : undef', # ignore 0 and -32768
         # ValueConv => '-2*(($val/135)**2)+55', #11
-        ValueConv => '84 - 3 * $val / 26', #http://u88.n24.queensu.ca/exiftool/forum/index.php/topic,5423.0.html
+        ValueConv => '84 - 3 * $val / 26', #https://exiftool.org/forum/index.php/topic,5423.0.html
         ValueConvInv => 'int((84 - $val) * 26 / 3 + 0.5)',
         PrintConv => 'sprintf("%.1f C",$val)',
         PrintConvInv => '$val=~s/ ?C$//; $val',
@@ -3647,6 +3711,7 @@ my %indexInfo = (
     },
     0x7f => {
         Name => 'DateTimeOriginal', #(NC)
+        Description => 'Date/Time Original',
         Format => 'string[24]',
         Groups => { 2 => 'Time' },
         PrintConv => '$self->ConvertDateTime($val)',
@@ -3845,7 +3910,21 @@ my %indexInfo = (
             0 => 'ZoomedPreviewStart',
             1 => 'ZoomedPreviewLength',
         },
-        RawConv => 'Image::ExifTool::Exif::ExtractImage($self,$val[0],$val[1],"ZoomedPreviewImage")',
+        RawConv => q{
+            @grps = $self->GetGroup($$val{0});  # set groups from input tag
+            Image::ExifTool::Exif::ExtractImage($self,$val[0],$val[1],"ZoomedPreviewImage");
+        },
+    },
+    # this is actually for PanasonicRaw tags, but it uses the lens lookup here
+    LensType => {
+        Require => {
+            0 => 'LensTypeMake',
+            1 => 'LensTypeModel',
+        },
+        Notes => 'based on tags found in some Panasonic RW2 images',
+        SeparateTable => 'LensType',
+        ValueConv => '"$val[0] $val[1]"',
+        PrintConv => \%olympusLensTypes,
     },
 );
 
@@ -3874,7 +3953,7 @@ sub ExtenderStatus($$$)
     $lensType =~ / F(\d+(\.\d+)?)/ or return 1;
     # If the maximum aperture at the maximum focal length is greater than the
     # known max/max aperture of the lens, then the extender must be attached
-    return ($maxAperture - $1 > 0.2) ? 1 : 2;
+    return(($maxAperture - $1 > 0.2) ? 1 : 2);
 }
 
 #------------------------------------------------------------------------------
@@ -3955,7 +4034,7 @@ Olympus or Epson maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2016, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
