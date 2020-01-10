@@ -744,7 +744,7 @@ sub _action_test
         my $rule_idx = 0;
         foreach my $rule (@$cfg) {
             # Create processor
-            print_str "[". $rule->priority()."] - ", $rule->description(), "\n";
+            print_str $rule->priority() . ": [" . $rule->src_ext() . "] - ", $rule->description(), "\n";
             my $processor = new rule_processor($rule);
             my $dir_idx = 0;
             foreach my $dir(@dirs) {

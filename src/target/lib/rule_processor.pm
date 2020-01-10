@@ -35,6 +35,25 @@ use Syno;
 
 my $writed_file;
 
+use constant EXCLUDE_NAMES => (
+    '@tmp',
+    '@eadir',
+#    '.SynologyWorkingDirectory',
+    '#recycle',
+#    'desktop.ini',
+#    '.DS_STORE',
+#    'Icon\r',
+    'thumbs.db',
+#    '$Recycle.Bin',
+    '@sharebin',
+#    'System Volume Information',
+#    'Program Files',
+#    'Program Files (x86)',
+#    'ProgramData',
+    '#snapshot',
+);
+
+
 sub new {
     my($class, $rule) = @_;
     
@@ -230,6 +249,7 @@ sub _parse_str($)
     $_[0] =~ s/^\s+|\s+$//g;
     return $_[0];
 }
+
 sub get_file_info($$\%)
 {
     my ($self, $file, $info) = @_;
@@ -263,7 +283,7 @@ sub get_file_info($$\%)
     $info->{date} = (stat($file))[9] unless exists $info->{date};
     # get file names
     my($file_name, $file_dir, $suffix) = fileparse($file, qr/\.[^.]*/);
-    $info->{file_ext} = substr($suffix, 1) if defined $suffix;
+    $info->{file_ext} = substr($suffix, 1) if (defined $suffix) && ($suffix ne '');
     $file_dir = substr($file_dir, length($self->{src_path})) if defined $self->{src_path};
     $info->{file_dir} = $file_dir if defined $file_dir;
     $info->{file_name} = $file_name if defined $file_name;
@@ -444,8 +464,18 @@ sub prepare($$;\$) {
     $error = \$tmp_error unless ref($error) eq 'SCALAR';
 
     my $src_ext = $self->{src_ext};
-    $src_ext = '*' if !defined($src_ext) || $src_ext eq '';
-    $self->{src_mask} = $src_ext eq '*' ? '(\..*?|)$' : "\.$src_ext\$";
+    $src_ext = '' unless defined($src_ext);
+    if ($src_ext eq '') {
+        $self->{src_mask} = '^(\.|)$';
+    }
+    elsif ($src_ext =~ /^\*+$/) {
+        $self->{src_mask} = '^(\..*?|)$';
+    }
+    else {
+        $src_ext =~ s/\?/./;
+        $src_ext =~ s/\*/.*?/;
+        $self->{src_mask} = "^\.$src_ext\$";
+    }
 
     my $syno_folder = Syno::share_path($self->{'dest_folder'});
     unless (defined $syno_folder) {
@@ -489,19 +519,25 @@ sub find_files(;\$)
         if ( -d $src_path) {
 #                   print "\t$src_path\n" if $verbose;
             find sub {
-                # Skip @eaDir folders
-                if (-d && /\@eaDir/) {
-                    $File::Find::prune = 1;
-                    return;
-                }
                 my $file_name = $_;
                 utf8::decode($file_name) unless utf8::is_utf8($file_name);
+                # Skip exclude names
+                foreach my $exclude (EXCLUDE_NAMES) {
+                    if ($file_name =~ /$exclude/i){
+                        $File::Find::prune = 1;
+                        return;
+                    }
+                }
+                if (-d "$file_name") {
+                    return;
+                }
                 my $file_dir = $File::Find::dir;
                 utf8::decode($file_dir) unless utf8::is_utf8($file_dir);
                 my $file_path = catfile($file_dir, $file_name);
 #                    print STDERR "0: '$_'" . (utf8::is_utf8($_) ? "[UTF8]" : "[bytes]") . "\n";
-                if ( -f "$file_name" && $file_name =~ /$self->{src_mask}/i) { 
-#                        print STDERR "1: '$file_path" . (utf8::is_utf8($file_path) ? "[UTF8]" : "[bytes]") . "\n";
+                my $file_ext = (fileparse($file_name, qr/\.[^.]*/))[2];
+                if ( -f "$file_name" && $file_ext =~ /$self->{src_mask}/i) { 
+#                    print STDERR "1: '$file_path" . (utf8::is_utf8($file_path) ? "[UTF8]" : "[bytes]") . "\n";
                     push @files, $file_path;
                     if (ref($total_size) eq 'SCALAR') {
                         my $file_size = -s "$file_path";
