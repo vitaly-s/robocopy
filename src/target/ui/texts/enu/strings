@@ -9,7 +9,7 @@ menu_run_move      = "Run - Move"
 [ui]
 priority           = "Priority"
 src_dir            = "Source dir"
-src_ext            = "Extention"
+src_ext            = "Extension"
 src_remove         = "Action"
 dest_folder        = "Destination folder"
 dest_dir           = "Destination dir"
