@@ -618,23 +618,33 @@ sub process_file($$;\$)
     else {
 #            local $SIG{KILL} = \&cleanup;
         $writed_file = $dest_file;
+
         if ($src_remove) {
-            unless (rename($file, $dest_file)) {
-                $$error = "Cannot move file \"$file\" to \"$dest_file\"";
+            unless (move($file, $dest_file)) {
+                $$error = "Cannot move file \"$file\" to \"$dest_file\": $!";
                 return 0;
             }
         }
         else {
             unless (copy($file, $dest_file)) {
-                $$error = "Cannot copy file \"$file\" to \"$dest_file\"";
+                $$error = "Cannot copy file \"$file\" to \"$dest_file\": $!";
                 return 0;
             }
-            chown $self->{user_uid}, $self->{user_gid}, ($dest_file) if defined($self->{user_uid}) && defined ($self->{user_gid});
         }
+        # update file owner
+        chown $self->{user_uid}, $self->{user_gid}, ($dest_file) if defined($self->{user_uid}) && defined ($self->{user_gid});
+        # update file time
         utime($file_time, $file_time, $dest_file);
         undef $writed_file;
     }
     return 1;
+}
+
+sub crear_dir(@)
+{
+    foreach my $top_dir (@_) {
+        print STDERR "Try clear '$top_dir'\n";
+    }
 }
 
 sub cleanup
