@@ -260,7 +260,7 @@ sub get_file_info($$\%)
 
     
     my $exifTool = new Image::ExifTool;
-    $exifTool->Options(DateFormat => '%Y-%m-%d %H:%M:%S', CoordFormat => '%+.6f', Exclude => ['ThumbnailImage']);
+    $exifTool->Options(DateFormat => '%Y-%m-%d %H:%M:%S', CoordFormat => '%+.6f', , QuickTimeUTC => 1, Exclude => ['ThumbnailImage']);
     #'%Y-%m-%d %H:%M:%S%z'
 
     $exifTool->ExtractInfo($file);
