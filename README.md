@@ -3,6 +3,20 @@
 # RoboCopy
 This package will help organize your collection of photos and videos into a custom folder structure using rules.
 
+## How to install
+
+**Step 1:** Install standard PERL package
+
+**Step 2:** Download the latest `.spk` from [here](https://github.com/vitaly-s/robocopy/releases/latest)
+
+**Step 3:** Open Package Center in DSM and select the `Manual Install` option.
+
+**Step 4:** Click `Yes` when warned about using a package from an unknown publisher.
+
+**Step 5:** Complete the wizard.
+
+**Step 6:** Use the RoboCopy app icon in the main menu to access the RoboCopy UI where you can manage your setup.
+
 ## Rules
 
 Rules specify what actions need to be performed on files.
@@ -35,15 +49,15 @@ The [Phil Harvey's ExifTool library](http://www.sno.phy.queensu.ca/~phil/exiftoo
     <tr><td>mm</td><td>Minute as a zero-padded decimal number.</td><td>06</td></tr>
     <tr><td>s</td><td>Second as a decimal number.</td><td>5</td></tr>
     <tr><td>ss</td><td>Second as a zero-padded decimal number.</td><td>05</td></tr>
-    <tr><td>tt</td><td>Locale’s equivalent of either AM or PM</td><td>AM</td></tr>
+    <tr><td>tt</td><td>Locale's equivalent of either AM or PM</td><td>AM</td></tr>
     <tr><td>d</td><td>Day of the month as a decimal number.</td><td>2</td></tr>
     <tr><td>dd</td><td>Day of the month as a zero-padded decimal number.</td><td>02</td></tr>
-    <tr><td>ddd</td><td>Weekday as locale’s abbreviated name.</td><td>Mon</td></tr>
-    <tr><td>dddd</td><td>Weekday as locale’s full name.</td><td>Monday</td></tr>
+    <tr><td>ddd</td><td>Weekday as locale's abbreviated name.</td><td>Mon</td></tr>
+    <tr><td>dddd</td><td>Weekday as locale's full name.</td><td>Monday</td></tr>
     <tr><td>M</td><td>Month as a decimal number.</td><td>9</td></tr>
     <tr><td>MM</td><td>Month as a zero-padded decimal number.</td><td>09</td></tr>
-    <tr><td>MMM</td><td>Month as locale’s abbreviated name.</td><td>Sep</td></tr>
-    <tr><td>MMMM</td><td>Month as locale’s full name.</td><td>September</td></tr>
+    <tr><td>MMM</td><td>Month as locale's abbreviated name.</td><td>Sep</td></tr>
+    <tr><td>MMMM</td><td>Month as locale's full name.</td><td>September</td></tr>
     <tr><td>y</td><td>Year without century as a decimal number.</td><td>1</td></tr>
     <tr><td>yy</td><td>Year without century as a zero-padded decimal number.</td><td>01</td></tr>
     <tr><td>yyyy</td><td>Year with century as a decimal number.</td><td>2001</td></tr>
@@ -71,20 +85,6 @@ The [Phil Harvey's ExifTool library](http://www.sno.phy.queensu.ca/~phil/exiftoo
 - software: DSM 4.2, DSM 4.3, DSM 6.1, DSM 6.2
 - hardware: DS209, DS218+
 
-
-## How to install
-
-**Step 1:** Install standard PERL package
-
-**Step 2:** Download the latest `.spk` from [here](https://github.com/vitaly-s/robocopy/releases/latest)
-
-**Step 3:** Open Package Center in DSM and select the `Manual Install` option.
-
-**Step 4:** Click `Yes` when warned about using a package from an unknown publisher.
-
-**Step 5:** Complete the wizard.
-
-**Step 6:** Use the RoboCopy app icon in the main menu to access the RoboCopy UI where you can manage your setup.
 
 
 ## Build
