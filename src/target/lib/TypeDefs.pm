@@ -1,23 +1,18 @@
 package TypeDefs;
 
-#use strict;
-#use warnings;
 use Scalar::Util;
-#use Data::Dumper;
+use Data::Dumper;
 
-#use base qw(Exporter);
-#require Exporter;
-
-#our @ISA = qw(Exporter);
-
-#our @EXPORT_OK = qw/ compare_positions compute_bbox /;
-#    CodeRef Object 
+#    CodeRef 
 #    class_type type
+#    class_type from converter class
 
 our @EXPORT = qw(
     Any Defined Undef Ref ArrayRef HashRef 
+    Object 
     Str Bool Num Int
     declare typedef as where
+    coerce from via
 );
 
 our %TYPES;
@@ -42,16 +37,8 @@ sub mk_get_type($) {
     };
 }
 
-#BEGIN {
-#    my $caller = caller(0);
-#    print "!!! BEGIN " . __PACKAGE__ . "($caller)\n";
-#}
 
-#END {
-#    my $caller = caller(0);
-#    print "!!! END " . __PACKAGE__ . "($caller)\n";
-#}
-
+#TODO -base -declare -types
 sub import {
 #    use strict;
 #    no strict 'refs';
@@ -81,102 +68,7 @@ sub import {
 }
 
 
-#########
-sub declare
-{
-#    print '#' x 20, "\nTYPEDEF:\n", Dumper(@_), "\n",scalar @_, "\n", '#' x 20, "\n\n\n";
-    my %opts;
-    if (@_ % 2 == 0)
-    {
-        %opts = @_;
-        if (@_==2 and $_[0]=~ /^_*[A-Z]/ and $_[1] =~ /^[0-9]+$/)
-        {
-            _carp("Possible missing comma after 'declare $_[0]'");
-        }
-    }
-    else
-    {
-        (my($name), %opts) = @_;
-        _croak "Cannot provide two names for type" if exists $opts{name};
-        $opts{name} = $name;
-    }
-    
-    my $caller = caller; #($opts{_caller_level} || 0);
-    $opts{library} = $caller;
-
-    if (defined $opts{parent}) {
-        $opts{parent} = typedef($opts{parent}) 
-            || _croak 'Invalid parent "' . $opts{parent}  . '" for type "' . $opts{name} . '"';
-    }
-
-#    if (defined $opts{parent})
-#    {
-#        $opts{parent} = to_TypeTiny($opts{parent});
-#        
-#        unless (TypeTiny->check($opts{parent}))
-#        {
-#            $caller->isa("Type::Library")
-#                or _croak("Parent type cannot be a %s", ref($opts{parent})||'non-reference scalar');
-#            $opts{parent} = $caller->meta->get_type($opts{parent})
-#                or _croak("Could not find parent type");
-#        }
-#    }
-    
-    my $type = $TYPES{$opts{name}} ||= __PACKAGE__->new(%opts);
-
-#    if (defined $opts{parent})
-#    {
-#        $type = delete($opts{parent})->create_child_type(%opts);
-#    }
-#    else
-#    {
-#        my $bless = delete($opts{bless}) || "Type::Tiny";
-#        eval "require $bless";
-#        $type = $bless->new(%opts);
-#    }
-    
-#    if ($caller->isa("Type::Library"))
-#    {
-#        $caller->meta->add_type($type) unless $type->is_anon;
-#    }
-    
-#    return $type;
-#    print '#' x 20, "\nTYPEDEF:\n", Dumper($type), "\n",scalar @_, "\n", '#' x 20, "\n\n\n";
-
-#    my $func = sub {
-#        $TYPES{$opts{name}} ||= $type;
-#    };
-#    *{$type->name} = \&$func;
-
-}
-
-
-
-sub as (@)
-{
-#    print '-' x 20, "\nAS:\n", Dumper(@_), "\n", '-' x 20, "\n\n";
-    parent => @_;
-}
-
-sub where (&;@)
-{
-#    print '-' x 20, "\nWHERE:\n", Dumper(@_), "\n", '-' x 20, "\n\n";
-    constraint => @_;
-}
-
-sub message (&;@)
-{
-    message => @_;
-}
-
-
-sub typedef($) {
-    my $type = shift || _croak "Requared type name";
-    return $type if ref($type) eq __PACKAGE__;
-    $TYPES{$type};
-}
-
-
+#############
 
 sub Any () {
     $TYPES{Any} ||= __PACKAGE__->new(
@@ -212,33 +104,43 @@ sub Ref () {
 sub _ArrayRef () {
 #    print '-' x 20, "\nArrayRef:\n", Dumper(@_), "\n", '-' x 20, "\n\n";
     $TYPES{ArrayRef} ||= __PACKAGE__->new(
-        name         => 'ArrayRef',
-        parent       => Ref,
-        constraint   => sub { ref $_ eq 'ARRAY' },
+        name        => 'ArrayRef',
+        parent      => Ref,
+        constraint  => sub { ref $_ eq 'ARRAY' },
     );
 }
 
 sub ArrayRef ($) {
     return _ArrayRef() unless @_;
     my $args = shift;
-#    print '-' x 20, "\nArrayRef():\n", Dumper(@_), "\n", '-' x 20, "\n\n";
-#    print '-' x 20, "\nArrayRef():\n", Dumper($args), "\n", '-' x 20, "\n\n";
     my $param = Any;
     $param = typedef($args->[0]) if defined $args->[0]; # and TODO check TYPE
-#     print '-' x 20, "\nArrayRef (",ref($param),"):\n", Dumper($param), "\n", '-' x 20, "\n\n";
     _croak "Ivalid ArrayRef parameter" unless ref($param) eq __PACKAGE__;
-#    my $min = $_[1] if defined $_[1];
-#    my $max = $_[2] if defined $_[2];
-    #$TYPES{ArrayRef} ||= 
     __PACKAGE__->new(
-        name        => 'ArrayRef['.$param->{name}.']',
+        name        => 'ArrayRef['.$param->{name}.']', #'__ANON__'
         parent      => _ArrayRef(),
-#        param       => $param,
         constraint  => sub { 
             my $array = shift;
             $param->check($_) || return for @$array;
             return !!1;
             },
+        converter   => sub { 
+            my $arg = shift;
+            my $result = [];
+#            print "ArrayRef.converter [begin]\n" . Dumper($arg) . "\n\n";
+            foreach my $v ( @$arg )
+            {
+                my $r = $param->_convert($v);
+#                print "ArrayRef.converter [v]\n" . Dumper($r) . "\n";
+                push @$result, $r;
+            }
+#            print "ArrayRef.converter [end]\n" . Dumper($result) . "\n\n";
+            return $result;
+            }
+#        coercion => sub {
+#            my $array = shift;
+#            map {$param->convert($_)} for @$array;
+#            },
     );
 }
 
@@ -299,23 +201,99 @@ sub Int () {
     );
 }
 
-sub class_type ($) {
-    my $class = shift;
-    $TYPES{CLASS}{$class} ||= __PACKAGE__->new(
-        name         => $class,
-        parent       => Object,
-        constraint   => sub { $_->isa($class) },
-        class        => $class,
-    );
+
+#sub type {
+#    my $name    = ref($_[0]) ? '__ANON__' : shift;
+#    my $coderef = shift;
+#    __PACKAGE__->new(
+#        name         => $name,
+#        constraint   => $coderef,
+#    );
+#}
+
+
+#########
+sub declare
+{
+#    print '#' x 20, "\nTYPEDEF:\n", Dumper(@_), "\n",scalar @_, "\n", '#' x 20, "\n\n\n";
+    my %opts;
+    if (@_ % 2 == 0)
+    {
+        %opts = @_;
+        if (@_==2 and $_[0]=~ /^_*[A-Z]/ and $_[1] =~ /^[0-9]+$/)
+        {
+            _carp("Possible missing comma after 'declare $_[0]'");
+        }
+    }
+    else
+    {
+        (my($name), %opts) = @_;
+        _croak "Cannot provide two names for type" if exists $opts{name};
+        $opts{name} = $name;
+    }
+    
+    my $caller = caller; #($opts{_caller_level} || 0);
+    $opts{library} = $caller;
+
+    if (defined $opts{parent}) {
+        $opts{parent} = typedef($opts{parent}) 
+            || _croak 'Invalid parent "' . $opts{parent}  . '" for type "' . $opts{name} . '"';
+    }
+    
+    my $type = $TYPES{$opts{name}} ||= __PACKAGE__->new(%opts);
 }
 
-sub type {
-    my $name    = ref($_[0]) ? '__ANON__' : shift;
-    my $coderef = shift;
-    __PACKAGE__->new(
-        name         => $name,
-        constraint   => $coderef,
-    );
+
+
+sub as (@)
+{
+#    print '-' x 20, "\nAS:\n", Dumper(@_), "\n", '-' x 20, "\n\n";
+    parent => @_;
+}
+
+sub where (&;@)
+{
+#    print '-' x 20, "\nWHERE:\n", Dumper(@_), "\n", '-' x 20, "\n\n";
+    constraint => @_;
+}
+
+sub message (&;@)
+{
+    message => @_;
+}
+
+
+sub coerce
+{
+    my ($type, @args) = @_;
+    $type = typedef($type);
+ 
+    while (@args)
+    {
+        my $from = typedef(shift @args) || _croak "Invalid type for coercion";
+        my $coercion = shift @args;
+        _croak "Coercions must be code reference" unless ref $coercion eq 'CODE';
+        push @{$type->coercion_map}, $from, $coercion;
+    }
+#    	return $type->coercion->add_type_coercions(@opts);
+
+}
+
+sub from (@)
+{
+    return @_;
+}
+
+sub via (&;@)
+{
+    return @_;
+}
+
+
+sub typedef($) {
+    my $type = shift || _croak "Requared type name";
+    return $type if ref($type) eq __PACKAGE__;
+    $TYPES{$type};
 }
 
 #########
@@ -332,6 +310,8 @@ sub new {
     $self;
 }
 
+sub coercion_map { $_[0]{coercion_map} ||= [] };
+
 sub check { 
     my $self = shift;
     my ($value) = @_;
@@ -343,6 +323,70 @@ sub check {
     local $_ = $value;
     $self->{constraint}->($value);
 }
+
+sub _convert ($$) {
+    my ($self, $value) = @_;
+#    print $self->name . '._convert(' . $value . ")\n";
+    my @coercions = @{$self->coercion_map};
+#    print "\@coercions :\n", Dumper(@coercions), "\n\n";
+
+    # These arrays will be closed over.
+    while (@coercions > 1)
+    {
+        my $from = shift @coercions;
+        my $via = shift @coercions;
+        if ($from->check($value)) {
+#            print '  convert from ' . $from->name . "\n";
+            local $_ = $value;
+            $value = &$via($_);
+#            print '    result ' . $value . "\n";
+            return $value;
+        }
+    }
+
+    if (ref $self->{converter} eq 'CODE') {
+        my $func = $self->{converter};
+        local $_ = $value;
+        return &$func($_);
+    }
+    if ($self->{parent}) {
+        return $self->{parent}->_convert($value);
+    }
+    return $value;
+}
+
+sub value($$;$) {
+#    print '-' x 20, "\n", Dumper(@_), "\n", '-' x 20, "\n\n";
+    my ($self, $value, $name) = @_;
+#    return $value unless defined $value;
+    $name ||= 'Value';
+    #TODO convert value
+#    print "BEFORE:\n" . Dumper($value) . "\n\n";
+    $value = $self->_convert($value);
+#    print "AFTER:\n" . Dumper($value) . "\n\n";
+    $self->check($value) || _croak $name . ' must be "' . $self->name .'"';
+    $value;
+}
+
+
+#sub value_from ($\%$) {
+#    my ($self, %hash, $key) = @_;
+#    
+#    return undef unless exists $hash{$key};
+#    my $value = $hash{$key};
+#}
+
+#sub copy_value($\%\%$) {
+#    my ($self, %dest, %src, $key, $requared) = @_;
+#    if (exists $src{$key}) {
+#        my $value = $src{$key};
+#        Rectangle->check($value) || _croak '"' . $key . '" value must be "' . $self->name . '"';
+#        $dest{$key} = $self->$value($src{$key} );
+#    }
+#    else {
+#        $requared && _croak '"' . $key . '" is requared';
+#    }
+#}
 
 #sub get_message { 
 #    my $self = shift;

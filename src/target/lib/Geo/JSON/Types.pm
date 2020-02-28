@@ -11,7 +11,6 @@ BEGIN {
     use TypeDefs
     qw/ 
         Rectangle 
-        Geometry
         LinearRing
         LineString
         LineStrings
@@ -19,6 +18,8 @@ BEGIN {
         Polygons
         Position
         Positions
+        Geometry
+        Geometries
     /;
 
     declare Rectangle,
@@ -49,7 +50,16 @@ BEGIN {
 
     declare Polygons,
         as ArrayRef [Polygon];
+        
+    declare Geometry, 
+        as Object, 
+        where { $_->isa("Geo::JSON::Geometry") };
 
+    coerce Geometry,
+        from HashRef, via { Geo::JSON::load($_) };
+
+    declare Geometries,
+        as ArrayRef [Geometry];
 }
 
 1;

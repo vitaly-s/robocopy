@@ -39,6 +39,7 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
     if (exists $args->{bbox}) {
+#        $self->{bbox} = Rectangle->value($args->{bbox}, '"bbox"');
         my $value = $args->{bbox};
         Rectangle->check($value) || croak "'bbox' value must be 'Rectangle'";
         $self->{bbox} = $value;
