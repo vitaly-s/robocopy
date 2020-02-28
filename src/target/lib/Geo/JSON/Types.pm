@@ -20,6 +20,8 @@ BEGIN {
         Positions
         Geometry
         Geometries
+        Feature
+        Features
     /;
 
     declare Rectangle,
@@ -50,16 +52,32 @@ BEGIN {
 
     declare Polygons,
         as ArrayRef [Polygon];
-        
+
     declare Geometry, 
         as Object, 
         where { $_->isa("Geo::JSON::Geometry") };
 
+    declare Geometries,
+        as ArrayRef [Geometry];
+
+    declare Feature, 
+        as Object, 
+        where { $_->isa("Geo::JSON::Feature") };
+
+    declare Features,
+        as ArrayRef [Feature];
+
     coerce Geometry,
         from HashRef, via { Geo::JSON::load($_) };
 
-    declare Geometries,
-        as ArrayRef [Geometry];
+    coerce Feature,
+        from HashRef, via { Geo::JSON::load($_) };
+
+    ####
+    coerce Str,
+        from Rectangle, via { '[' . join(',', @$_) . ']' },
+        from Undef, via { '<UNDEF>' };
+
 }
 
 1;

@@ -11,6 +11,8 @@ sub _init {
     my ($self, $args) = @_;
     $self->SUPER::_init($args);
 
+    croak "Required argument 'coordinates'" unless exists $args->{coordinates};
+
     if (exists $args->{coordinates}) {
         my $value = $args->{coordinates};
         Positions->check($value) || croak "'coordinates' value must be 'Positions'";
@@ -18,5 +20,9 @@ sub _init {
     }
 }
 
+#sub all_positions
+#{
+#    shift->{coordinates};
+#}
 
 1;

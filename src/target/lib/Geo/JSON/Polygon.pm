@@ -11,7 +11,9 @@ sub _init {
     my ($self, $args) = @_;
     $self->SUPER::_init($args);
 
-    if (exists $args->{coordinates}) {
+    croak "Required argument 'coordinates'" unless exists $args->{coordinates};
+
+if (exists $args->{coordinates}) {
         my $value = $args->{coordinates};
         Polygon->check($value) || croak "'coordinates' value must be 'Polygon'";
         $self->{coordinates} = $value;

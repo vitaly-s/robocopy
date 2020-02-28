@@ -39,10 +39,10 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
     if (exists $args->{bbox}) {
-#        $self->{bbox} = Rectangle->value($args->{bbox}, '"bbox"');
-        my $value = $args->{bbox};
-        Rectangle->check($value) || croak "'bbox' value must be 'Rectangle'";
-        $self->{bbox} = $value;
+        $self->{bbox} = Rectangle->value($args->{bbox}, '"bbox"');
+#        my $value = $args->{bbox};
+#        Rectangle->check($value) || croak "'bbox' value must be 'Rectangle'";
+#        $self->{bbox} = $value;
     }
 }
 
@@ -77,7 +77,9 @@ sub all_positions
 
 sub compute_bbox
 {
-    return Geo::JSON::Utils::compute_bbox( shift->all_positions );
+    my $positions = shift->all_positions;
+    return undef unless defined $positions;
+    return Geo::JSON::Utils::compute_bbox( $positions );
 }
 
 1;

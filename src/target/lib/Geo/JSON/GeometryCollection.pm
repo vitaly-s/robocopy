@@ -1,8 +1,8 @@
 package Geo::JSON::GeometryCollection;
 
-use base qw(Geo::JSON::Base);
+use base qw(Geo::JSON::Geometry);
 use TypeDefs;
-use Scalar::Util;
+#use Scalar::Util;
 
 sub _init {
     my ($self, $args) = @_;

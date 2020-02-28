@@ -110,7 +110,7 @@ sub _ArrayRef () {
     );
 }
 
-sub ArrayRef ($) {
+sub ArrayRef (;$) {
     return _ArrayRef() unless @_;
     my $args = shift;
     my $param = Any;
@@ -130,7 +130,7 @@ sub ArrayRef ($) {
 #            print "ArrayRef.converter [begin]\n" . Dumper($arg) . "\n\n";
             foreach my $v ( @$arg )
             {
-                my $r = $param->_convert($v);
+                my $r = $param->convert($v);
 #                print "ArrayRef.converter [v]\n" . Dumper($r) . "\n";
                 push @$result, $r;
             }
@@ -324,9 +324,9 @@ sub check {
     $self->{constraint}->($value);
 }
 
-sub _convert ($$) {
+sub convert ($$) {
     my ($self, $value) = @_;
-#    print $self->name . '._convert(' . $value . ")\n";
+#    print $self->name . '.convert(' . $value . ")\n";
     my @coercions = @{$self->coercion_map};
 #    print "\@coercions :\n", Dumper(@coercions), "\n\n";
 
@@ -350,7 +350,7 @@ sub _convert ($$) {
         return &$func($_);
     }
     if ($self->{parent}) {
-        return $self->{parent}->_convert($value);
+        return $self->{parent}->convert($value);
     }
     return $value;
 }
@@ -362,19 +362,20 @@ sub value($$;$) {
     $name ||= 'Value';
     #TODO convert value
 #    print "BEFORE:\n" . Dumper($value) . "\n\n";
-    $value = $self->_convert($value);
+    $value = $self->convert($value);
 #    print "AFTER:\n" . Dumper($value) . "\n\n";
     $self->check($value) || _croak $name . ' must be "' . $self->name .'"';
     $value;
 }
 
 
-#sub value_from ($\%$) {
-#    my ($self, %hash, $key) = @_;
-#    
-#    return undef unless exists $hash{$key};
-#    my $value = $hash{$key};
-#}
+sub value_from ($\%$) {
+    my ($self, $args, $key) = @_;
+    
+    _croak "Required argument \"$key\"" unless exists $args->{$key};
+    
+    return $self->value($args->{$key}, "\"$key\"");
+}
 
 #sub copy_value($\%\%$) {
 #    my ($self, %dest, %src, $key, $requared) = @_;
