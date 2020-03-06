@@ -1,5 +1,6 @@
 package Geo::JSON::Types;
 
+use 5.008;
 use strict;
 use warnings;
 use Carp;
@@ -25,15 +26,15 @@ BEGIN {
     /;
 
     declare Rectangle,
-        as ArrayRef [Num],
+        as ArrayRef (Num),
         where { @{$_} == 4 };
 
     declare Position,
-        as ArrayRef [Num],
+        as ArrayRef (Num),
         where { @{$_} >= 2 };
         
     declare Positions,
-        as ArrayRef[Position],
+        as ArrayRef(Position),
         where { @{$_} > 0 };
 
     declare LineString,
@@ -41,31 +42,31 @@ BEGIN {
         where { @{$_} >= 2 };
 
     declare LineStrings,
-        as ArrayRef [LineString];
+        as ArrayRef (LineString);
 
     declare LinearRing,
         as LineString,
-        where { @{$_} >= 4 && compare_positions( $_->[0], $_->[-1] ) };
+        where { @{$_} >= 2 && compare_positions( $_->[0], $_->[-1] ) };
 
     declare Polygon,
-        as ArrayRef [LinearRing];
+        as ArrayRef (LinearRing);
 
     declare Polygons,
-        as ArrayRef [Polygon];
+        as ArrayRef (Polygon);
 
     declare Geometry, 
         as Object, 
         where { $_->isa("Geo::JSON::Geometry") };
 
     declare Geometries,
-        as ArrayRef [Geometry];
+        as ArrayRef (Geometry);
 
     declare Feature, 
         as Object, 
         where { $_->isa("Geo::JSON::Feature") };
 
     declare Features,
-        as ArrayRef [Feature];
+        as ArrayRef (Feature);
 
     coerce Geometry,
         from HashRef, via { Geo::JSON::load($_) };

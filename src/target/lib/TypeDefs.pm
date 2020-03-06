@@ -1,5 +1,6 @@
 package TypeDefs;
 
+use 5.008;
 use Scalar::Util;
 use Data::Dumper;
 
@@ -112,7 +113,8 @@ sub _ArrayRef () {
 
 sub ArrayRef (;$) {
     return _ArrayRef() unless @_;
-    my $args = shift;
+#    my $args = shift;
+    my $args = (ref($_[0]) eq 'ARRAY' ? $_[0] : \@_);
     my $param = Any;
     $param = typedef($args->[0]) if defined $args->[0]; # and TODO check TYPE
     _croak "Ivalid ArrayRef parameter" unless ref($param) eq __PACKAGE__;
