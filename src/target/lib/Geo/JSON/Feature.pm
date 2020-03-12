@@ -33,4 +33,20 @@ sub all_positions
     return shift->geometry->all_positions;
 }
 
+sub inside
+{
+    my ($self, $point) = @_;
+    my $geometry = $self->geometry;
+    return undef unless defined $geometry;
+    return $geometry->inside($point);
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    my $geometry = $self->geometry;
+    return undef unless defined $geometry;
+    return $geometry->beside($point, $distance);
+}
+
 1;

@@ -33,4 +33,20 @@ sub compute_bbox {
     undef; #croak "Can't compute_bbox with a single position";
 }
 
+sub inside
+{
+    my ($self, $point) = @_;
+    my $position = $self->coordinates;
+    return undef unless defined $position;
+    Geo::JSON::Utils::compare_positions($point, $position);
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    my $position = $self->coordinates;
+    return undef unless defined $position;
+    Geo::JSON::Utils::point_around_point($point, $position, $distance);
+}
+
 1;

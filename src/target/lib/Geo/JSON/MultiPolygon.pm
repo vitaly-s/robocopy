@@ -30,4 +30,39 @@ sub all_positions {
     ];
 }
 
+
+sub inside
+{
+    my ($self, $point) = @_;
+    my $polygons = $self->coordinates;
+    return undef unless defined $polygons;
+    foreach my $polygon ( @{$polygons}) {
+        next unless defined $polygon;
+        return !!1 if Geo::JSON::Polygon::_inside($point, $polygon);
+    }
+
+    undef;
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    my $polygons = $self->coordinates;
+    return undef unless defined $polygons;
+    my $result;
+    foreach my $polygon ( @{$polygons}) {
+        next unless defined $polygon;
+        unless ($result) {
+            foreach my $line( @$polygon ) {
+                next unless defined $line;
+                $result = !!1 if Geo::JSON::Utils::point_around_line($point, $line, $distance);
+                last if $result;
+            }
+        }
+        return undef if Geo::JSON::Polygon::_inside($point, $polygon);
+    }
+    return $result;
+}
+
+
 1;

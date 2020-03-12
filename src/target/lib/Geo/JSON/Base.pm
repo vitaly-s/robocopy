@@ -82,4 +82,16 @@ sub compute_bbox
     return Geo::JSON::Utils::compute_bbox( $positions );
 }
 
+sub inside
+{
+    my ($self, $point) = @_;
+    undef;
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    undef;
+}
+
 1;

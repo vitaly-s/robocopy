@@ -6,7 +6,8 @@ use Carp;
 
 use base 'Exporter';
 
-our @EXPORT_OK = qw/ compare_positions compute_bbox point_in_poly point_around_segment point_around_point /;
+our @EXPORT_OK = qw/ compare_positions compute_bbox 
+        point_in_poly point_around_segment point_around_point point_in_bbox /;
 
 # TODO improve - need to ensure floating points are the same
 sub compare_positions {
@@ -54,6 +55,20 @@ sub compute_bbox {
 sub is_2d_point ($)
 {
     ref($_[0]) eq 'ARRAY' && scalar(@{$_[0]}) >= 2;
+}
+
+sub point_in_bbox {
+    my ($point, $bbox) = @_;
+    
+    croak "'point' not 2D point" unless is_2d_point($point);
+    croak "'bbox' not box"
+        unless ref $bbox
+            && ref $bbox eq 'ARRAY'
+            && @$bbox == 4;
+            
+    return !!1 if ($point->[0] >= $bbox->[0]) && ($point->[0] <= $bbox->[2]) 
+                && ($point->[1] >= $bbox->[1]) && ($point->[1] <= $bbox->[3]);
+    undef;
 }
 
 #
@@ -117,7 +132,7 @@ sub point_around_segment($$$$)
     croak "R not 2D point" unless is_2d_point($R);
     croak "L1 not 2D point" unless is_2d_point($L1);
     croak "L2 not 2D point" unless is_2d_point($L2);
-    croak "Invalide distance value" unless defined($dist) && $dist > 0;
+    croak "Invalide distance value" unless defined($dist) && $dist >= 0;
     
     # a = (R.X - L1.X) ^ 2 + (R.Y - L1.Y) ^ 2
     my $a = ($R->[0] - $L1->[0]) * ($R->[0] - $L1->[0]) 
@@ -142,6 +157,26 @@ sub point_around_segment($$$$)
         - ($L1->[0] - $L2->[0]) * ($R->[1] - $L2->[1]));
     # return (s2 / SQRT(c)) <= dist);
     return (($s2 / sqrt($c)) <= $dist);
+}
+
+sub point_around_line($$$)
+{
+    my ($point, $line, $dist) = @_;
+
+    croak "'point' not 2D point" unless is_2d_point($point);
+    croak "Invalide distance value" unless defined($dist) && $dist >= 0;
+    croak "'line' not linear"
+        unless ref $line
+        && ref $line eq 'ARRAY'
+        && @{$line} > 1;
+        
+    my $L0 = $line->[0];
+    foreach my $i ( 1 .. $#{$line} ) {
+        my $L1 = $line->[$i];
+        return !!1 if point_around_segment($point, $L0, $L1, $dist);
+        $L0 = $L1;
+    }
+    undef;
 }
 
 sub point_around_point($$$)

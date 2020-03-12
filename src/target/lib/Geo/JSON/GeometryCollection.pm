@@ -29,4 +29,36 @@ sub all_positions {
     return [ map { @{ $_->all_positions } } @{ $self->geometries } ];
 }
 
+sub inside
+{
+    my ($self, $point) = @_;
+    my $geometries = $self->geometries;
+    return undef unless defined $geometries;
+    foreach my $geometry ( @{$geometries}) {
+        next unless defined $geometry;
+        return !!1 if $geometry->inside($point);
+    }
+
+    undef;
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    my $geometries = $self->geometries;
+    return undef unless defined $geometries;
+    my $result;
+    foreach my $geometry ( @{$geometries}) {
+        next unless defined $geometry;
+        if (!$result && $geometry->beside($point, $distance)) {
+            $result = !!1;
+        }
+        else {
+            return undef if $geometry->inside($point);
+        }
+    }
+    return $result;
+}
+
+
 1;

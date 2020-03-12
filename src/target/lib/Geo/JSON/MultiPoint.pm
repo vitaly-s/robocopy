@@ -24,5 +24,26 @@ sub _init {
 #{
 #    shift->{coordinates};
 #}
+sub inside
+{
+    my ($self, $point) = @_;
+    my $positions = $self->coordinates;
+    return undef unless defined $positions;
+    foreach my $position ( @$positions ) {
+        return !!1 if Geo::JSON::Utils::compare_positions($point, $position);
+    }
+    undef;
+}
+
+sub beside
+{
+    my ($self, $point, $distance) = @_;
+    my $positions = $self->coordinates;
+    return undef unless defined $positions;
+    foreach my $position ( @$positions ) {
+        return !!1 if Geo::JSON::Utils::point_around_point($point, $position, $distance);
+    }
+    undef;
+}
 
 1;
