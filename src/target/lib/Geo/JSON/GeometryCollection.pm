@@ -61,4 +61,16 @@ sub beside
 }
 
 
+sub is_region
+{
+    my $self = shift;
+    my $geometries = $self->geometries;
+    return unless defined $geometries;
+    foreach my $geometry ( @{$geometries}) {
+        next unless defined $geometry;
+        return !!1 if $geometry->is_region();
+    }
+    undef;
+}
+
 1;

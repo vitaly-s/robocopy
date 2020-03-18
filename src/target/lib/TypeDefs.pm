@@ -3,6 +3,8 @@ package TypeDefs;
 use 5.008;
 use Scalar::Util;
 use Data::Dumper;
+use utf8;
+use Encode;
 
 #    CodeRef 
 #    class_type type
@@ -184,6 +186,12 @@ sub Str () {
         name         => 'Str',
         parent       => Defined,
         constraint   => sub { !ref $_ },
+#        _converter    => sub { 
+#            my $value = shift;
+#            print STDERR "Str converter: '$value' [", (utf8::is_utf8($value) ? "" : "NO "), "UTF-8]\n";
+#            utf8::decode($value) unless utf8::is_utf8($value);
+#            return $value;
+#        }
     );
 }
 
@@ -371,12 +379,12 @@ sub value($$;$) {
 }
 
 
-sub value_from ($\%$) {
-    my ($self, $args, $key) = @_;
+sub value_from ($$\%) {
+    my ($self, $key, $args) = @_;
     
     _croak "Required argument \"$key\"" unless exists $args->{$key};
     
-    return $self->value($args->{$key}, "\"$key\"");
+    return $self->value($args->{$key}, $key);
 }
 
 #sub copy_value($\%\%$) {

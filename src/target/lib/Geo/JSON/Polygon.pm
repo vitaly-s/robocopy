@@ -72,5 +72,9 @@ sub beside
     undef;
 }
 
+sub is_region
+{
+    !!1;
+}
 
 1;

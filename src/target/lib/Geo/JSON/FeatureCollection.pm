@@ -11,7 +11,7 @@ sub _init {
 #    }
     $self->SUPER::_init($args);
 
-    $self->{features} = Features->value_from($args, 'features');
+    $self->{features} = Features->value_from('features', $args);
 }
 
 

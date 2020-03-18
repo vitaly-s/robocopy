@@ -14,10 +14,10 @@ sub _init {
     
     $self->{id} = $args->{id};
     
-    $self->{geometry} = Geometry->value_from($args, 'geometry');
+    $self->{geometry} = Geometry->value_from('geometry', $args);
     
     if (exists $args->{properties} ) {
-        $self->{properties} = HashRef->value_from($args, 'properties');
+        $self->{properties} = HashRef->value_from('properties', $args);
     }
 
 }

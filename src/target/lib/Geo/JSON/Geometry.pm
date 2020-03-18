@@ -25,4 +25,9 @@ sub coordinates
     return $_[0]->{coordinates};
 }
 
+sub is_region
+{
+    undef;
+}
+
 1;

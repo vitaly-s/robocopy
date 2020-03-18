@@ -64,5 +64,9 @@ sub beside
     return $result;
 }
 
+sub is_region
+{
+    !!1;
+}
 
 1;
