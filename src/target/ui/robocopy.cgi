@@ -459,7 +459,8 @@ sub action_post_task_run
         }
         $processed += $files_size;
     }
-    
+    # Try clear source dirs
+    #rule_processor::crear_dir(@dirs);
     # Update task info (FINISHED) 
     $task->set_finished();
 

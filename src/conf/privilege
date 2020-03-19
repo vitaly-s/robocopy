@@ -1,0 +1,28 @@
+{
+	"defaults":{
+		"run-as": "root"
+	},
+	"executable": [{
+		"relpath": "ui/robocopy.cgi",
+		"run-as": "root"
+	}],
+	"ctrl-script":[{
+		"action": "start",
+		"run-as": "root"
+	}, {
+		"action": "stop",
+		"run-as": "root"
+	}, {
+		"action": "postinst",
+		"run-as": "root"
+	}, {
+		"action": "preuninst",
+		"run-as": "root"
+	}, {
+		"action": "preupgrade",
+		"run-as": "root"
+	}, {
+		"action": "postupgrade",
+		"run-as": "root"
+	}]
+}

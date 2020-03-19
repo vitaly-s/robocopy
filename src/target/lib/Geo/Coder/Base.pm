@@ -66,6 +66,7 @@ sub get_request
     $_get_sub ||= do {
         if (eval {
             require Net::HTTPS;
+            require LWP::Protocol::https;
             require LWP::UserAgent;
         }) {
 #            print STDERR __PACKAGE__, " Init LWP client\n\n";
