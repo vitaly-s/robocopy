@@ -53,66 +53,75 @@ sub is_empty
 sub country
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{country};
     $self->{country} = $value if defined $value;
-    $self->{country};
+    $old_value;
 }
 
 sub countryCode
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{countryCode};
     $self->{countryCode} = $value if defined $value;
-    $self->{countryCode};
+    $old_value;
 }
 
 sub state
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{state};
     $self->{state} = $value if defined $value;
-    $self->{state};
+    $old_value;
 }
 
 sub county
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{county};
     $self->{county} = $value if defined $value;
-    $self->{county};
+    $old_value;
 }
 
 
 sub postCode
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{postCode};
     $self->{postCode} = $value if defined $value;
-    $self->{postCode};
+    $old_value;
 }
 
 sub city
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{city};
     $self->{city} = $value if defined $value;
-    $self->{city};
+    $old_value;
 }
 
 sub subLocality
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{subLocality};
     $self->{subLocality} = $value if defined $value;
-    $self->{subLocality};
+    $old_value;
 }
 
 
 sub street
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{street};
     $self->{street} = $value if defined $value;
-    $self->{street};
+    $old_value;
 }
 
 sub type
 {
     my ($self, $value) = @_;
+    my $old_value = $self->{type};
     $self->{type} = $value if defined $value;
-    $self->{type};
+    $old_value;
 }
 
 1;

@@ -1,44 +1,9 @@
 package Geo::Coder::Base;
 
 use Carp;
-#use Geo::JSON;
-#use Scalar::Util;
-#require TypeDefs;
-#use Data::Dumper;
 use base Exporter; 
-#use Geo::JSON::Types;
-#use TypeDefs;
 
-
-my $_get_sub;
-
-BEGIN
-{
-    eval { require Net::HTTPS; };
-    if ($@) {
-#        print __PACKAGE__, " Error Net::HTTPS : $@\n\n";
-        my $out = `which curl &>/dev/null && echo OK`;
-        chop($out) if defined($out);
-#        print __PACKAGE__, " which curl : $out\n\n";
-        if ($out eq 'OK') {
-#            print __PACKAGE__, " which curl : '$out'\n\n";
-            $_get_sub = \&_get_curl;
-        }
-        else {
-#            print __PACKAGE__, " dummy : '$out'\n\n";
-            $_get_sub = \&_get_dummy;
-        }
-    }
-    else {
-#        print __PACKAGE__, " Net::HTTPS \n";
-
-        require LWP::Simple;
-
-        $_get_sub = \&LWP::Simple::get;
-    }
-}
-
-sub new 
+sub new
 {
     my $class = ref $_[0] ? ref shift() : shift();
 
@@ -56,6 +21,8 @@ sub new
     my $new = bless({}, $class);
 
     $new->_init($args);
+    
+    
     return $new;
 }
 
@@ -63,6 +30,8 @@ sub new
 sub _init 
 {
     my ($self, $args) = @_;
+    
+    $self->{agent} = $args->{agent} || 'perl-lib/Geo::Coder';
 }
 
 sub geocode 
@@ -84,28 +53,69 @@ sub reverse_geocode
     croak('Not implemented yet.');
 }
 
-sub _get_request()
+sub agent($)
 {
+    $_[0]->{agent};
+}
+
+
+my $_get_sub;
+
+sub get_request
+{
+    $_get_sub ||= do {
+        if (eval {
+            require Net::HTTPS;
+            require LWP::UserAgent;
+        }) {
+#            print STDERR __PACKAGE__, " Init LWP client\n\n";
+            \&_get_lwp;
+        }
+        else {
+            my $out = `which curl &>/dev/null && echo OK`;
+            chop($out) if defined($out);
+            if ($out eq 'OK') {
+#                print STDERR __PACKAGE__, " Init CURL client\n\n";
+                \&_get_curl;
+            }
+            else {
+                \&_get_dummy;
+            }
+        }
+    };
 #    print STDERR __PACKAGE__, " _get_request \n";
-    my $self = shift;
-    return &$_get_sub(@_) if $_get_sub;
+    return &$_get_sub(@_);
+}
+
+
+
+sub _get_lwp
+{
+    my ($self, $url) = @_;
+#    print __PACKAGE__, " _lwp_get \n";
+    
+    $self->{ua} ||= do {
+            my $ua = LWP::UserAgent->new;
+            $ua->agent($self->agent);
+            $ua->env_proxy;
+            $ua;
+        };
+    my $response = $self->{ua}->get($url);
+    return $response->decoded_content if $response->is_success;
     undef;
 }
 
 sub _get_curl
 {
-    my $url = shift;
+    my ($self, $url) = @_;
     eval { $url = $url->abs; } if ref($url) eq 'URI';
+    my $agent = $self->agent;
     my $out;
 #    print __PACKAGE__, " curl -G -k \"$url\" \n";
-    $out = `curl -G -k -s "$url"` if defined $url;
+    $out = `curl -A "$agent" -G -k -s "$url"` if defined $url;
 #    print __PACKAGE__, " out:'$out' \n";
 
     $out;
-#curl -G -k "https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&country=Russia&state=Krasnodar%20Krai&city=Adler"
-#curl -A "user-agent-name-here" url
-#curl --user-agent "user-agent-name-here" url
-#curl -H "User-Agent: user-Agent-Name-Here"
 }
 
 sub _get_dummy

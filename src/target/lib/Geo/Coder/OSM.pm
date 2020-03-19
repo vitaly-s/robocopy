@@ -2,21 +2,18 @@ package Geo::Coder::OSM;
 
 use Carp;
 use base qw(Geo::Coder::Base);
-use LWP::Simple;
 use Geo::JSON;
-use utf8;
-use Encode;
 require Geo::Address;
 require Geo::Place;
 require Geo::Coder;
 
-use Data::Dumper;
 use URI;
 
 
 sub _init 
 {
     my ($self, $args) = @_;
+    $self->SUPER::_init($args);
 }
 
 #our %SOURCES = (
@@ -50,7 +47,7 @@ sub lookup
     $uri = URI->new(SOURCE . '/search');
     $uri->query_form(%data);
 #    print STDERR "\t", __PACKAGE__, " GET 1 ", Dumper($uri), " \n";
-    $context = $self->_get_request($uri);
+    $context = $self->get_request($uri);
     next undef unless defined $context;
     my $features = Geo::JSON::from_json($context)->features;
 
@@ -79,7 +76,7 @@ sub reverse_geocode
         'accept-language' => $language || Geo::Coder::DEFAULT_LANGUAGE,
     );
 
-    my $context = $self->_get_request($uri);
+    my $context = $self->get_request($uri);
     
     return unless defined $context;
 #    print STDERR __PACKAGE__, "-context: $context \n";
@@ -124,37 +121,6 @@ sub parse_feature_address($)
         $data{type} = 'hamlet';
     }
     return Geo::Address->new(%data);
-}
-
-sub _create_place
-{
-    my $feature = shift;
-
-    return unless defined $feature;
-    return unless ref $feature->properties eq 'HASH';
-    return unless defined $feature->properties->{address};
-
-    my $type = $feature->properties->{type};
-    my %data;
-    $data{bbox} = $feature->bbox if defined $feature->bbox;
-    $data{geometry} = $feature->geometry if defined $feature->geometry;
-    $data{displayName} = $feature->properties->{display_name} if defined $feature->properties->{display_name};
-    if (defined $feature->properties->{address}) {
-        my $address = $feature->properties->{address};
-        $data{address} = { 'type' => $type };
-        for my $key (keys %$address) {
-            $data{address}->{country} = $address->{country} if defined $address->{country};
-            $data{address}->{countryCode} = $address->{country_code} if defined $address->{country_code};
-            $data{address}->{state} = $address->{state} if defined $address->{state};
-            $data{address}->{postCode} = $address->{postcode} if defined $address->{postcode};
-            $data{address}->{city} = $address->{city} if defined $address->{city};
-            $data{address}->{city} = $address->{town} if defined $address->{town};
-            $data{address}->{city} = $address->{village} if defined $address->{village};
-            $data{address}->{city} = $address->{hamlet} if defined $address->{hamlet};
-            $data{address}->{subLocality} = $address->{suburb} if defined $address->{suburb};
-        }
-    }
-    return Geo::Place->new(%data);
 }
 
 1;

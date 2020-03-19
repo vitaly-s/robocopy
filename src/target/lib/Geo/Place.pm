@@ -6,7 +6,7 @@ use Geo::JSON::Types;
 use TypeDefs;
 use Geo::Address;
 
-use Data::Dumper;
+#use Data::Dumper;
 
 sub new
 {
