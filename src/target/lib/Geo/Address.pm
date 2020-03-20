@@ -101,18 +101,22 @@ sub city
 
 sub subLocality
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{subLocality};
-    $self->{subLocality} = $value if defined $value;
+    if (@_) {
+        $self->{subLocality} = shift;
+    }
     $old_value;
 }
 
 
 sub street
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{street};
-    $self->{street} = $value if defined $value;
+    if (@_) {
+        $self->{street} = shift;
+    }
     $old_value;
 }
 

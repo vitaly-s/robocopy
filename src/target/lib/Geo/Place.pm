@@ -70,7 +70,18 @@ sub bbox
 sub displayName
 {
     my $self = $_[0];
-    $self->{name};
+    $self->{displayName};
+}
+
+sub in_bbox
+{
+    my $self = shift;
+    my $point = (ref($_[0]) eq 'ARRAY' ? $_[0] : \@_);
+    
+    return unless Geo::JSON::Utils::is_2d_point($point);
+    my $bbox = $self->bbox;
+    return unless defined $bbox;
+    return Geo::JSON::Utils::point_in_bbox($point, $bbox);
 }
 
 1;

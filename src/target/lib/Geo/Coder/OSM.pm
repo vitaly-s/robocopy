@@ -57,7 +57,8 @@ sub lookup
     my %place;
     $place{bbox} = $feature->bbox if defined $feature->bbox;
     $place{geometry} = $feature->geometry if defined $feature->geometry;
-    $place{displayName} = $feature->properties->{display_name} if ref $feature->properties eq 'HASH' && defined $feature->properties->{display_name};
+    $place{displayName} = $feature->properties->{display_name} if ref $feature->properties eq 'HASH' 
+        && defined $feature->properties->{display_name};
     $place{address} = parse_feature_address($feature) || $address;
 
     return Geo::Place->new(%place);

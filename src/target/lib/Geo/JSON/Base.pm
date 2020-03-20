@@ -13,7 +13,7 @@ use Data::Dumper;
 #}
 use Geo::JSON::Types;
 use TypeDefs;
-
+require Geo::JSON::Utils;
 
 sub new {
     my $class = ref $_[0] ? ref shift() : shift();
@@ -92,6 +92,18 @@ sub beside
 {
     my ($self, $point, $distance) = @_;
     undef;
+}
+
+
+sub in_bbox
+{
+    my $self = shift;
+    my $point = (ref($_[0]) eq 'ARRAY' ? $_[0] : \@_);
+    
+    return unless Geo::JSON::Utils::is_2d_point($point);
+    my $bbox = $self->bbox;
+    return unless defined $bbox;
+    return Geo::JSON::Utils::point_in_bbox($point, $bbox);
 }
 
 1;
