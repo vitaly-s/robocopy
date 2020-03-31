@@ -36,13 +36,20 @@ sub new
 
     my $new = bless({}, $class);
 
-    foreach my $key (qw(country countryCode state county city postCode subLocality street type)) {
+    foreach my $key (qw(country countryCode state county city postCode subLocality road house type)) {
         next unless defined $args->{$key};
         $new->$key($args->{$key});
         undef $empty;
     }
 
     return $new;
+}
+
+sub clone
+{
+    my $self = shift;
+    my $type = ref $self;
+    return bless {%$self}, $type;
 }
 
 sub is_empty
@@ -52,50 +59,62 @@ sub is_empty
 
 sub country
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{country};
-    $self->{country} = $value if defined $value;
+    if (@_) {
+        $self->{country} = shift;
+    }
     $old_value;
 }
 
 sub countryCode
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{countryCode};
-    $self->{countryCode} = $value if defined $value;
+    if (@_) {
+        $self->{countryCode} = shift;
+    }
     $old_value;
 }
 
 sub state
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{state};
-    $self->{state} = $value if defined $value;
+    if (@_) {
+        $self->{state} = shift;
+    }
     $old_value;
 }
 
 sub county
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{county};
-    $self->{county} = $value if defined $value;
+    if (@_) {
+        $self->{county} = shift;
+    }
     $old_value;
 }
 
 
 sub postCode
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{postCode};
-    $self->{postCode} = $value if defined $value;
+    if (@_) {
+        $self->{postCode} = shift;
+    }
     $old_value;
 }
 
 sub city
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{city};
-    $self->{city} = $value if defined $value;
+    if (@_) {
+        $self->{city} = shift;
+    }
     $old_value;
 }
 
@@ -109,22 +128,33 @@ sub subLocality
     $old_value;
 }
 
-
-sub street
+sub road
 {
     my $self = shift;
-    my $old_value = $self->{street};
+    my $old_value = $self->{road};
     if (@_) {
-        $self->{street} = shift;
+        $self->{road} = shift;
+    }
+    $old_value;
+}
+
+sub house
+{
+    my $self = shift;
+    my $old_value = $self->{house};
+    if (@_) {
+        $self->{house} = shift;
     }
     $old_value;
 }
 
 sub type
 {
-    my ($self, $value) = @_;
+    my $self = shift;
     my $old_value = $self->{type};
-    $self->{type} = $value if defined $value;
+    if (@_) {
+        $self->{type} = shift;
+    }
     $old_value;
 }
 

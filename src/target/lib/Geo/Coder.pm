@@ -6,12 +6,15 @@ use Carp;
 
 use base 'Exporter';
 
-our @EXPORT = qw( create_geocoder );
+our @EXPORT = qw( create_geocoder ACCURACY_COUNTRY ACCURACY_STATE ACCURACY_CITY ACCURACY_HOUSE );
 
 require Geo::Address;
 
-sub QUALITY_HIGH { 'building' }
-sub QUALITY_LOW { 'city' }
+sub ACCURACY_COUNTRY { 'country' }
+sub ACCURACY_STATE { 'state' }
+sub ACCURACY_CITY { 'city' }
+sub ACCURACY_HOUSE { 'house' }
+
 sub DEFAULT_LANGUAGE { 'en' }
 
 
@@ -31,7 +34,7 @@ sub create_geocoder
     my $coder_class = 'Geo::Coder::' . $type;
 
     eval "require $coder_class";
-    croak "Coder '$type' not supported." if $@;
+    croak "Coder '$type' not supported. $@" if $@;
 
     return $coder_class->new($args);
 }
