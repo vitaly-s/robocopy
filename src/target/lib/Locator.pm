@@ -3,6 +3,7 @@ package Locator;
 use Carp;
 use Geo::Address;
 use Geo::Place;
+use Geo::Coder;
 use Geo::JSON::Utils;
 
 
@@ -13,7 +14,7 @@ sub new
 {
     my $class = ref $_[0] ? ref shift() : shift();
 
-    my $coder = $_[0];
+    my $coder = $_[0] || create_geocoder();
 #    my $language = $_[1];
     
     croak 'The new() method reqiare coder value' unless defined $coder
@@ -23,7 +24,7 @@ sub new
     my $new = bless({
         coder => $coder,
 #        language => $language,
-        threshold => 5000, # 5 km
+        threshold => 1000, # 1 km
         cache => [],
         invalid_cache => [],
     }, $class);
@@ -84,7 +85,7 @@ sub locate
 #    print STDERR __PACKAGE__, " try CITY geocode\n";
     my $place;
     eval { $place = $self->{coder}->reverse($latitude, $longitude, Geo::Coder::ACCURACY_CITY, $self->{language}, 1) };
-#    print STDERR __PACKAGE__, " coder->reverse '", $@, "'\n";
+#    print STDERR __PACKAGE__, " coder->reverse '", $@, "'\n" if $@;
     if (defined($place) && defined($place->address)) {
 #        print STDERR __PACKAGE__, " located place '",$place->displayName, "'\n";
         if (defined($place->address->city)
@@ -92,10 +93,10 @@ sub locate
         {
 #            print STDERR __PACKAGE__, " add to CHACHE\n";
             my $new_item = {place => $place};
-#            if (defined($place->address->subLocality) || defined($place->address->road)) {
+#            if (defined($place->address->suburb) || defined($place->address->road)) {
 #    #            print STDERR __PACKAGE__, " try lookup city\n";
 #                my $city_adr = $place->address->clone();
-#                $city_adr->subLocality(undef);
+#                $city_adr->suburb(undef);
 #                #$city_adr->street(undef);
 #                my $city;
 #                eval {$city = $self->{coder}->lookup($city_adr, $self->{language})};

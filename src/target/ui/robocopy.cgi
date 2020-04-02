@@ -28,6 +28,8 @@ use rule_processor;
 use Syno;
 use task_info;
 use integration;
+use Geo::Coder;
+use Locator;
 
 use Data::Dumper;
 
@@ -118,6 +120,14 @@ sub print_json($)
     print decode("UTF-8", JSON::XS->new->utf8->convert_blessed->encode(@_));
 }
 
+
+sub create_locator
+{
+#    my $coder = create_geocoder(); #agent => "XXX");
+    my $locator = Locator->new();
+    #$locator->language('rus') if defined $locator;
+    return $locator;
+}
 
 #sub print_error
 #{
@@ -409,11 +419,14 @@ sub action_post_task_run
     my @workers;
     my $total_size = 0;
     my $error;
+    
+    my $locator = create_locator;
+
 
     foreach my $rule (@cfg) {
         foreach my $dir (@dirs) {
             # Create processor
-            my $processor = new rule_processor($rule);
+            my $processor = new rule_processor($rule, $locator);
             $processor->user($user) if defined $user;
             if ($processor->prepare($dir, \$error)) {
                 my $size;
@@ -735,6 +748,7 @@ sub _action_test
         my @dirs = split(/\|/, $params{folders});
         my $dir_count = scalar(@dirs);
         my $error;
+        my $locator = create_locator;
 
         my $task;
 #        $task = new task_info($user);
@@ -746,7 +760,7 @@ sub _action_test
         foreach my $rule (@$cfg) {
             # Create processor
             print_str $rule->priority() . ": [" . $rule->src_ext() . "] - ", $rule->description(), "\n";
-            my $processor = new rule_processor($rule);
+            my $processor = new rule_processor($rule, $locator);
             my $dir_idx = 0;
             foreach my $dir(@dirs) {
                 print_str "  path: ", $dir, "\n";

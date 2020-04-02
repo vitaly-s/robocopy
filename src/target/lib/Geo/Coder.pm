@@ -15,6 +15,7 @@ sub ACCURACY_STATE { 'state' }
 sub ACCURACY_CITY { 'city' }
 sub ACCURACY_HOUSE { 'house' }
 
+sub DEFAULT_ACCURACY { ACCURACY_CITY }
 sub DEFAULT_LANGUAGE { 'en' }
 
 

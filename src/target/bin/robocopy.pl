@@ -31,6 +31,9 @@ use rule;
 use rule_processor;
 use Syno;
 use integration;
+use Geo::Coder;
+use Locator;
+
 
 use Image::ExifTool qw(:Public);
 
@@ -103,6 +106,11 @@ Syno::beep();
 # Read config
 my $cfg = rule::load_list(undef, 'priority');
 
+# Create locator
+#    my $coder = create_geocoder(); #agent => "XXX");
+my $locator = Locator->new();
+#$locator->language('rus') if defined $locator;
+
 # Main cycle
 my $error;
 foreach my $dir (@dirs) {
@@ -110,7 +118,7 @@ foreach my $dir (@dirs) {
 #    print "Process \"$dir\"\n";
     foreach my $rule (@$cfg) {
 #        print "\tProcess \"$rule->{description}\" [$rule->{src_dir}/$rule->{src_mask}]\n\t\t$rule->{dest_path}\n" if $verbose;
-        my $processor = new rule_processor($rule);
+        my $processor = new rule_processor($rule, $locator);
         if ($processor->prepare($dir, \$error)) {
             print "\t" . $processor->src_dir() . "\n" if $verbose;
             my $files = $processor->find_files();

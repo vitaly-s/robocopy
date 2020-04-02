@@ -36,7 +36,7 @@ sub new
 
     my $new = bless({}, $class);
 
-    foreach my $key (qw(country countryCode state county city postCode subLocality road house type)) {
+    foreach my $key (qw(country countryCode state county city postCode suburb road house type)) {
         next unless defined $args->{$key};
         $new->$key($args->{$key});
         undef $empty;
@@ -118,12 +118,12 @@ sub city
     $old_value;
 }
 
-sub subLocality
+sub suburb
 {
     my $self = shift;
-    my $old_value = $self->{subLocality};
+    my $old_value = $self->{suburb};
     if (@_) {
-        $self->{subLocality} = shift;
+        $self->{suburb} = shift;
     }
     $old_value;
 }

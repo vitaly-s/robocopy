@@ -34,8 +34,10 @@ sub _init
     $self->{agent} = $args->{agent} || 'perl-lib/Geo::Coder';
 }
 
-sub geocode 
+# return Geo::Place
+sub reverse
 {
+    my ($self, $latitude, $longitude, $accuracy, $language, $geometry) = @_;
     croak('Not implemented yet.');
 }
 
@@ -43,13 +45,6 @@ sub geocode
 sub lookup
 {
     my ($self, $address, $language) = @_;
-    croak('Not implemented yet.');
-}
-
-# return Geo::Address
-sub reverse_geocode
-{
-    my ($self, $latitude, $longitude, $language) = @_;
     croak('Not implemented yet.');
 }
 
