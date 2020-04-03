@@ -21,7 +21,7 @@ sub ProcessKodakPatch($$$);
 sub WriteUnknownOrPreview($$$);
 sub FixLeicaBase($$;$);
 
-$VERSION = '2.09';
+$VERSION = '2.10';
 
 my $debug;          # set to 1 to enable debugging code
 
@@ -691,7 +691,6 @@ my $debug;          # set to 1 to enable debugging code
         SubDirectory => {
             TagTable => 'Image::ExifTool::Panasonic::Leica9',
             Start => '$valuePtr + 8',
-            Base => '$start - 8',
             ByteOrder => 'Unknown',
         },
     },
@@ -1813,7 +1812,7 @@ maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

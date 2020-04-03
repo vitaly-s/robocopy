@@ -49,7 +49,7 @@ use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 require Exporter;
 
-$VERSION = '3.29';
+$VERSION = '3.32';
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(EscapeXML UnescapeXML);
 
@@ -62,7 +62,7 @@ sub EncodeBase64($;$);
 sub SaveBlankInfo($$$;$);
 sub ProcessBlankInfo($$$;$);
 sub ValidateXMP($;$);
-sub ValidateProperty($$);
+sub ValidateProperty($$;$);
 sub UnescapeChar($$;$);
 sub AddFlattenedTags($;$$);
 sub FormatXMPDate($);
@@ -183,10 +183,11 @@ my %xmpNS = (
     dwc       => 'http://rs.tdwg.org/dwc/index.htm',
     GettyImagesGIFT => 'http://xmp.gettyimages.com/gift/1.0/',
     LImage    => 'http://ns.leiainc.com/photos/1.0/image/',
+    Profile   => 'http://ns.google.com/photos/dd/1.0/profile/',
 );
 
 # build reverse namespace lookup
-my %uri2ns;
+my %uri2ns = ( 'http://ns.exiftool.org/1.0/' => 'et' ); # (allow exiftool.org as well as exiftool.ca)
 {
     my $ns;
     foreach $ns (keys %nsURI) {
@@ -777,6 +778,10 @@ my %sRetouchArea = (
     LImage => {
         Name => 'LImage',
         SubDirectory => { TagTable => 'Image::ExifTool::XMP::LImage' },
+    },
+    Device => {
+        Name => 'Device',
+        SubDirectory => { TagTable => 'Image::ExifTool::XMP::Device' },
     },
 );
 
@@ -1471,6 +1476,15 @@ my %sPantryItem = (
     UprightFourSegmentsCount            => { Writable => 'integer' },
     AutoTone                            => { Writable => 'boolean' },
     Texture                             => { Writable => 'integer' },
+    # more stuff (ref forum10721)
+    OverrideLookVignette                => { Writable => 'boolean' },
+    Look => {
+        Struct => {
+            STRUCT_NAME => 'Look',
+            NAMESPACE   => 'crs',
+            Name   => { },
+        }
+    },
 );
 
 # Tiff namespace properties (tiff)
@@ -2017,6 +2031,7 @@ my %sPantryItem = (
         PrintConvInv => '$val=~s/\s*m$//; $val',
     },
     NativeDigest => { }, #PH
+    # new Exif
 );
 
 # Exif extended properties (exifEX, ref 12)
@@ -2103,6 +2118,35 @@ my %sPantryItem = (
     WaterDepth          => { Writable => 'rational' },
     Acceleration        => { Writable => 'rational' },
     CameraElevationAngle=> { Writable => 'rational' },
+    # new in Exif 2.32 (according to the spec, these should use a different namespace
+    # URI, but the same namespace prefix... Exactly how is that supposed to work?!!
+    # -- I'll just stick with the same URI)
+    CompositeImage => { Writable => 'integer',
+        PrintConv => {
+            0 => 'Unknown',
+            1 => 'Not a Composite Image',
+            2 => 'General Composite Image',
+            3 => 'Composite Image Captured While Shooting',
+        },
+    },
+    CompositeImageCount => { List => 'Seq', Writable => 'integer' },
+    CompositeImageExposureTimes => {
+        FlatName => 'CompImage',
+        Struct => {
+            STRUCT_NAME => 'CompImageExp',
+            NAMESPACE => 'exifEX',
+            TotalExposurePeriod     => { Writable => 'rational' },
+            SumOfExposureTimesOfAll => { Writable => 'rational', FlatName => 'SumExposureAll' },
+            SumOfExposureTimesOfUsed=> { Writable => 'rational', FlatName => 'SumExposureUsed' },
+            MaxExposureTimesOfAll   => { Writable => 'rational', FlatName => 'MaxExposureAll' },
+            MaxExposureTimesOfUsed  => { Writable => 'rational', FlatName => 'MaxExposureUsed' },
+            MinExposureTimesOfAll   => { Writable => 'rational', FlatName => 'MinExposureAll'  },
+            MinExposureTimesOfUsed  => { Writable => 'rational', FlatName => 'MinExposureUsed' },
+            NumberOfSequences       => { Writable => 'integer',  FlatName => 'NumSequences' },
+            NumberOfImagesInSequences=>{ Writable => 'integer',  FlatName => 'ImagesPerSequence' },
+            Values =>   { List => 'Seq', Writable => 'rational' },
+        },
+    },
 );
 
 # Auxiliary namespace properties (aux) - not fully documented (ref PH)
@@ -2234,7 +2278,7 @@ my %sPantryItem = (
 
 # Composite XMP tags
 %Image::ExifTool::XMP::Composite = (
-    # get latitude/logitude reference from XMP lat/long tags
+    # get latitude/longitude reference from XMP lat/long tags
     # (used to set EXIF GPS position from XMP tags)
     GPSLatitudeRef => {
         Require => 'XMP-exif:GPSLatitude',
@@ -3003,8 +3047,20 @@ sub FoundXMP($$$$;$)
         if ($$tagTablePtr{NAMESPACE}) {
             $tagID = $tag;
         } else {
+            $xns = $xmpNS{$ns};
+            unless (defined $xns) {
+                $xns = $ns;
+                # validate namespace prefix
+                unless ($ns =~ /^[A-Z_a-z\x80-\xff][-.0-9A-Z_a-z\x80-\xff]*$/ or $ns eq '') {
+                    $et->Warn("Invalid XMP namespace prefix '${ns}'");
+                    # clean up prefix for use as an ExifTool group name
+                    $ns =~ tr/-.0-9A-Z_a-z\x80-\xff//dc;
+                    $ns =~ /^[A-Z_a-z\x80-\xff]/ or $ns = "ns_$ns";
+                    $stdXlatNS{$xns} = $ns;
+                    $xmpNS{$ns} = $xns;
+                }
+            }
             # add XMP namespace prefix to avoid collisions in variable-namespace tables
-            $xns = $xmpNS{$ns} || $ns;
             $tagID = "$xns:$tag";
             # add namespace to top-level structure property
             $structProps[0][0] = "$xns:" . $structProps[0][0] if @structProps;
@@ -3103,7 +3159,7 @@ NoLoop:
 
         # add tag Namespace entry for tags in variable-namespace tables
         $$tagInfo{Namespace} = $xns if $xns;
-        if ($$et{curURI}{$ns} and $$et{curURI}{$ns} =~ m{^http://ns.exiftool.ca/(.*?)/(.*?)/}) {
+        if ($$et{curURI}{$ns} and $$et{curURI}{$ns} =~ m{^http://ns.exiftool.(?:ca|org)/(.*?)/(.*?)/}) {
             my %grps = ( 0 => $1, 1 => $2 );
             # apply a little magic to recover original group names
             # from this exiftool-written RDF/XML file
@@ -3607,7 +3663,7 @@ sub ParseXMPElement($$$;$$$$)
                         # ignore et:desc, and et:val if preceded by et:prt
                         --$count;
                     } else {
-                        ValidateProperty($et, $propList) if $$et{XmpValidate};
+                        ValidateProperty($et, $propList, \%attrs) if $$et{XmpValidate};
                         &$foundProc($et, $tagTablePtr, $propList, $val, \%attrs);
                     }
                 }
@@ -3681,6 +3737,7 @@ sub ProcessXMP($$;$)
     $$et{definedNS} = { };
     delete $$et{XmpAbout};
     delete $$et{XmpValidate};   # don't validate by default
+    delete $$et{XmpValidateLangAlt};
 
     # ignore non-standard XMP while in strict MWG compatibility mode
     if (($Image::ExifTool::MWG::strict or $$et{OPTIONS}{Validate}) and
@@ -4054,7 +4111,7 @@ information.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

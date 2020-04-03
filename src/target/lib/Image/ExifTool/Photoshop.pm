@@ -545,7 +545,7 @@ my %unicodeString = (
         PrintConv => 'sprintf("%d%%",$val)',
     },
     # tags extracted from additional layer information (tag ID's are real)
-    # - must be able to accomodate a blank entry to preserve the list ordering
+    # - must be able to accommodate a blank entry to preserve the list ordering
     luni => {
         Name => 'LayerUnicodeNames',
         List => 1,
@@ -1136,7 +1136,7 @@ be preserved when copying Photoshop information via user-defined tags.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

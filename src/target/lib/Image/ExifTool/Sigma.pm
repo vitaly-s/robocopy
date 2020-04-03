@@ -19,7 +19,7 @@ use strict;
 use vars qw($VERSION %sigmaLensTypes);
 use Image::ExifTool::Exif;
 
-$VERSION = '1.30';
+$VERSION = '1.31';
 
 # sigma LensType lookup (ref IB)
 %sigmaLensTypes = (
@@ -227,7 +227,8 @@ $VERSION = '1.30';
     0x1009 => 'Sigma 14mm F4', #NJ (DP0 Quattro kit)
     # L-mount lenses?:
     0x6001 => 'Sigma 150-600mm F5-6.3 DG OS HSM | S', #PH (NC, fp)
-    0x6003 => 'Sigma 45mm F2.8 DG DN | C',#PH (NC, fp)
+    0x6003 => 'Sigma 45mm F2.8 DG DN | C', #PH (NC, fp)
+    0x6006 => 'Sigma 50mm F1.4 DG HSM | A', #IB (014)
     0x8005 => 'Sigma 35mm F1.4 DG HSM | A', #PH (012)
     0x8009 => 'Sigma 18-35mm F1.8 DC HSM | A', #PH
     0x8900 => 'Sigma 70-300mm F4-5.6 DG OS', #PH (SD15)
@@ -523,7 +524,6 @@ $VERSION = '1.30';
         Name => 'LensType',
         Condition => '$$self{MakerNoteSigmaVer} >= 3 and $format eq "string"',
         Notes => 'some newer models only',
-        
         ValueConv => '$val =~ /^[0-9a-f]+$/i ? hex($val) : $val',
         # (truncate decimal part and convert hex)
         ValueConvInv => '$val=~s/\.\d+$//;$val=~/^0x/ and $val=hex($val);IsInt($val) ? sprintf("%x",$val) : $val',
@@ -837,7 +837,7 @@ Sigma and Foveon maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

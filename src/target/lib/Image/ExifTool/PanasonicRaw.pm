@@ -21,7 +21,7 @@ use vars qw($VERSION);
 use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 
-$VERSION = '1.24';
+$VERSION = '1.25';
 
 sub ProcessJpgFromRaw($$$);
 sub WriteJpgFromRaw($$$);
@@ -818,7 +818,10 @@ sub ProcessJpgFromRaw($$$)
         $out = $et->Options('TextOut');
         print $out '--- DOC1:JpgFromRaw ',('-'x56),"\n";
     }
+    # fudge HtmlDump base offsets to show as a stand-alone JPEG
+    $$et{BASE_FUDGE} = $$et{BASE};
     my $rtnVal = $et->ProcessJPEG(\%dirInfo);
+    $$et{BASE_FUDGE} = 0;
     # restore necessary variables for continued RW2/RWL processing
     $$et{BASE} = 0;
     $$et{FILE_TYPE} = 'TIFF';
@@ -851,7 +854,7 @@ write meta information in Panasonic/Leica RAW, RW2 and RWL images.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

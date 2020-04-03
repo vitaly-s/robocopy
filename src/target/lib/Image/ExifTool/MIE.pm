@@ -1339,7 +1339,7 @@ sub WriteMIEGroup($$$)
                     $extLen = Set32u($len);
                     $len = 254;
                 } else {
-                    $et->Warn("Can't write $newTag (DataLength > 2GB not yet suppported)");
+                    $et->Warn("Can't write $newTag (DataLength > 2GB not yet supported)");
                     last; # don't write this tag
                 }
                 # write this element (with leading MIE group element if not done already)
@@ -2544,7 +2544,7 @@ tag name.  For example:
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.  The MIE format itself is also

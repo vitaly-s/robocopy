@@ -397,7 +397,7 @@ sub ProcessZIP($$)
     my $tagTablePtr = GetTagTable('Image::ExifTool::ZIP::Main');
     my $docNum = 0;
 
-    # use Archive::Zip if avilable
+    # use Archive::Zip if available
     for (;;) {
         unless (eval { require Archive::Zip } and eval { require IO::File }) {
             if ($$et{FILE_EXT} and $$et{FILE_EXT} ne 'ZIP') {
@@ -700,7 +700,7 @@ Electronic Publication (EPUB), and Sketch design files (SKETCH).
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -26,6 +26,7 @@
 #              20) Bernd-Michael Kemper private communication (DMC-GX80/85)
 #              21) Klaus Homeister forum post
 #              22) Daniel Beichl private communication (G9)
+#              23) Tim Gray private communication (M10 Monochrom)
 #              JD) Jens Duttke private communication (TZ3,FZ30,FZ50)
 #------------------------------------------------------------------------------
 
@@ -36,7 +37,7 @@ use vars qw($VERSION %leicaLensTypes);
 use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 
-$VERSION = '2.06';
+$VERSION = '2.09';
 
 sub ProcessLeicaLEIC($$$);
 sub WhiteBalanceConv($;$$);
@@ -253,7 +254,7 @@ my %shootingMode = (
     83 => 'Clear Night Portrait', #18
     84 => 'Soft Image of a Flower', #18
     85 => 'Appetizing Food', #18
-    86 => 'Cute Desert', #18
+    86 => 'Cute Dessert', #18
     87 => 'Freeze Animal Motion', #18
     88 => 'Clear Sports Shot', #18
     89 => 'Monochrome', #18
@@ -1270,6 +1271,25 @@ my %shootingMode = (
         Writable => 'int16u',
         PrintConv => { 0 => 'Off', 1 => 'Auto' },
     },
+    # Note: LensTypeMake and LensTypeModel are combined into a Composite LensType tag
+    # defined in Olympus.pm which has the same values as Olympus:LensType
+    0xc4 => { #PH
+        Name => 'LensTypeMake',
+        Condition => '$format eq "int16u" and $$valPt ne "\xff\xff"',   # (ignore make 65535 for now)
+        Writable => 'int16u',
+    },
+    0xc5 => { #PH
+        Name => 'LensTypeModel',
+        Condition => '$format eq "int16u"',
+        Writable => 'int16u',
+        RawConv => q{
+            return undef unless $val;
+            require Image::ExifTool::Olympus; # (to load Composite LensID)
+            return $val;
+        },
+        ValueConv => '$_=sprintf("%.4x",$val); s/(..)(..)/$2 $1/; $_',
+        ValueConvInv => '$val =~ s/(..) (..)/$2$1/; hex($val)',
+    },
     0xd1 => { #PH
         Name => 'ISO',
         RawConv => '$val > 0xfffffff0 ? undef : $val',
@@ -1949,7 +1969,7 @@ my %shootingMode = (
     WRITE_PROC => \&Image::ExifTool::Exif::WriteExif,
     CHECK_PROC => \&Image::ExifTool::Exif::CheckExif,
     GROUPS => { 0 => 'MakerNotes', 1 => 'Leica', 2 => 'Camera' },
-    NOTES => 'This information is written by the Leica S (Typ 007).',
+    NOTES => 'This information is written by the Leica S (Typ 007) and M10 models.',
     0x304 => {
         Name => 'FocusDistance',
         Notes => 'focus distance in mm for most models, but cm for others',
@@ -1970,6 +1990,27 @@ my %shootingMode = (
         PrintConvInv => '$val',
     },
     # 0x340 - ImageUniqueID
+    0x34c => { #23
+        Name => 'UserProfile',
+        Writable => 'string',
+    },
+    0x359 => { #23
+        Name => 'ISOSelected',
+        Writable => 'int32s',
+        PrintConv => {
+            0 => 'Auto',
+            OTHER => sub { return shift; },
+        },
+    },
+    0x35a => { #23
+        Name => 'FNumber',
+        Writable => 'int32s',
+        ValueConv => '$val / 1000',
+        ValueConvInv => '$val * 1000',
+        PrintConv => 'sprintf("%.1f", $val)',
+        PrintConvInv => '$val',
+    },
+    # 0x357 int32u - 0=DNG, 3162=JPG (ref 23)
 );
 
 # Type 2 tags (ref PH)
@@ -2449,7 +2490,7 @@ sub ProcessLeicaLEIC($$$)
 #------------------------------------------------------------------------------
 # Process MakerNote trailer written by Leica S2
 # Inputs: 0) ExifTool object ref, 1) new absolute position of Leica trailer when writing
-# Returns: On success: 1 when reading, directory data when writing; othewise undef
+# Returns: On success: 1 when reading, directory data when writing; otherwise undef
 # Notes:
 # - may be called twice for a file if the first call doesn't succeed
 # - must leave RAF position unchanged
@@ -2637,7 +2678,7 @@ Panasonic and Leica maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

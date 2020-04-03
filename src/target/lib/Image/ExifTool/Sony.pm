@@ -34,7 +34,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::Minolta;
 
-$VERSION = '3.18';
+$VERSION = '3.22';
 
 sub ProcessSRF($$$);
 sub ProcessSR2($$$);
@@ -142,6 +142,7 @@ sub PrintInvLensSpec($;$$);
     32853 => 'Sony E 16-55mm F2.8 G', #IB/JR
     32854 => 'Sony E 70-350mm F4.5-6.3 G OSS', #IB/JR
     32858 => 'Sony FE 35mm F1.8', #JR/IB
+    32859 => 'Sony FE 20mm F1.8 G', #IB/JR
 
   # (comment this out so LensID will report the LensModel, which is more useful)
   # 32952 => 'Metabones Canon EF Speed Booster Ultra', #JR (corresponds to 184, but 'Advanced' mode, LensMount reported as E-mount)
@@ -175,6 +176,9 @@ sub PrintInvLensSpec($;$$);
 
     49457 => 'Tamron 28-75mm F2.8 Di III RXD', #JR (Model A036)
     49458 => 'Tamron 17-28mm F2.8 Di III RXD', #JR (Model A046)
+    49459 => 'Tamron 35mm F2.8 Di III OSD M1:2', #IB (Model F053)
+    49460 => 'Tamron 24mm F2.8 Di III OSD M1:2', #JR (Model F051)
+    49461 => 'Tamron 20mm F2.8 Di III OSD M1:2', #JR (Model F050)
 
     49712 => 'Tokina FiRIN 20mm F2 FE AF',       # (firmware Ver.01)
     49713 => 'Tokina FiRIN 100mm F2.8 FE MACRO', # (firmware Ver.01)
@@ -203,6 +207,7 @@ sub PrintInvLensSpec($;$$);
     50514 => 'Sigma 45mm F2.8 DG DN | C', #IB/JR (019)
     50515 => 'Sigma 35mm F1.2 DG DN | A', #IB/JR (019)
     50516 => 'Sigma 14-24mm F2.8 DG DN | A', #IB/JR (019)
+    50517 => 'Sigma 24-70mm F2.8 DG DN | A', #JR (019)
 
     50992 => 'Voigtlander SUPER WIDE-HELIAR 15mm F4.5 III', #JR
     50993 => 'Voigtlander HELIAR-HYPER WIDE 10mm F5.6', #IB
@@ -214,6 +219,7 @@ sub PrintInvLensSpec($;$$);
     50999 => 'Voigtlander COLOR-SKOPAR 21mm F3.5 Aspherical', #IB
     51000 => 'Voigtlander NOKTON 50mm F1.2 Aspherical', #JR
     51001 => 'Voigtlander NOKTON 21mm F1.4 Aspherical', #JR
+    51002 => 'Voigtlander APO-LANTHAR 50mm F2 Aspherical', #JR
 
     # lenses listed in the Sigma MC-11 list, but not yet seen:
     # 504xx => 'Sigma 18-200mm F3.5-6.3 DC MACRO OS HSM | C + MC-11', # (014)
@@ -224,6 +230,8 @@ sub PrintInvLensSpec($;$$);
     51505.1 => 'Samyang AF 35mm F2.8', #PH (also 32794)
     51507 => 'Samyang AF 35mm F1.4', #IB
     51508 => 'Samyang AF 45mm F1.8',
+    51510 => 'Samyang AF 18mm F2.8', #JR
+
 );
 
 # ExposureProgram values (ref PH, mainly decoded from A200)
@@ -5488,7 +5496,7 @@ my %faceInfo = (
         PrintConv => {
             191 => 'On (191)', # seen a few times with moving subject, continuous drive, bracketing
             207 => 'On (207)', # seen once with RemoteCommander
-            210 => 'On (210)', # seen a few times with continous drive
+            210 => 'On (210)', # seen a few times with continuous drive
             213 => 'On',
             246 => 'Off',
         },
@@ -10703,7 +10711,7 @@ Minolta.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -37,7 +37,7 @@ my %mp4Map = (
     Track     => 'Movie',
 );
 my %heicMap = (
-    # HEIC ('ftyp' compatible brand 'heic' or 'mif1') -> XMP/EXIF in top level 'meta'
+    # HEIC/HEIF/AVIF ('ftyp' compatible brand 'heic','mif1','avif') -> XMP/EXIF in top level 'meta'
     Meta         => 'MOV',
     ItemInformation => 'Meta',
     ItemPropertyContainer => 'Meta',
@@ -81,6 +81,8 @@ my %qtFormat = (
     float  => 0x17,  double => 0x18,
 );
 my $undLang = 0x55c4;   # numeric code for default ('und') language
+
+my $maxReadLen = 100000000; # maximum size of atom to read into memory (100 MB)
 
 # boxes that may exist in an "empty" Meta box:
 my %emptyMeta = (
@@ -360,7 +362,7 @@ sub WriteKeys($$$)
     my $pos = 8;
     my $newTags = $et->GetNewTagInfoHash($tagTablePtr);
     my $newData = substr($$dataPt, 0, $pos);
-        
+
     my $newIndex = 1;
     my $index = 1;
     while ($pos < $dirLen - 4) {
@@ -447,7 +449,7 @@ sub WriteKeys($$$)
 sub WriteItemInfo($$$)
 {
     my ($et, $dirInfo, $outfile) = @_;
-    my $boxPos = $$dirInfo{BoxPos};
+    my $boxPos = $$dirInfo{BoxPos};     # hash of [length,position] for each box
     my $raf = $$et{RAF};
     my $items = $$et{ItemInfo};
     my (%did, @mdatEdit, $name);
@@ -455,102 +457,121 @@ sub WriteItemInfo($$$)
     return () unless $items and $raf;
 
     # extract information from EXIF/XMP metadata items
-    if ($items and $raf) {
-        my $curPos = $raf->Tell();
-        my $primary = $$et{PrimaryItem} || 0;
-        my $id;
-        foreach $id (sort { $a <=> $b } keys %$items) {
-            my $item = $$items{$id};
-            # only edit primary EXIF/XMP metadata
-            next unless $$item{RefersTo} and $$item{RefersTo}{$primary};
-            my $type = $$item{ContentType} || $$item{Type} || next;
-            # get ExifTool name for this item
-            $name = { Exif => 'EXIF', 'application/rdf+xml' => 'XMP' }->{$type};
-            next unless $name;  # only care about EXIF and XMP
-            next unless $$et{EDIT_DIRS}{$name};
-            $did{$name} = 1;    # set flag to prevent creating this metadata
-            my ($warn, $extent, $buff, @edit);
-            $warn = 'Missing iloc box' unless $$boxPos{iloc};
-            $warn = "No Extents for $type item" unless $$item{Extents} and @{$$item{Extents}};
-            $warn = "Can't currently decode encoded $type metadata" if $$item{ContentEncoding};
-            $warn = "Can't currently decode protected $type metadata" if $$item{ProtectionIndex};
-            $warn = "Can't currently extract $type with construction method $$item{ConstructionMethod}" if $$item{ConstructionMethod};
-            $warn = "$type metadata is not this file" if $$item{DataReferenceIndex};
-            $warn and $et->Warn($warn), next;
-            my $base = $$item{BaseOffset} || 0;
-            my $val = '';
-            foreach $extent (@{$$item{Extents}}) {
-                $val .= $buff if defined $buff;
-                my $pos = $$extent[1] + $base;
-                if ($$extent[2]) {
-                    $raf->Seek($pos, 0) or last;
-                    $raf->Read($buff, $$extent[2]) or last;
-                } else {
-                    $buff = '';
-                }
-                push @edit, [ $pos, $pos + $$extent[2] ];   # replace or delete this if changed
-            }
-            next unless defined $buff;
-            $buff = $val . $buff if length $val;
-            my ($hdr, $subTable, $proc);
-            if ($name eq 'EXIF') {
-                $hdr = "\0\0\0\x06Exif\0\0";
-                $subTable = GetTagTable('Image::ExifTool::Exif::Main');
-                $proc = \&Image::ExifTool::WriteTIFF;
+    my $primary = $$et{PrimaryItem};
+    my $curPos = $raf->Tell();
+    my $id;
+    foreach $id (sort { $a <=> $b } keys %$items) {
+        $primary = $id unless defined $primary; # assume primary is lowest-number item if pitm missing
+        my $item = $$items{$id};
+        # only edit primary EXIF/XMP metadata
+        next unless $$item{RefersTo} and $$item{RefersTo}{$primary};
+        my $type = $$item{ContentType} || $$item{Type} || next;
+        # get ExifTool name for this item
+        $name = { Exif => 'EXIF', 'application/rdf+xml' => 'XMP' }->{$type};
+        next unless $name;  # only care about EXIF and XMP
+        next unless $$et{EDIT_DIRS}{$name};
+        $did{$name} = 1;    # set flag to prevent creating this metadata
+        my ($warn, $extent, $buff, @edit);
+        $warn = 'Missing iloc box' unless $$boxPos{iloc};
+        $warn = "No Extents for $type item" unless $$item{Extents} and @{$$item{Extents}};
+        $warn = "Can't currently decode encoded $type metadata" if $$item{ContentEncoding};
+        $warn = "Can't currently decode protected $type metadata" if $$item{ProtectionIndex};
+        $warn = "Can't currently extract $type with construction method $$item{ConstructionMethod}" if $$item{ConstructionMethod};
+        $warn = "$type metadata is not this file" if $$item{DataReferenceIndex};
+        $warn and $et->Warn($warn), next;
+        my $base = $$item{BaseOffset} || 0;
+        my $val = '';
+        foreach $extent (@{$$item{Extents}}) {
+            $val .= $buff if defined $buff;
+            my $pos = $$extent[1] + $base;
+            if ($$extent[2]) {
+                $raf->Seek($pos, 0) or last;
+                $raf->Read($buff, $$extent[2]) or last;
             } else {
-                $hdr = '';
-                $subTable = GetTagTable('Image::ExifTool::XMP::Main');
+                $buff = '';
             }
-            my %dirInfo = (
-                DataPt   => \$buff,
-                DataLen  => length $buff,
-                DirStart => length $hdr,
-                DirLen   => length($buff) - length $hdr,
-            );
-            my $changed = $$et{CHANGED};
-            my $newVal = $et->WriteDirectory(\%dirInfo, $subTable, $proc);
-            if (defined $newVal and $changed ne $$et{CHANGED} and
-                # nothing changed if deleting an empty directory
-                ($dirInfo{DirLen} or length $newVal))
-            {
-                $newVal = $hdr . $newVal if length $hdr and length $newVal;
-                $edit[0][2] = \$newVal;     # replace the old chunk with the new data
-                $edit[0][3] = $id;          # mark this chunk with the item ID
-                push @mdatEdit, @edit;
-                # update item extent_length
-                my $n = length $newVal;
-                foreach $extent (@{$$item{Extents}}) {
-                    my ($nlen, $lenPt) = @$extent[3,4];
-                    if ($nlen == 8) {
-                        Set64u($n, $outfile, $$boxPos{iloc}[0] + 8 + $lenPt);
-                    } elsif ($n <= 0xffffffff) {
-                        Set32u($n, $outfile, $$boxPos{iloc}[0] + 8 + $lenPt);
-                    } else {
-                        $et->Error("Can't yet promote iloc offset to 64 bits");
-                        return ();
-                    }
-                    $n = 0;
-                }
-                if (@{$$item{Extents}} != 1) {
-                    $et->Error("Can't yet handle $name in multiple parts. Please submit sample for testing");
-                }
-            }
-            $$et{CHANGED} = $changed;   # (will set this later if successful in editing mdat)
+            push @edit, [ $pos, $pos + $$extent[2] ];   # replace or delete this if changed
         }
-        $raf->Seek($curPos, 0);     # seek back to original position
+        next unless defined $buff;
+        $buff = $val . $buff if length $val;
+        my ($hdr, $subTable, $proc);
+        if ($name eq 'EXIF') {
+            if (not length $buff) {
+                # create EXIF from scratch
+                $hdr = "\0\0\0\x06Exif\0\0";
+            } elsif (length($buff) >= 4 and length($buff) >= 4 + unpack('N',$buff)) {
+                $hdr = substr($buff, 0, 4 + unpack('N',$buff));
+            } else {
+                $et->Warn('Invalid Exif header');
+                next;
+            }
+            $subTable = GetTagTable('Image::ExifTool::Exif::Main');
+            $proc = \&Image::ExifTool::WriteTIFF;
+        } else {
+            $hdr = '';
+            $subTable = GetTagTable('Image::ExifTool::XMP::Main');
+        }
+        my %dirInfo = (
+            DataPt   => \$buff,
+            DataLen  => length $buff,
+            DirStart => length $hdr,
+            DirLen   => length($buff) - length $hdr,
+        );
+        my $changed = $$et{CHANGED};
+        my $newVal = $et->WriteDirectory(\%dirInfo, $subTable, $proc);
+        if (defined $newVal and $changed ne $$et{CHANGED} and
+            # nothing changed if deleting an empty directory
+            ($dirInfo{DirLen} or length $newVal))
+        {
+            $newVal = $hdr . $newVal if length $hdr and length $newVal;
+            $edit[0][2] = \$newVal;     # replace the old chunk with the new data
+            $edit[0][3] = $id;          # mark this chunk with the item ID
+            push @mdatEdit, @edit;
+            # update item extent_length
+            my $n = length $newVal;
+            foreach $extent (@{$$item{Extents}}) {
+                my ($nlen, $lenPt) = @$extent[3,4];
+                if ($nlen == 8) {
+                    Set64u($n, $outfile, $$boxPos{iloc}[0] + 8 + $lenPt);
+                } elsif ($n <= 0xffffffff) {
+                    Set32u($n, $outfile, $$boxPos{iloc}[0] + 8 + $lenPt);
+                } else {
+                    $et->Error("Can't yet promote iloc length to 64 bits");
+                    return ();
+                }
+                $n = 0;
+            }
+            if (@{$$item{Extents}} != 1) {
+                $et->Error("Can't yet handle $name in multiple parts. Please submit sample for testing");
+            }
+        }
+        $$et{CHANGED} = $changed;   # (will set this later if successful in editing mdat)
     }
+    $raf->Seek($curPos, 0);     # seek back to original position
+
     # add necessary metadata types if they didn't already exist
     my ($countNew, %add, %usedID);
     foreach $name ('EXIF','XMP') {
         next if $did{$name} or not $$et{ADD_DIRS}{$name};
-        unless ($$boxPos{iinf} and $$boxPos{iref} and $$boxPos{iloc}) {
-            $et->Warn("Can't create $name. Missing expected box");
+        my @missing;
+        $$boxPos{$_} or push @missing, $_ foreach qw(iinf iloc);
+        if (@missing) {
+            my $str = @missing > 1 ? join(' and ', @missing) . ' boxes' : "@missing box";
+            $et->Warn("Can't create $name. Missing expected $str");
             last;
         }
-        my $primary = $$et{PrimaryItem};
-        unless (defined $primary) {
-            $et->Warn("Can't create $name. No primary item reference");
-            last;
+        unless (defined $$et{PrimaryItem}) {
+            unless (defined $primary) {
+                $et->Warn("Can't create $name. No items to reference");
+                last;
+            }
+            # add new primary item reference box after hdrl box
+            if ($primary < 0x10000) {
+                $add{hdlr} = pack('Na4Nn', 14, 'pitm', 0, $primary);
+            } else {
+                $add{hdlr} = pack('Na4CCCCN', 16, 'pitm', 1, 0, 0, 0, $primary);
+            }
+            $et->Warn("Added missing PrimaryItemReference (for item $primary)", 1);
         }
         my $buff = '';
         my ($hdr, $subTable, $proc);
@@ -571,6 +592,14 @@ sub WriteItemInfo($$$)
         my $changed = $$et{CHANGED};
         my $newVal = $et->WriteDirectory(\%dirInfo, $subTable, $proc);
         if (defined $newVal and $changed ne $$et{CHANGED}) {
+            my $irefVer;
+            if ($$boxPos{iref}) {
+                $irefVer = Get8u($outfile, $$boxPos{iref}[0] + 8);
+            } else {
+                # create iref box after end of iinf box (and save version in boxPos list)
+                $irefVer = ($primary < 0x10000 ? 0 : 1);
+                $$boxPos{iref} = [ $$boxPos{iinf}[0] + $$boxPos{iinf}[1], 0, $irefVer ];
+            }
             $newVal = $hdr . $newVal if length $hdr;
             # add new infe to iinf
             $add{iinf} = $add{iref} = $add{iloc} = '' unless defined $add{iinf};
@@ -592,7 +621,6 @@ sub WriteItemInfo($$$)
                 $add{iinf} .= pack('Na4CCCCNn', $n, 'infe', 3, 0, 0, 1, $id, 0) . $type . $mime;
             }
             # add new cdsc to iref
-            my $irefVer = Get8u($outfile, $$boxPos{iref}[0] + 8);
             if ($irefVer) {
                 $add{iref} .= pack('Na4NnN', 18, 'cdsc', $id, 1, $primary);
             } else {
@@ -605,18 +633,21 @@ sub WriteItemInfo($$$)
             my $nlen = ($siz >> 8) & 0x0f;
             my $nbas = ($siz >> 4) & 0x0f;
             my $nind = $siz & 0x0f;
-            my $p;
+            my ($pbas, $poff);
             if ($ilocVer == 0) {
                 # set offset to 0 as flag that this is a new idat chunk being added
-                $p = length($add{iloc}) + 4 + $nbas + 2;
+                $pbas = length($add{iloc}) + 4;
+                $poff = $pbas + $nbas + 2;
                 $add{iloc} .= pack('nn',$id,0) . SetVarInt(0,$nbas) . Set16u(1) .
                             SetVarInt(0,$noff) . SetVarInt(length($newVal),$nlen);
             } elsif ($ilocVer == 1) {
-                $p = length($add{iloc}) + 6 + $nbas + 2 + $nind;
+                $pbas = length($add{iloc}) + 6;
+                $poff = $pbas + $nbas + 2 + $nind;
                 $add{iloc} .= pack('nnn',$id,0,0) . SetVarInt(0,$nbas) . Set16u(1) . SetVarInt(0,$nind) .
                             SetVarInt(0,$noff) . SetVarInt(length($newVal),$nlen);
             } elsif ($ilocVer == 2) {
-                $p = length($add{iloc}) + 8 + $nbas + 2 + $nind;
+                $pbas = length($add{iloc}) + 8;
+                $poff = $pbas + $nbas + 2 + $nind;
                 $add{iloc} .= pack('Nnn',$id,0,0) . SetVarInt(0,$nbas) . Set16u(1) . SetVarInt(0,$nind) .
                             SetVarInt(0,$noff) . SetVarInt(length($newVal),$nlen);
             } else {
@@ -627,9 +658,19 @@ sub WriteItemInfo($$$)
             my $off = $$dirInfo{ChunkOffset} or $et->Warn('Internal error. Missing ChunkOffset'), last;
             my $newOff;
             if ($noff == 4) {
-                $newOff = [ 'stco_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $p, $noff, 0, $id ];
+                $newOff = [ 'stco_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $poff, $noff, 0, $id ];
             } elsif ($noff == 8) {
-                $newOff = [ 'co64_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $p, $noff, 0, $id ];
+                $newOff = [ 'co64_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $poff, $noff, 0, $id ];
+            } elsif ($noff == 0) {
+                # offset_size is zero, so store the offset in base_offset instead
+                if ($nbas == 4) {
+                    $newOff = [ 'stco_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $pbas, $nbas, 0, $id ];
+                } elsif ($nbas == 8) {
+                    $newOff = [ 'co64_iloc', $$boxPos{iloc}[0] + $$boxPos{iloc}[1] + $pbas, $nbas, 0, $id ];
+                } else {
+                    $et->Warn("Can't create $name. Invalid iloc offset+base size");
+                    last;
+                }
             } else {
                 $et->Warn("Can't create $name. Invalid iloc offset size");
                 last;
@@ -643,21 +684,29 @@ sub WriteItemInfo($$$)
         }
     }
     if ($countNew) {
-        # insert new entries into iinf, iref and iloc boxes
+        # insert new entries into iinf, iref and iloc boxes,
+        # and add new pitm box after hdlr if necessary
         my $added = 0;
         my $tag;
         foreach $tag (sort { $$boxPos{$a}[0] <=> $$boxPos{$b}[0] } keys %$boxPos) {
             next unless $add{$tag};
             my $pos = $$boxPos{$tag}[0] + $added;
-            my $n = Get32u($outfile, $pos);
-            Set32u($n + length($add{$tag}), $outfile, $pos);        # increase box size
+            unless ($$boxPos{$tag}[1]) {
+                $tag eq 'iref' or $et->Error('Internal error adding iref box'), last;
+                # create new iref box
+                $add{$tag} = Set32u(12 + length $add{$tag}) . $tag .
+                             Set8u($$boxPos{$tag}[2]) . "\0\0\0" . $add{$tag};
+            } elsif ($tag ne 'hdlr') {
+                my $n = Get32u($outfile, $pos);
+                Set32u($n + length($add{$tag}), $outfile, $pos);    # increase box size
+            }
             if ($tag eq 'iinf') {
                 my $iinfVer = Get8u($outfile, $pos + 8);
                 if ($iinfVer == 0) {
-                    $n = Get16u($outfile, $pos + 12);
+                    my $n = Get16u($outfile, $pos + 12);
                     Set16u($n + $countNew, $outfile, $pos + 12);    # incr count
                 } else {
-                    $n = Get32u($outfile, $pos + 12);
+                    my $n = Get32u($outfile, $pos + 12);
                     Set32u($n + $countNew, $outfile, $pos + 12);    # incr count
                 }
             } elsif ($tag eq 'iref') {
@@ -665,20 +714,20 @@ sub WriteItemInfo($$$)
             } elsif ($tag eq 'iloc') {
                 my $ilocVer = Get8u($outfile, $pos + 8);
                 if ($ilocVer < 2) {
-                    $n = Get16u($outfile, $pos + 14);
+                    my $n = Get16u($outfile, $pos + 14);
                     Set16u($n + $countNew, $outfile, $pos + 14);    # incr count
                 } else {
-                    $n = Get32u($outfile, $pos + 14);
+                    my $n = Get32u($outfile, $pos + 14);
                     Set32u($n + $countNew, $outfile, $pos + 14);    # incr count
                 }
                 # must also update pointer locations in this box
                 if ($added) {
                     $$_[1] += $added foreach @{$$dirInfo{ChunkOffset}};
                 }
-            } else {
+            } elsif ($tag ne 'hdlr') {
                 next;
             }
-            # add new entries to this box
+            # add new entries to this box (or add pitm after hdlr)
             substr($$outfile, $pos + $$boxPos{$tag}[1], 0) = $add{$tag};
             $added += length $add{$tag};    # positions are shifted by length of new entries
         }
@@ -845,28 +894,46 @@ sub WriteQuickTime($$$)
         }
 
         # read the atom data
+        my $got;
         if (not $size) {
             $buff = '';
-        } elsif ($size > 100000000) {
-            my $mb = int($size / 0x100000 + 0.5);
-            $tag = PrintableTagID($tag,3);
-            $et->Error("'${tag}' atom is too large for rewriting ($mb MB)");
-            return $rtnVal;
-        } elsif ($raf->Read($buff, $size) != $size) {
-            $tag = PrintableTagID($tag,3);
-            $et->Error("Truncated $tag atom");
-            return $rtnVal;
+            $got = 0;
+        } else {
+            # read the atom data (but only first 64kB if data is huge)
+            $got = $raf->Read($buff, $size > $maxReadLen ? 0x10000 : $size);
+        }
+        if ($got != $size) {
+            # ignore up to 256 bytes of garbage at end of file
+            if ($got <= 256 and $size >= 1024 and $tag ne 'mdat') {
+                my $bytes = $got + length $hdr;
+                if ($$et{OPTIONS}{IgnoreMinorErrors}) {
+                    $et->Warn("Deleted garbage at end of file ($bytes bytes)");
+                    $buff = $hdr = '';
+                } else {
+                    $et->Error("Possible garbage at end of file ($bytes bytes)", 1);
+                    return $rtnVal;
+                }
+            } else {
+                $tag = PrintableTagID($tag,3);
+                if ($size > $maxReadLen and $got == 0x10000) {
+                    my $mb = int($size / 0x100000 + 0.5);
+                    $et->Error("'${tag}' atom is too large for rewriting ($mb MB)");
+                } else {
+                    $et->Error("Truncated '${tag}' atom");
+                }
+                return $rtnVal;
+            }
         }
         # save the handler type for this track
         if ($tag eq 'hdlr' and length $buff >= 12) {
             my $hdlr = substr($buff,8,4);
             $$et{HandlerType} = $hdlr if $hdlr =~ /^(vide|soun)$/;
         }
-        
+
         # if this atom stores offsets, save its location so we can fix up offsets later
         # (are there any other atoms that may store absolute file offsets?)
         if ($tag =~ /^(stco|co64|iloc|mfra|moof|sidx|saio|gps |CTBO|uuid)$/) {
-            # (note that we only need to do this if the movie data is stored in this file)
+            # (note that we only need to do this if the media data is stored in this file)
             my $flg = $$et{QtDataFlg};
             if ($tag eq 'mfra' or $tag eq 'moof') {
                 $et->Error("Can't yet handle movie fragments when writing");
@@ -894,7 +961,7 @@ sub WriteQuickTime($$$)
                 $et->Error("Can't locate data reference to update offsets for $grp");
                 return $rtnVal;
             } elsif ($flg == 3) {
-                $et->Error("Can't write files with mixed internal/external movie data");
+                $et->Error("Can't write files with mixed internal/external media data");
                 return $rtnVal;
             } elsif ($flg == 1) {
                 # must update offsets since the data is in this file
@@ -1052,7 +1119,7 @@ sub WriteQuickTime($$$)
                                         my $newVal = $et->GetNewValue($nvHash);
                                         next unless defined $newVal;
                                         my $prVal = $newVal;
-                                        my $flags = FormatQTValue($et, \$newVal, $$tagInfo{Format});
+                                        my $flags = FormatQTValue($et, \$newVal, $format);
                                         next unless defined $newVal;
                                         my ($ctry, $lang) = (0, $undLang);
                                         if ($$ti{LangCode}) {
@@ -1108,7 +1175,6 @@ sub WriteQuickTime($$$)
                                     $val =~ s/\0$// unless $$tagInfo{Binary};
                                     $flags = 0x01;  # write all strings as UTF-8
                                 } else {
-                                    $format = $$tagInfo{Format};
                                     if ($format) {
                                         # update flags for the format we are writing
                                         $flags = $qtFormat{$format} if $qtFormat{$format};
@@ -1130,7 +1196,7 @@ sub WriteQuickTime($$$)
                                     }
                                     my $prVal = $newVal;
                                     # format new value for writing (and get new flags)
-                                    $flags = FormatQTValue($et, \$newVal, $$tagInfo{Format});
+                                    $flags = FormatQTValue($et, \$newVal, $format);
                                     my $grp = $et->GetGroup($langInfo, 1);
                                     $et->VerboseValue("- $grp:$$langInfo{Name}", $val);
                                     $et->VerboseValue("+ $grp:$$langInfo{Name}", $prVal);
@@ -1204,11 +1270,14 @@ sub WriteQuickTime($$$)
                                 } else {
                                     $newData = pack('nn', length($newData), $lang) . $newData;
                                 }
-                            } elsif (not $$tagInfo{Format} or $$tagInfo{Format} =~ /^string/ and
-                                    not $$tagInfo{Binary} and not $$tagInfo{ValueConv})
+                            } elsif (not $format or $format =~ /^string/ and
+                                     not $$tagInfo{Binary} and not $$tagInfo{ValueConv})
                             {
                                 # write all strings as UTF-8
                                 $newData = $et->Encode($newData, 'UTF8');
+                            } elsif ($format and not $$tagInfo{Binary}) {
+                                # format new value for writing
+                                $newData = WriteValue($newData, $format);
                             }
                         }
                         $$didTag{$nvHash} = 1;   # set flag so we don't add this tag again
@@ -1485,10 +1554,10 @@ sub WriteQuickTime($$$)
     if (not @mdat) {
         foreach $co (@$off) {
             next if $$co[0] eq 'uuid';
-            $et->Error('Movie data referenced but not found');
+            $et->Error('Media data referenced but not found');
             return $rtnVal;
         }
-        $et->Warn('No movie data', 1);
+        $et->Warn('No media data', 1);
     }
 
     # edit mdat blocks as required
@@ -1687,19 +1756,19 @@ sub WriteQuickTime($$$)
                 last;
             }
             unless ($ok) {
-                $et->Error("Chunk offset in $tag atom is outside movie data");
+                $et->Error("Chunk offset in $tag atom is outside media data");
                 return $rtnVal;
             }
         }
     }
 
     # switch back to actual output file
-    $outfile = $$dirInfo{OutFile};  
+    $outfile = $$dirInfo{OutFile};
 
     # write the metadata
     Write($outfile, $outBuff) or $rtnVal = 0;
 
-    # write the movie data
+    # write the media data
     foreach $mdat (@mdat) {
         Write($outfile, $$mdat[2]) or $rtnVal = 0;  # write mdat header
         if ($$mdat[4]) {
@@ -1722,7 +1791,7 @@ sub WriteQuickTime($$$)
 
     # write the stuff that must come last
     Write($outfile, $writeLast) or $rtnVal = 0 if $writeLast;
-    
+
     return $rtnVal;
 }
 
@@ -1755,7 +1824,7 @@ sub WriteMOV($$)
     {
         if ($buff =~ /^crx /) {
             $ftype = 'CR3',
-        } elsif ($buff =~ /^(heic|mif1|msf1|heix|hevc|hevx)/) {
+        } elsif ($buff =~ /^(heic|mif1|msf1|heix|hevc|hevx|avif)/) {
             $ftype = 'HEIC';
         } else {
             $ftype = 'MP4';
@@ -1797,7 +1866,7 @@ QuickTime-based file formats like MOV and MP4.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

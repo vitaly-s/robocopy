@@ -8,7 +8,7 @@
 # Revisions:    Nov. 12/2003 - P. Harvey Created
 #               (See html/history.html for revision history)
 #
-# Legal:        Copyright (c) 2003-2019, Phil Harvey (philharvey66 at gmail.com)
+# Legal:        Copyright (c) 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 #               This library is free software; you can redistribute it and/or
 #               modify it under the same terms as Perl itself.
 #------------------------------------------------------------------------------
@@ -19,15 +19,16 @@ use strict;
 require 5.004;  # require 5.004 for UNIVERSAL::isa (otherwise 5.002 would do)
 require Exporter;
 use File::RandomAccess;
+use overload;
 
 use vars qw($VERSION $RELEASE @ISA @EXPORT_OK %EXPORT_TAGS $AUTOLOAD @fileTypes
             %allTables @tableOrder $exifAPP1hdr $xmpAPP1hdr $xmpExtAPP1hdr
             $psAPP13hdr $psAPP13old @loadAllTables %UserDefined $evalWarning
             %noWriteFile %magicNumber @langs $defaultLang %langName %charsetName
             %mimeType $swapBytes $swapWords $currentByteOrder %unpackStd
-            %jpegMarker %specialTags %fileTypeLookup $testLen);
+            %jpegMarker %specialTags %fileTypeLookup $testLen $exePath);
 
-$VERSION = '11.78';
+$VERSION = '11.93';
 $RELEASE = '';
 @ISA = qw(Exporter);
 %EXPORT_TAGS = (
@@ -53,7 +54,7 @@ Exporter::export_ok_tags(keys %EXPORT_TAGS);
 # test for problems that can arise if encoding.pm is used
 { my $t = "\xff"; die "Incompatible encoding!\n" if ord($t) != 0xff; }
 
-# The following functions defined in Image::ExifTool::Writer are declared
+# The following functions defined in Image::ExifTool::Writer.pl are declared
 # here so their prototypes will be available.  These Writer routines will be
 # autoloaded when any of them is called.
 sub SetNewValue($;$$%);
@@ -109,7 +110,7 @@ sub CheckBinaryData($$$);
 sub WriteTIFF($$$);
 sub PackUTF8(@);
 sub UnpackUTF8($);
-sub SetPreferredByteOrder($);
+sub SetPreferredByteOrder($;$);
 sub CopyBlock($$$);
 sub CopyFileAttrs($$$);
 sub TimeNow(;$$);
@@ -117,6 +118,7 @@ sub NewGUID();
 sub MakeTiffHeader($$$$;$$);
 
 # other subroutine definitions
+sub SplitFileName($);
 sub EncodeFileName($$;$);
 sub Open($*$;$);
 sub Exists($$);
@@ -235,6 +237,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     ASF  => ['ASF',  'Microsoft Advanced Systems Format'],
     AVC  => ['AVC',  'Advanced Video Connection'], # (extensions are actually _AU,_AD,_IM,_ID)
     AVI  => ['RIFF', 'Audio Video Interleaved'],
+    AVIF => ['MOV',  'AV1 Image File Format'],
     AZW  =>  'MOBI', # (see http://wiki.mobileread.com/wiki/AZW)
     AZW3 =>  'MOBI',
     BMP  => ['BMP',  'Windows Bitmap'],
@@ -249,6 +252,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     CRM  => ['MOV',  'Canon RAW Movie'],
     CRW  => ['CRW',  'Canon RAW format'],
     CS1  => ['PSD',  'Sinar CaptureShop 1-Shot RAW'],
+    CSV  => ['TXT',  'Comma-Separated Values'],
     DC3  =>  'DICM',
     DCM  =>  'DICM',
     DCP  => ['TIFF', 'DNG Camera Profile'],
@@ -316,6 +320,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     HDR  => ['HDR',  'Radiance RGBE High Dynamic Range'],
     HEIC => ['MOV',  'High Efficiency Image Format still image'],
     HEIF => ['MOV',  'High Efficiency Image Format'],
+    HIF  =>  'HEIF',
     HTM  =>  'HTML',
     HTML => ['HTML', 'HyperText Markup Language'],
     ICAL =>  'ICS',
@@ -328,6 +333,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     INDD => ['IND',  'Adobe InDesign Document'],
     INDT => ['IND',  'Adobe InDesign Template'],
     INSV => ['MOV',  'Insta360 Video'],
+    INSP => ['JPEG', 'Insta360 Picture'],
     INX  => ['XMP',  'Adobe InDesign Interchange'],
     ISO  => ['ISO',  'ISO 9660 disk image'],
     ITC  => ['ITC',  'iTunes Cover Flow'],
@@ -574,6 +580,7 @@ my %fileDescription = (
     CR3  => 'image/x-canon-cr3',
     CRM  => 'video/x-canon-crm',
     CRW  => 'image/x-canon-crw',
+    CSV  => 'text/csv',
     DCP  => 'application/octet-stream', #PH (NC)
     DCR  => 'image/x-kodak-dcr',
     DCX  => 'image/dcx',
@@ -976,6 +983,7 @@ my %xmpShorthandOpt = ( 0 => 'None', 1 => 'Shorthand', 2 => ['Shorthand','OneDes
     thai        => 'Thai',        cp874   => 'Thai',
     doslatinus  => 'DOSLatinUS',  cp437   => 'DOSLatinUS',
     doslatin1   => 'DOSLatin1',   cp850   => 'DOSLatin1',
+    doscyrillic => 'DOSCyrillic', cp866   => 'DOSCyrillic',
     macroman    => 'MacRoman',    cp10000 => 'MacRoman', mac => 'MacRoman', roman => 'MacRoman',
     maclatin2   => 'MacLatin2',   cp10029 => 'MacLatin2',
     maccyrillic => 'MacCyrillic', cp10007 => 'MacCyrillic',
@@ -1040,7 +1048,7 @@ my %systemTagsNotes = (
     # accept either scalar or scalar reference
     RawConv => '$self->ValidateImage(ref $val ? $val : \$val, $tag)',
     # we allow preview image to be set to '', but we don't want a zero-length value
-    # in the IFD, so set it temorarily to 'none'.  Note that the length is <= 4,
+    # in the IFD, so set it temporarily to 'none'.  Note that the length is <= 4,
     # so this value will fit in the IFD so the preview fixup won't be generated.
     ValueConvInv => '$val eq "" and $val="none"; $val',
 );
@@ -1708,7 +1716,19 @@ my %systemTagsNotes = (
             multiple values may be separated with commas, eg. C<-ForceWrite=exif,xmp>
         },
     },
-    EmbeddedVideo => { Groups => { 2 => 'Video' } },
+    EmbeddedVideo => { Groups => { 0 => 'Trailer', 2 => 'Video' } },
+    Trailer => {
+        Groups => { 0 => 'Trailer' },
+        Notes => 'the full JPEG trailer data block.  Extracted only if specifically requested',
+        Writable => 1,
+        Protected => 1,
+    },
+);
+
+# tags defined by UserParam option (added at runtime)
+%Image::ExifTool::UserParam = (
+    GROUPS => { 0 => 'UserParam', 1 => 'UserParam', 2 => 'Other' },
+    PRIORITY => 0,
 );
 
 # YCbCrSubSampling values (used by JPEG SOF, EXIF and XMP)
@@ -2051,31 +2071,45 @@ sub Options($$;@)
         } elsif ($param eq 'UserParam') {
             # clear options if $newVal is undef
             defined $newVal or $$options{$param} = {}, next;
+            my $table = GetTagTable('Image::ExifTool::UserParam');
             # allow initialization of entire UserParam hash
             if (ref $newVal eq 'HASH') {
                 my %newParams;
-                $newParams{lc $_} = $$newVal{$_} foreach sort keys %$newVal;
+                foreach (sort keys %$newVal) {
+                    my $lcTag = lc $_;
+                    $newParams{$lcTag} = $$newVal{$_};
+                    delete $$table{$lcTag};
+                    AddTagToTable($table, $lcTag, $_);
+                }
                 $$options{$param} = \%newParams;
                 next;
             }
-            my $force;
+            my ($force, $paramName);
             # set/reset single UserParam parameter
             if ($newVal =~ /(.*?)=(.*)/s) {
-                $param = lc $1;
+                $paramName = $1;
                 $newVal = $2;
-                $force = 1 if $param =~ s/\^$//;
+                $force = 1 if $paramName =~ s/\^$//;
+                $paramName =~ tr/-_a-zA-Z0-9#//dc;
+                $param = lc $paramName;
             } else {
-                $param = lc $newVal;
+                ($param = lc $newVal) =~ tr/-_a-zA-Z0-9#//dc;
                 undef $newVal;
             }
+            delete $$table{$param};
             $oldVal = $$options{UserParam}{$param};
             if (defined $newVal) {
                 if (length $newVal or $force) {
                     $$options{UserParam}{$param} = $newVal;
+                    AddTagToTable($table, $param, $paramName);
                 } else {
                     delete $$options{UserParam}{$param};
                 }
             }
+            # remove alternate version of tag
+            $param .= '#' unless $param =~ s/#$//;
+            delete $$table{$param};
+            delete $$options{UserParam}{$param};
         } elsif ($param eq 'RequestTags') {
             if (defined $newVal) {
                 # parse list from delimited string if necessary
@@ -2087,6 +2121,7 @@ sub Options($$;@)
                     /^(.*:)?([-\w?*]*)#?$/ or next;
                     push @{$$options{$param}}, lc($2) if $2;
                     next unless $1;
+                    # add requested groups with trailing colon
                     push @{$$options{$param}}, lc($_).':' foreach split /:/, $1;
                 }
             } else {
@@ -2231,7 +2266,7 @@ sub ClearOptions($)
         TextOut     => \*STDOUT,# file for Verbose/HtmlDump output
         TimeZone    => undef,   # local time zone
         Unknown     => 0,       # flag to get values of unknown tags (0-2)
-        UserParam   => { },     # user parameters for InsertTagValues()
+        UserParam   => { },     # user parameters for additional user-defined tag values
         Validate    => undef,   # perform additional validation
         Verbose     => 0,       # print verbose messages (0-5, higher # = more verbose)
         WriteMode   => 'wcg',   # enable all write modes by default
@@ -2337,15 +2372,7 @@ sub ExtractInfo($;@)
             unless ($filename eq '-') {
                 # extract file name from pipe if necessary
                 $realname =~ /\|$/ and $realname =~ s/^.*?"(.*?)".*/$1/s;
-                my ($dir, $name);
-                if (eval { require File::Basename }) {
-                    $dir = File::Basename::dirname($realname);
-                    $name = File::Basename::basename($realname);
-                } else {
-                    ($name = $realname) =~ tr/\\/\//;
-                    # remove path
-                    $dir = length($1) ? $1 : '/' if $name =~ s/(.*)\///;
-                }
+                my ($dir, $name) = SplitFileName($realname);
                 $self->FoundTag('FileName', $name);
                 $self->FoundTag('Directory', $dir) if defined $dir and length $dir;
                 if ($$req{filepath} or
@@ -2578,7 +2605,7 @@ sub ExtractInfo($;@)
                     if ($$self{OPTIONS}{FastScan}) {
                         $err = 'File header is all';
                     } else {
-                        my $num = length $buff;
+                        my $num = 0;
                         for (;;) {
                             $raf->Read($buff, 65536) or undef($num), last;
                             $buff =~ /[^\Q$ch\E]/g and $num += pos($buff) - 1, last;
@@ -2665,6 +2692,15 @@ sub ExtractInfo($;@)
     }
 
     @startTime and $self->FoundTag('ProcessingTime', Time::HiRes::tv_interval(\@startTime));
+
+    # add user-defined parameters that ended with '!'
+    if (%{$$options{UserParam}}) {
+        $self->VPrint(0, "UserParam tags:\n");
+        my $table = GetTagTable('Image::ExifTool::UserParam');
+        foreach (sort keys %{$$options{UserParam}}) {
+            $self->HandleTag($table, $_, $$options{UserParam}{$_}) if /#$/;
+        }
+    }
 
     # restore original options
     %saveOptions and $$self{OPTIONS} = \%saveOptions;
@@ -3247,7 +3283,7 @@ sub GetDescription($$)
 # Returns: Scalar context: group name (for family 0 if not otherwise specified)
 #          List context: group name if family specified, otherwise list of
 #          group names for each family.  Returns '' for undefined tag.
-# Notes: Mutiple families may be specified with ':' in family argument (eg. '1:2')
+# Notes: Multiple families may be specified with ':' in family argument (eg. '1:2')
 sub GetGroup($$;$)
 {
     local $_;
@@ -3400,7 +3436,8 @@ sub BuildCompositeTags($)
     my $compTable = GetTagTable('Image::ExifTool::Composite');
     my @tagList = sort keys %$compTable;
     my $rawValue = $$self{VALUE};
-    my (%tagsUsed, %cache, $allBuilt);
+    my $compKeys = $$self{COMP_KEYS};
+    my (%cache, $allBuilt);
 
     for (;;) {
         my (%notBuilt, $tag, @deferredTags);
@@ -3502,6 +3539,11 @@ COMPOSITE_TAG:
                 if ($docNum) {
                     if ($found) {
                         $$self{DOC_NUM} = $docNum;
+                        # save pointers to all used tag keys
+                        foreach (keys %tagKey) {
+                            $$compKeys{$_} or $$compKeys{$_} = [ ];
+                            push @{$$compKeys{$tagKey{$_}}}, [ \%tagKey, $_ ];
+                        }
                         $self->FoundTag($tagInfo, \%tagKey);
                         delete $$self{DOC_NUM};
                     }
@@ -3515,19 +3557,14 @@ COMPOSITE_TAG:
                         # can be replaced (also eliminates keys with
                         # instance numbers which can't be replaced either)
                         next unless $compositeID{$tagKey{$_}};
-                        my $keyRef = \$tagKey{$_};
-                        $tagsUsed{$$keyRef} or $tagsUsed{$$keyRef} = [ ];
-                        push @{$tagsUsed{$$keyRef}}, $keyRef;
+                    }
+                    # save pointers to all used tag keys
+                    foreach (keys %tagKey) {
+                        $$compKeys{$_} or $$compKeys{$_} = [ ];
+                        push @{$$compKeys{$tagKey{$_}}}, [ \%tagKey, $_ ];
                     }
                     # save reference to tag key lookup as value for Composite tag
                     my $key = $self->FoundTag($tagInfo, \%tagKey);
-                    # check to see if we just replaced one of the tag keys we Require'd
-                    if (defined $key and $tagsUsed{$key}) {
-                        foreach (@{$tagsUsed{$key}}) {
-                            $$_ = $$self{MOVED_KEY};    # replace with new tag key
-                        }
-                        delete $tagsUsed{$key};         # can't be replaced again
-                    }
                 } elsif (not defined $found) {
                     delete $notBuilt{$tagName}; # tag can't be built anyway
                 }
@@ -3732,6 +3769,7 @@ sub Init($)
     $$self{WRITTEN}    = { };       # list of tags written (selected tags only)
     $$self{FORCE_WRITE}= { };       # ForceWrite lookup (set from ForceWrite tag)
     $$self{FOUND_DIR}  = { };       # hash of directory names found in file
+    $$self{COMP_KEYS}  = { };       # lookup for tag keys used in Composite tags
     $$self{PATH}       = [ ];       # current subdirectory path in file when reading
     $$self{NUM_FOUND}  = 0;         # total number of tags found (incl. duplicates)
     $$self{CHANGED}    = 0;         # number of tags changed (writer only)
@@ -3837,6 +3875,25 @@ sub NextTagKey($$)
     $tag = "$tag ($i)";
     return $tag if defined $$self{VALUE}{$tag};
     return undef;
+}
+
+#------------------------------------------------------------------------------
+# Split file name into directory and name parts
+# Inptus: 0) file name
+# Returns: 0) directory, 1) filename
+sub SplitFileName($)
+{
+    my $file = shift;
+    my ($dir, $name);
+    if (eval { require File::Basename }) {
+        $dir = File::Basename::dirname($file);
+        $name = File::Basename::basename($file);
+    } else {
+        ($name = $file) =~ tr/\\/\//;
+        # remove path
+        $dir = length($1) ? $1 : '/' if $name =~ s/(.*)\///;
+    }
+    return ($dir, $name);
 }
 
 #------------------------------------------------------------------------------
@@ -4042,7 +4099,7 @@ sub ParseArguments($;@)
     # handle our input arguments
     while (@_) {
         my $arg = shift;
-        if (ref $arg) {
+        if (ref $arg and not overload::Method($arg, q[""])) {
             if (ref $arg eq 'ARRAY') {
                 $$self{IO_TAG_LIST} = $arg;
                 foreach (@$arg) {
@@ -5442,7 +5499,6 @@ sub ConvertDateTime($$)
             shift @a while @a > 6;      # remove superfluous entries
             unshift @a, 1 while @a < 3; # add month and day if necessary
             unshift @a, 0 while @a < 6; # add h,m,s if necessary
-            $a[5] -= 1900;              # base year is 1900
             $a[4] -= 1;                 # base month is 1
             # parse %z and %s ourself (to handle time zones properly)
             if ($fmt =~ /%[sz]/) {
@@ -5457,6 +5513,7 @@ sub ConvertDateTime($$)
                     $fmt =~ s/(^|[^%])((%%)*)%s/$1$2$s/g;   # convert '%s' format codes
                 }
             }
+            $a[5] -= 1900;  # strftime year starts from 1900
             $date = POSIX::strftime($fmt, @a);  # generate the formatted date/time
         } elsif ($$self{OPTIONS}{StrictDate}) {
             undef $date;
@@ -5597,10 +5654,12 @@ sub GetUnixTime($;$)
         $tzSec = ($2 * 60 + $3) * ($1 eq '-' ? -60 : 60) if $1;
         undef $isLocal; # convert using GMT corrected for specified timezone
     }
-    $tm[0] -= 1900;     # convert year
     $tm[1] -= 1;        # convert month
     @tm = reverse @tm;  # change to order required by timelocal()
-    return $isLocal ? TimeLocal(@tm) : Time::Local::timegm(@tm) - $tzSec;
+    my $val = $isLocal ? TimeLocal(@tm) : Time::Local::timegm(@tm) - $tzSec;
+    # handle fractional seconds
+    $val += $1 if $tzStr and $tzStr =~ /^(\.\d+)/;
+    return $val;
 }
 
 #------------------------------------------------------------------------------
@@ -5745,6 +5804,8 @@ sub IdentifyTrailer($;$)
             $type = 'MIE';
         } elsif ($buff =~ /\0\0(QDIOBS|SEFT)$/) {
             $type = 'Samsung';
+        } elsif ($buff =~ /8db42d694ccc418790edff439fe026bf$/s) {
+            $type = 'Insta360';
         }
         last;
     }
@@ -5776,9 +5837,14 @@ sub ProcessTrailers($$)
     my $path = $$self{PATH};
 
     for (;;) { # loop through all trailers
-        require "Image/ExifTool/$dirName.pm";
-        my $proc = "Image::ExifTool::${dirName}::Process$dirName";
-        my $outBuff;
+        my ($proc, $outBuff);
+        if ($dirName eq 'Insta360') {
+            require "Image/ExifTool/QuickTimeStream.pl";
+            $proc = 'Image::ExifTool::QuickTime::ProcessInsta360';
+        } else {
+            require "Image/ExifTool/$dirName.pm";
+            $proc = "Image::ExifTool::${dirName}::Process$dirName";
+        }
         if ($outfile) {
             # write to local buffer so we can add trailer in proper order later
             $$outfile and $$dirInfo{OutFile} = \$outBuff, $outBuff = '';
@@ -5793,8 +5859,9 @@ sub ProcessTrailers($$)
         push @$path, 'Trailer', $dirName;
 
         # read or write this trailer
-        # (proc takes Offset as offset from end of trailer to end of file,
-        #  and returns DataPos and DirLen, and Fixup if applicable)
+        # (proc takes Offset as positive offset from end of trailer to end of file,
+        #  and returns DataPos and DirLen, and Fixup if applicable, and updates
+        #  OutFile when writing)
         no strict 'refs';
         my $result = &$proc($self, $dirInfo);
         use strict 'refs';
@@ -6081,6 +6148,20 @@ sub ProcessJPEG($$)
             } else {
                 $self->Warn('Missing JPEG SOS');
             }
+            if ($$self{REQ_TAG_LOOKUP}{trailer}) {
+                # read entire trailer into memory
+                if ($raf->Seek(0,2)) {
+                    my $len = $raf->Tell() - $pos;
+                    if ($len) {
+                        my $buff;
+                        $raf->Seek($pos, 0);
+                        $self->FoundTag(Trailer => \$buff) if $raf->Read($buff,$len) == $len;
+                        $raf->Seek($pos, 0);
+                    }
+                } else {
+                    $self->Warn('Error seeking in file');
+                }
+            }
             # we are here because we are looking for trailer information
             if ($wantTrailer) {
                 my $start = $$self{PreviewImageStart};
@@ -6201,7 +6282,7 @@ sub ProcessJPEG($$)
                 next if $trailInfo or $wantTrailer or $verbose > 2 or $htmlDump;
             }
             # must scan to EOI if Validate or JpegCompressionFactor used
-            next if $$options{Validate} or $calcImageLen;
+            next if $$options{Validate} or $calcImageLen or $$self{REQ_TAG_LOOKUP}{trailer};
             # nothing interesting to parse after start of scan (SOS)
             $success = 1;
             last;   # all done parsing file
@@ -6978,15 +7059,20 @@ sub DoProcessTIFF($$;$)
         $$self{EXIF_DATA} = '';
     }
     unless (defined $$self{EXIF_DATA}) {
+        # set default byte order for creating new GPS in CR3 images
+        my $defaultByteOrder;
+        if ($$dirInfo{DirName} and $$dirInfo{DirName} eq 'GPS') {
+            $defaultByteOrder = $$self{SaveExifByteOrder};
+        }
         # create TIFF information from scratch
-        if ($self->SetPreferredByteOrder() eq 'MM') {
+        if ($self->SetPreferredByteOrder($defaultByteOrder) eq 'MM') {
             $$self{EXIF_DATA} = "MM\0\x2a\0\0\0\x08";
         } else {
             $$self{EXIF_DATA} = "II\x2a\0\x08\0\0\0";
         }
     }
-    $$self{FIRST_EXIF_POS} = $base + $$self{BASE} unless defined $$self{FIRST_EXIF_POS};
     $$self{EXIF_POS} = $base + $$self{BASE};
+    $$self{FIRST_EXIF_POS} = $$self{EXIF_POS} unless defined $$self{FIRST_EXIF_POS};
     $dataPt = \$$self{EXIF_DATA};
 
     # set byte ordering
@@ -7069,7 +7155,7 @@ sub DoProcessTIFF($$;$)
         # don't process file if FastScan == 3
         return 1 if not $outfile and $$self{OPTIONS}{FastScan} and $$self{OPTIONS}{FastScan} == 3;
     }
-    # (accomodate CR3 images which have a TIFF directory with ExifIFD at the top level)
+    # (accommodate CR3 images which have a TIFF directory with ExifIFD at the top level)
     my $ifdName = ($$dirInfo{DirName} and $$dirInfo{DirName} =~ /^(ExifIFD|GPS)$/) ? $1 : 'IFD0';
     if (not $tagTablePtr or $$tagTablePtr{GROUPS}{0} eq 'EXIF') {
         $self->FoundTag('ExifByteOrder', $byteOrder) unless $outfile;
@@ -7271,8 +7357,8 @@ sub DoProcessTIFF($$;$)
     # check DNG version
     if ($$self{DNGVersion}) {
         my $ver = $$self{DNGVersion};
-        # currently support up to DNG version 1.4
-        unless ($ver =~ /^(\d+) (\d+)/ and "$1.$2" <= 1.4) {
+        # currently support up to DNG version 1.5
+        unless ($ver =~ /^(\d+) (\d+)/ and "$1.$2" <= 1.5) {
             $ver =~ tr/ /./;
             $self->Error("DNG Version $ver not yet tested", 1);
         }
@@ -7585,7 +7671,7 @@ sub GetTagInfo($$$;$$$)
 # Returns: tagInfo ref
 # Notes: - will not override existing entry in table
 # - info need contain no entries when this routine is called
-# - tag name is made valid if necessary
+# - tag name is cleaned if necessary
 sub AddTagToTable($$;$$)
 {
     my ($tagTablePtr, $tagID, $tagInfo, $noPrefix) = @_;
@@ -7607,6 +7693,9 @@ sub AddTagToTable($$;$$)
     $$tagInfo{GotGroups} = 1,
     $$tagInfo{Table} = $tagTablePtr;
     $$tagInfo{TagID} = $tagID;
+    if (defined $$tagTablePtr{AVOID} and not defined $$tagInfo{Avoid}) {
+        $$tagInfo{Avoid} = $$tagTablePtr{AVOID};
+    }
 
     my $name = $$tagInfo{Name};
     $name = $tagID unless defined $name;
@@ -7866,10 +7955,12 @@ sub FoundTag($$$;@)
         } else {
             $priority = 1;  # the normal default
         }
-        if ($priority >= $oldPriority and not $$self{DOC_NUM} and not $noListDel) {
+        if ($priority >= $oldPriority and (not $$self{DOC_NUM} or
+            ($$self{TAG_EXTRA}{$tag} and $$self{TAG_EXTRA}{$tag}{G3} and
+             $$self{DOC_NUM} eq $$self{TAG_EXTRA}{$tag}{G3})) and not $noListDel)
+        {
             # move existing tag out of the way since this tag is higher priority
             # (NOTE: any new members added here must also be added to DeleteTag())
-            $$self{MOVED_KEY} = $nextTag;  # used in BuildCompositeTags()
             $$self{PRIORITY}{$nextTag} = $$self{PRIORITY}{$tag};
             $$valueHash{$nextTag} = $$valueHash{$tag};
             $$self{FILE_ORDER}{$nextTag} = $$self{FILE_ORDER}{$tag};
@@ -7883,6 +7974,12 @@ sub FoundTag($$$;@)
             delete $$self{BOTH}{$tag};
             # update tag key for list if necessary
             $$self{LIST_TAGS}{$oldInfo} = $nextTag if $$self{LIST_TAGS}{$oldInfo};
+            # update this key if used in a Composite tag
+            if ($$self{COMP_KEYS}{$tag}) {
+                $$_[0]{$$_[1]} = $nextTag foreach @{$$self{COMP_KEYS}{$tag}};
+                $$self{COMP_KEYS}{$nextTag} = $$self{COMP_KEYS}{$tag};
+                delete $$self{COMP_KEYS}{$tag};
+            }
         } else {
             $tag = $nextTag;        # don't override the existing tag
         }
@@ -8337,7 +8434,8 @@ sub ProcessBinaryData($$$)
         # hook to allow format, etc to be set dynamically
         if (defined $$tagInfo{Hook}) {
             my $oldVarSize = $varSize;
-            #### eval Hook ($format, $varSize, $size)
+            my $pos = $entry + $offset;
+            #### eval Hook ($format, $varSize, $size, $dataPt, $pos)
             eval $$tagInfo{Hook};
             # save variable size data if required for writing (in case changed by Hook)
             if ($$dirInfo{VarFormatData}) {
@@ -8463,7 +8561,8 @@ until ($Image::ExifTool::noConfig) {
         $file = $config;
     }
     # also check executable directory unless path is absolute
-    -r $file or $config =~ /^\// or $file = ($0 =~ /(.*[\\\/])/ ? $1 : './') . $config;
+    $exePath = $0 unless defined $exePath; # (undocumented $exePath setting)
+    -r $file or $config =~ /^\// or $file = ($exePath =~ /(.*[\\\/])/ ? $1 : './') . $config;
     unless (-r $file) {
         warn("Config file not found\n") if defined $Image::ExifTool::configFile;
         last;

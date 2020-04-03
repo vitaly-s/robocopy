@@ -135,8 +135,8 @@ my %rawType = (
 my @delGroups = qw(
     Adobe AFCP APP0 APP1 APP2 APP3 APP4 APP5 APP6 APP7 APP8 APP9 APP10 APP11
     APP12 APP13 APP14 APP15 CanonVRD CIFF Ducky EXIF ExifIFD File FlashPix
-    FotoStation GlobParamIFD GPS ICC_Profile IFD0 IFD1 InteropIFD IPTC ItemList
-    JFIF Jpeg2000 Keys MakerNotes Meta MetaIFD MIE MPF NikonCapture PDF
+    FotoStation GlobParamIFD GPS ICC_Profile IFD0 IFD1 Insta360 InteropIFD IPTC
+    ItemList JFIF Jpeg2000 Keys MakerNotes Meta MetaIFD MIE MPF NikonCapture PDF
     PDF-update PhotoMechanic Photoshop PNG PNG-pHYs PrintIM QuickTime RMETA RSRC
     SubIFD Trailer UserData XML XML-* XMP XMP-*
 );
@@ -280,8 +280,8 @@ my %ignorePrintConv = map { $_ => 1 } qw(OTHER BITMASK Notes);
 #        each value in the list.  Internally, the new information is stored in
 #        the following members of the $$self{NEW_VALUE}{$tagInfo} hash:
 #           TagInfo - tag info ref
-#           DelValue - list ref for values to delete
-#           Value - list ref for values to add (not defined if deleting the tag)
+#           DelValue - list ref for raw values to delete
+#           Value - list ref for raw values to add (not defined if deleting the tag)
 #           IsCreating - must be set for the tag to be added for the standard file types,
 #                        otherwise just changed if it already exists.  This may be
 #                        overridden for file types with a PREFERRED metadata type.
@@ -745,7 +745,7 @@ TAG: foreach $tagInfo (@matchingTags) {
         }
         $writeGroup{$tagInfo} = $writeGroup;
     }
-    # sort tag info list in reverse order of priority (higest number last)
+    # sort tag info list in reverse order of priority (highest number last)
     # so we get the highest priority error message in the end
     @tagInfoList = sort { $tagPriority{$a} <=> $tagPriority{$b} } @tagInfoList;
     # must write any tags which also write other tags first
@@ -857,7 +857,7 @@ TAG: foreach $tagInfo (@matchingTags) {
             # check to make sure this is a List or Shift tag if adding
             if ($addValue and not ($shift or $$tagInfo{List})) {
                 if ($addValue eq '2') {
-                    undef $addValue;    # quitely reset this option
+                    undef $addValue;    # quietly reset this option
                 } else {
                     $err = "Can't add $wgrp1:$tag (not a List type)";
                     $verbose > 2 and print $out "$err\n";
@@ -1338,13 +1338,13 @@ sub SetNewValuesFromFile($$;@)
         foreach $tag (@tags) {
             # don't try to set errors or warnings
             next if $tag =~ /^(Error|Warning)\b/;
-            # get approprite value type if necessary
+            # get appropriate value type if necessary
             if ($opts{SrcType} and $opts{SrcType} ne $srcType) {
                 $$info{$tag} = $srcExifTool->GetValue($tag, $opts{SrcType});
             }
             # set value for this tag
             my ($n, $e) = $self->SetNewValue($tag, $$info{$tag}, %opts);
-            # delete this tag if we could't set it
+            # delete this tag if we couldn't set it
             $n or delete $$info{$tag};
         }
         return $info;
@@ -2305,6 +2305,10 @@ sub WriteInfo($$;$$)
                     $fileType = $tiffType;
                     undef $rtnVal;
                 } else {
+                    if ($tiffType eq 'FFF') {
+                        # (see https://exiftool.org/forum/index.php?topic=10848.0)
+                        $self->Error('Phocus may not properly update previews of edited FFF images', 1);
+                    }
                     $dirInfo{Parent} = $tiffType;
                     $rtnVal = $self->ProcessTIFF(\%dirInfo);
                 }
@@ -4070,7 +4074,7 @@ sub WriteDirectory($$$;$)
                 $self->Warn("Can't write EXIF as a block to $$self{FILE_TYPE} file");
                 last;
             }
-            # this can happen if we call WriteDirectory for an EXIF directory without  going
+            # this can happen if we call WriteDirectory for an EXIF directory without going
             # through WriteTIFF as the WriteProc (which happens if conditionally replacing
             # the EXIF block and the condition fails), but we never want to do a block write
             # in this case because the EXIF block would end up with two TIFF headers
@@ -4763,7 +4767,7 @@ TryLib: for ($lib=$strptimeLib; ; $lib='') {
                 if (not $tz) {
                     if (eval { require Time::Local }) {
                         # determine timezone offset for this time
-                        my @args = ($a[4],$a[3],$a[2],$a[1],$a[0]-1,$yr-1900);
+                        my @args = ($a[4],$a[3],$a[2],$a[1],$a[0]-1,$yr);
                         my $diff = Time::Local::timegm(@args) - TimeLocal(@args);
                         $tz = TimeZoneString($diff / 60);
                     } else {
@@ -4794,19 +4798,20 @@ TryLib: for ($lib=$strptimeLib; ; $lib='') {
 
 #------------------------------------------------------------------------------
 # Set byte order according to our current preferences
-# Inputs: 0) ExifTool object ref
+# Inputs: 0) ExifTool object ref, 1) default byte order
 # Returns: new byte order ('II' or 'MM') and sets current byte order
 # Notes: takes the first of the following that is valid:
 #  1) ByteOrder option
 #  2) new value for ExifByteOrder
-#  3) makenote byte order from last file read
-#  4) big endian
-sub SetPreferredByteOrder($)
+#  3) default byte order passed to this routine
+#  4) makenote byte order from last file read
+#  5) big endian
+sub SetPreferredByteOrder($;$)
 {
-    my $self = shift;
+    my ($self, $default) = @_;
     my $byteOrder = $self->Options('ByteOrder') ||
                     $self->GetNewValue('ExifByteOrder') ||
-                    $$self{MAKER_NOTE_BYTE_ORDER} || 'MM';
+                    $default || $$self{MAKER_NOTE_BYTE_ORDER} || 'MM';
     unless (SetByteOrder($byteOrder)) {
         warn "Invalid byte order '${byteOrder}'\n" if $self->Options('Verbose');
         $byteOrder = $$self{MAKER_NOTE_BYTE_ORDER} || 'MM';
@@ -5668,7 +5673,8 @@ sub WriteJPEG($$)
             my ($buff, $endPos, $trailInfo);
             my $delPreview = $$self{DEL_PREVIEW};
             $trailInfo = IdentifyTrailer($raf) unless $$delGroup{Trailer};
-            unless ($oldOutfile or $delPreview or $trailInfo or $$delGroup{Trailer}) {
+            my $nvTrail = $self->GetNewValueHash($Image::ExifTool::Extra{Trailer});
+            unless ($oldOutfile or $delPreview or $trailInfo or $$delGroup{Trailer} or $nvTrail) {
                 # blindly copy the rest of the file
                 while ($raf->Read($buff, 65536)) {
                     Write($outfile, $buff) or $err = 1, last;
@@ -5699,7 +5705,20 @@ sub WriteJPEG($$)
             }
             # remember position of last data copied
             $endPos = $raf->Tell() - length($buff);
-            # rewrite trailers if they exist
+            # write new trailer if specified
+            if ($nvTrail) {
+                # access new value directly to avoid copying a potentially very large data block
+                if ($$nvTrail{Value} and $$nvTrail{Value}[0]) { # (note: "0" will also delete the trailer)
+                    $self->VPrint(0, '  Writing new trailer');
+                    Write($outfile, $$nvTrail{Value}[0]) or $err = 1;
+                    ++$$self{CHANGED};
+                } elsif ($raf->Seek(0, 2) and $raf->Tell() != $endPos) {
+                    $self->VPrint(0, '  Deleting trailer (', $raf->Tell() - $endPos, ' bytes)');
+                    ++$$self{CHANGED};  # changed if there was previously a trailer
+                }
+                last;   # all done
+            }
+            # rewrite existing trailers
             if ($trailInfo) {
                 my $tbuf = '';
                 $raf->Seek(-length($buff), 1);  # seek back to just after EOI
@@ -5863,7 +5882,7 @@ sub WriteJPEG($$)
                 HexDump($segDataPt, undef, %dumpParms);
             }
         }
-        # group delete of APP segements
+        # group delete of APP segments
         if ($$delGroup{$dirName}) {
             $verbose and print $out "  Deleting $dirName segment\n";
             ++$$self{CHANGED};
@@ -6864,6 +6883,7 @@ sub WriteBinaryData($$$)
 sub WriteTIFF($$$)
 {
     my ($self, $dirInfo, $tagTablePtr) = @_;
+    $self or return 1;    # allow dummy access
     my $buff = '';
     $$dirInfo{OutFile} = \$buff;
     return $buff if $self->ProcessTIFF($dirInfo, $tagTablePtr) > 0;
@@ -6889,7 +6909,7 @@ used routines.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

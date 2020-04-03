@@ -1,7 +1,7 @@
 #------------------------------------------------------------------------------
 # File:         QuickTimeStream.pl
 #
-# Description:  Extract embedded information from QuickTime movie data
+# Description:  Extract embedded information from QuickTime media data
 #
 # Revisions:    2018-01-03 - P. Harvey Created
 #
@@ -15,7 +15,11 @@ package Image::ExifTool::QuickTime;
 
 use strict;
 
+use Image::ExifTool qw(:DataAccess :Utils);
+use Image::ExifTool::QuickTime;
+
 sub Process_tx3g($$$);
+sub Process_mebx($$$);
 sub ProcessFreeGPS($$$);
 sub ProcessFreeGPS2($$$);
 
@@ -85,8 +89,10 @@ my %insvLimit = (
 %Image::ExifTool::QuickTime::Stream = (
     GROUPS => { 2 => 'Location' },
     NOTES => q{
-        Timed metadata extracted from QuickTime movie data and some AVI videos when
-        the ExtractEmbedded option is used.
+        Timed metadata extracted from QuickTime media data and some AVI videos when
+        the ExtractEmbedded option is used.  Although most of these tags are
+        combined into the single table below, ExifTool currently reads 37 different
+        formats of timed GPS metadata from video files.
     },
     VARS => { NO_ID => 1 },
     GPSLatitude  => { PrintConv => 'Image::ExifTool::GPS::ToDMS($self, $val, 1, "N")', RawConv => '$$self{FoundGPSLatitude} = 1; $val' },
@@ -249,7 +255,10 @@ my %insvLimit = (
         Condition => 'length $$valPt > 12 and Get32u($valPt,4) == length($$valPt) and $$valPt =~ /^.{8}\xff\xd8\xff/s',
         SubDirectory => { TagTable => 'Image::ExifTool::QuickTime::PreviewInfo' },
     },
-    INSV => { SubDirectory => { TagTable => 'Image::ExifTool::QuickTime::INSV_MakerNotes' } },
+    INSV => {
+        Groups => { 0 => 'Trailer', 1 => 'Insta360' }, # (so these groups will appear in the -listg options)
+        SubDirectory => { TagTable => 'Image::ExifTool::QuickTime::INSV_MakerNotes' },
+    },
     Unknown00 => { Unknown => 1 },
     Unknown01 => { Unknown => 1 },
     Unknown02 => { Unknown => 1 },
@@ -555,7 +564,7 @@ sub SaveMetaKeys($$$)
         my ($tagID, $format, $pid);
         if ($verbose) {
             $pid = PrintableTagID($id,1);
-            $et->VPrint(0, "$oldIndent+ [Metdata Key entry, Local ID=$pid, $size bytes]\n");
+            $et->VPrint(0, "$oldIndent+ [Metadata Key entry, Local ID=$pid, $size bytes]\n");
             $$et{INDENT} .= '| ';
         }
 
@@ -666,9 +675,9 @@ sub Process_text($$$)
 
     while ($$buffPt =~ /\$(\w+)([^\$]*)/g) {
         my ($tag, $dat) = ($1, $2);
-        if ($tag =~ /^[A-Z]{2}RMC$/ and $dat =~ /^,(\d{2})(\d{2})(\d+(\.\d*)?),A?,(\d*?)(\d{1,2}\.\d+),([NS]),(\d*?)(\d{1,2}\.\d+),([EW]),(\d*\.?\d*),(\d*\.?\d*),(\d{2})(\d{2})(\d+)/) {
+        if ($tag =~ /^[A-Z]{2}RMC$/ and $dat =~ /^,(\d{2})(\d{2})(\d+)(\.\d*)?,A?,(\d*?)(\d{1,2}\.\d+),([NS]),(\d*?)(\d{1,2}\.\d+),([EW]),(\d*\.?\d*),(\d*\.?\d*),(\d{2})(\d{2})(\d+)/) {
             my $year = $15 + ($15 >= 70 ? 1900 : 2000);
-            my $str = sprintf('%.4d:%.2d:%.2d %.2d:%.2d:%.2dZ', $year, $14, $13, $1, $2, $3);
+            my $str = sprintf('%.4d:%.2d:%.2d %.2d:%.2d:%.2d%sZ', $year, $14, $13, $1, $2, $3, $4 || '');
             $et->HandleTag($tagTbl, GPSDateTime  => $str);
             $et->HandleTag($tagTbl, GPSLatitude  => (($5 || 0) + $6/60) * ($7 eq 'N' ? 1 : -1));
             $et->HandleTag($tagTbl, GPSLongitude => (($8 || 0) + $9/60) * ($10 eq 'E' ? 1 : -1));
@@ -677,7 +686,7 @@ sub Process_text($$$)
                 $et->HandleTag($tagTbl, GPSSpeedRef => 'K');
             }
             if (length $12) {
-                $et->HandleTag($tagTbl, GPSTrack => $11);
+                $et->HandleTag($tagTbl, GPSTrack => $12);
                 $et->HandleTag($tagTbl, GPSTrackRef => 'T');
             }
             $found = 1;
@@ -1152,6 +1161,26 @@ sub ProcessFreeGPS($$$)
         $trk = GetFloat($dataPt, 0x38);
         SetByteOrder('MM');
 
+    } elsif ($$dataPt =~ /^.{60}A\0{3}.{4}([NS])\0{3}.{4}([EW])\0{3}/s) {
+
+        # decode freeGPS from Akaso dashcam
+        # 0000: 00 00 80 00 66 72 65 65 47 50 53 20 60 00 00 00 [....freeGPS `...]
+        # 0000: 78 2e 78 78 00 00 00 00 00 00 00 00 00 00 00 00 [x.xx............]
+        # 0000: 30 30 30 30 30 00 00 00 00 00 00 00 00 00 00 00 [00000...........]
+        # 0000: 12 00 00 00 2f 00 00 00 19 00 00 00 41 00 00 00 [..../.......A...]
+        # 0000: 13 b3 ca 44 4e 00 00 00 29 92 fb 45 45 00 00 00 [...DN...)..EE...]
+        # 0000: d9 ee b4 41 ec d1 d3 42 e4 07 00 00 01 00 00 00 [...A...B........]
+        # 0000: 0c 00 00 00 01 00 00 00 05 00 00 00 00 00 00 00 [................]
+        ($latRef, $lonRef) = ($1, $2);
+        ($hr, $min, $sec, $yr, $mon, $day) = unpack('x48V3x28V3', $$dataPt);
+        SetByteOrder('II');
+        $lat = GetFloat($dataPt, 0x40);
+        $lon = GetFloat($dataPt, 0x48);
+        $spd = GetFloat($dataPt, 0x50);
+        $trk = GetFloat($dataPt, 0x54) + 180;   # (why is this off by 180?)
+        $trk -= 360 if $trk >= 360;
+        SetByteOrder('MM');
+
     } else {
 
         # decode binary GPS format (Viofo A119S, ref 2)
@@ -1217,7 +1246,7 @@ sub ProcessFreeGPS2($$$)
     my ($et, $dirInfo, $tagTbl) = @_;
     my $dataPt = $$dirInfo{DataPt};
     my $dirLen = $$dirInfo{DirLen};
-    my ($yr, $mon, $day, $hr, $min, $sec, $pos);
+    my ($yr, $mon, $day, $hr, $min, $sec, $pos, @acc);
     my ($lat, $latRef, $lon, $lonRef, $spd, $trk, $alt, $ddd, $unk);
 
     return 0 if $dirLen < 82;   # minimum size of block with a single GPS record
@@ -1356,8 +1385,10 @@ ATCRec: for ($recPos = 0x30; $recPos + 52 < $dirLen; $recPos += 52) {
         # 0x70 - int32u year - 2000
         # 0x74 - int32u month
         # 0x78 - int32u day
+        # 0x7c - int32s[3] accelerometer * 1000
         ($latRef, $lonRef) = ($1, $2);
-        ($hr,$min,$sec,$yr,$mon,$day) = unpack('x48V3x52V3', $$dataPt);
+        ($hr,$min,$sec,$yr,$mon,$day,@acc) = unpack('x48V3x52V6', $$dataPt);
+        map { $_ = $_ - 4294967296 if $_ >= 0x80000000; $_ /= 1000 } @acc;
         $lat = GetDouble($dataPt, 0x40);
         $lon = GetDouble($dataPt, 0x50);
         $spd = GetDouble($dataPt, 0x60) * $knotsToKph;
@@ -1481,6 +1512,7 @@ ATCRec: for ($recPos = 0x30; $recPos + 52 < $dirLen; $recPos += 52) {
     if (defined $alt) {
         $et->HandleTag($tagTbl, GPSAltitude  => $alt);
     }
+    $et->HandleTag($tagTbl, Accelerometer => "@acc") if @acc;
     return 1;
 }
 
@@ -1974,26 +2006,54 @@ sub ProcessTTAD($$$)
 }
 
 #------------------------------------------------------------------------------
-# Extract information from Insta360 trailer (ref PH)
-# Inputs: 0) ExifTool ref
-sub ProcessINSVTrailer($)
+# Extract information from Insta360 trailer (INSV and INSP files) (ref PH)
+# Inputs: 0) ExifTool ref, 1) Optional dirInfo ref for returning trailer info
+# Returns: true on success
+sub ProcessInsta360($;$)
 {
     local $_;
-    my $et = shift;
+    my ($et, $dirInfo) = @_;
     my $raf = $$et{RAF};
+    my $offset = $dirInfo ? $$dirInfo{Offset} || 0 : 0;
     my $buff;
 
-    return unless $raf->Seek(-78, 2) and $raf->Read($buff, 78) == 78 and
+    return 0 unless $raf->Seek(-78-$offset, 2) and $raf->Read($buff, 78) == 78 and
         substr($buff,-32) eq "8db42d694ccc418790edff439fe026bf";    # check magic number
 
+    my $verbose = $et->Options('Verbose');
     my $tagTbl = GetTagTable('Image::ExifTool::QuickTime::Stream');
     my $fileEnd = $raf->Tell();
     my $trailerLen = unpack('x38V', $buff);
-    $trailerLen > $fileEnd and $et->Warn('Bad INSV trailer size'), return;
+    $trailerLen > $fileEnd and $et->Warn('Bad Insta360 trailer size'), return 0;
+    if ($dirInfo) {
+        $$dirInfo{DirLen} = $trailerLen if $dirInfo;
+        $$dirInfo{DataPos} = $fileEnd - $trailerLen;
+        if ($$dirInfo{OutFile}) {
+            if ($$et{DEL_GROUP}{Insta360}) {
+                ++$$et{CHANGED};
+            # just copy the trailer when writing
+            } elsif ($trailerLen > $fileEnd or not $raf->Seek($$dirInfo{DataPos}, 0) or
+                     $raf->Read(${$$dirInfo{OutFile}}, $trailerLen) != $trailerLen)
+            {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+        $et->DumpTrailer($dirInfo) if $verbose or $$et{HTML_DUMP};
+    }
+    unless ($et->Options('ExtractEmbedded')) {
+        # can arrive here when reading Insta360 trailer on JPEG image (INSP file)
+        $et->WarnOnce('Use ExtractEmbedded option to extract timed metadata from Insta360 trailer',3);
+        return 1;
+    }
+
     my $unknown = $et->Options('Unknown');
-    my $verbose = $et->Options('Verbose');
-    my $epos = -78;   # position relative to EOF (avoids using large offsets for files > 2 GB)
+    # position relative to end of trailer (avoids using large offsets for files > 2 GB)
+    my $epos = -78-$offset;
     my ($i, $p);
+    $$et{SET_GROUP0} = 'Trailer';
+    $$et{SET_GROUP1} = 'Insta360';
     SetByteOrder('II');
     # loop through all records in the trailer, from last to first
     for (;;) {
@@ -2002,18 +2062,18 @@ sub ProcessINSVTrailer($)
         $raf->Seek($epos, 2) or last;
         my $dlen = $insvDataLen{$id};
         if ($verbose) {
-            $et->VPrint(0, sprintf("INSV Record 0x%x (offset 0x%x, %d bytes):\n", $id, $fileEnd + $epos, $len));
+            $et->VPrint(0, sprintf("Insta360 Record 0x%x (offset 0x%x, %d bytes):\n", $id, $fileEnd + $epos, $len));
         }
         # limit the number of records we read if necessary
         if ($insvLimit{$id} and $len > $insvLimit{$id}[1] * $dlen and
-            $et->Warn("INSV $insvLimit{$id}[0] data is huge. Processing only the first $insvLimit{$id}[1] records",2))
+            $et->Warn("Insta360 $insvLimit{$id}[0] data is huge. Processing only the first $insvLimit{$id}[1] records",2))
         {
             $len = $insvLimit{$id}[1] * $dlen;
         }
         $raf->Read($buff, $len) == $len or last;
         $et->VerboseDump(\$buff) if $verbose > 2;
         if ($dlen) {
-            $len % $dlen and $et->Warn(sprintf('Unexpected INSV record 0x%x length',$id)), last;
+            $len % $dlen and $et->Warn(sprintf('Unexpected Insta360 record 0x%x length',$id)), last;
             if ($id == 0x300) {
                 for ($p=0; $p<$len; $p+=$dlen) {
                     $$et{DOC_NUM} = ++$$et{DOC_COUNT};
@@ -2065,13 +2125,17 @@ sub ProcessINSVTrailer($)
         $raf->Seek($epos, 2) or last;
         $raf->Read($buff, 6) == 6 or last;
     }
+    $$et{DOC_NUM} = 0;
     SetByteOrder('MM');
+    delete $$et{SET_GROUP0};
+    delete $$et{SET_GROUP1};
+    return 1;
 }
 
 #------------------------------------------------------------------------------
-# Scan movie data for "freeGPS" metadata if not found already (ref PH)
+# Scan media data for "freeGPS" metadata if not found already (ref PH)
 # Inputs: 0) ExifTool ref
-sub ScanMovieData($)
+sub ScanMediaData($)
 {
     my $et = shift;
     my $raf = $$et{RAF} or return;
@@ -2079,9 +2143,9 @@ sub ScanMovieData($)
     my ($pos, $buf2) = (0, '');
 
     # don't rescan for freeGPS if we already found embedded metadata
-    my $dataPos = $$et{VALUE}{MovieDataOffset};
+    my $dataPos = $$et{VALUE}{MediaDataOffset};
     if ($dataPos and not $$et{DOC_COUNT}) {
-        $dataLen = $$et{VALUE}{MovieDataSize};
+        $dataLen = $$et{VALUE}{MediaDataSize};
         if ($dataLen) {
             if ($raf->Seek($dataPos, 0)) {
                 $$et{FreeGPS2} = { };   # initialize variable space for FreeGPS2()
@@ -2091,7 +2155,7 @@ sub ScanMovieData($)
         }
     }
 
-    # loop through 'mdat' movie data looking for GPS information
+    # loop through 'mdat' media data looking for GPS information
     while ($dataLen) {
         last if $pos + $gpsBlockSize > $dataLen;
         last unless $raf->Read($buff, $gpsBlockSize);
@@ -2146,8 +2210,8 @@ sub ScanMovieData($)
         SetByteOrder($oldByteOrder);
         $$et{INDENT} = substr $$et{INDENT}, 0, -2;
     }
-    # process INSV trailer if it exists
-    ProcessINSVTrailer($et);
+    # process Insta360 trailer if it exists
+    ProcessInsta360($et);
 }
 
 1;  # end
@@ -2156,7 +2220,7 @@ __END__
 
 =head1 NAME
 
-Image::ExifTool::QuickTime - Extract embedded information from movie data
+Image::ExifTool::QuickTime - Extract embedded information from media data
 
 =head1 SYNOPSIS
 
@@ -2165,11 +2229,11 @@ These routines are autoloaded by Image::ExifTool::QuickTime.
 =head1 DESCRIPTION
 
 This file contains routines used by Image::ExifTool to extract embedded
-information like GPS tracks from MOV, MP4 and INSV movie data.
+information like GPS tracks from MOV, MP4 and INSV media data.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

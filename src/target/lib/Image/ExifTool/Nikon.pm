@@ -48,6 +48,7 @@
 #              35) David Puschel private communication
 #              36) Hayo Baann (forum10207)
 #              37) Tom Lachecki, private communication
+#              38) https://github.com/exiftool/exiftool/pull/40 (and forum10893)
 #              IB) Iliah Borg private communication (LibRaw)
 #              JD) Jens Duttke private communication
 #              NJ) Niels Kristian Bech Jensen private communication
@@ -61,7 +62,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 
-$VERSION = '3.75';
+$VERSION = '3.80';
 
 sub LensIDConv($$$);
 sub ProcessNikonAVI($$$);
@@ -514,6 +515,7 @@ sub GetAFPointGrid($$;$);
     '26 40 7B A0 34 40 1C 02' => 'Sigma APO 170-500mm F5-6.3 Aspherical RF',
     'A7 49 80 A0 24 24 4B 06' => 'Sigma APO 200-500mm F2.8 EX DG',
     '48 3C 8E B0 3C 3C 4B 02' => 'Sigma APO 300-800mm F5.6 EX DG HSM',
+    'D2 3C 8E B0 3C 3C 4B 02' => 'Sigma APO 300-800mm F5.6 EX DG HSM', #forum10942
 #
     '00 47 25 25 24 24 00 02' => 'Tamron SP AF 14mm f/2.8 Aspherical (IF) (69E)',
     'C8 54 44 44 0D 0D DF 46' => 'Tamron SP 35mm f/1.4 Di USD (F045)', #IB
@@ -602,6 +604,7 @@ sub GetAFPointGrid($$;$);
     '00 40 18 2B 2C 34 00 06' => 'Tokina AT-X 107 AF DX Fisheye (AF 10-17mm f/3.5-4.5)',
     '00 48 1C 29 24 24 00 06' => 'Tokina AT-X 116 PRO DX (AF 11-16mm f/2.8)',
     '7A 48 1C 29 24 24 7E 06' => 'Tokina AT-X 116 PRO DX II (AF 11-16mm f/2.8)',
+    '80 48 1C 29 24 24 7A 06' => 'Tokina atx-i 11-16mm F2.8 CF', #exiv2 issue 1078
     '7A 48 1C 30 24 24 7E 06' => 'Tokina AT-X 11-20 F2.8 PRO DX (AF 11-20mm f/2.8)',
     '00 3C 1F 37 30 30 00 06' => 'Tokina AT-X 124 AF PRO DX (AF 12-24mm f/4)',
     '7A 3C 1F 37 30 30 7E 06.2' => 'Tokina AT-X 124 AF PRO DX II (AF 12-24mm f/4)',
@@ -941,6 +944,43 @@ my %afPoints153 = (
     29 => 'D8',  60 => 'F13', 91 => 'E17', 122 => 'A4',  153 => 'I1',
     30 => 'C8',  61 => 'G13', 92 => 'D17', 123 => 'F4',
     31 => 'B8',  62 => 'H13', 93 => 'C17', 124 => 'G4',
+);
+
+# AF point indices for models with 81 focus points, eg. Z6/Z7/Z50 (ref 38)
+# - 9 rows (A-I) with 9 columns (1-9), center is E5
+# NOTE: the AF points start 2 bytes into the data, so the map starts
+#       at 17 instead of 1
+#
+#        7   6   5   4   3   2   1   0
+# 00 : [H5][G5][F5][A5][B5][C5][D5][E5]
+# 01 : [G6][F6][A6][B6][C6][D6][E6][I5]
+# 02 : [F4][A4][B4][C4][D4][E4][I6][H6]
+# 03 : [A7][B7][C7][D7][E7][I4][H4][G4]
+# 04 : [B3][C3][D3][E3][I7][H7][G7][F7]
+# 05 : [C8][D8][E8][I3][H3][G3][F3][A3]
+# 06 : [D2][E2][I8][H8][G8][F8][A8][B8]
+# 07 : [E9][I2][H2][G2][F2][A2][B2][C2]
+# 08 : [I9][H9][G9][F9][A9][B9][C9][D9]
+# 09 : [H1][G1][F1][A1][B1][C1][D1][E1]
+# 0a : [  ][  ][  ][  ][  ][  ][  ][I1]
+my %afPoints81 = (
+     17 => 'E5',  34 => 'I6',  51 => 'H7',  68 => 'G8',  85 => 'F9',
+     18 => 'D5',  35 => 'E4',  52 => 'I7',  69 => 'H8',  86 => 'G9',
+     19 => 'C5',  36 => 'D4',  53 => 'E3',  70 => 'I8',  87 => 'H9',
+     20 => 'B5',  37 => 'C4',  54 => 'D3',  71 => 'E2',  88 => 'I9',
+     21 => 'A5',  38 => 'B4',  55 => 'C3',  72 => 'D2',  89 => 'E1',
+     22 => 'F5',  39 => 'A4',  56 => 'B3',  73 => 'C2',  90 => 'D1',
+     23 => 'G5',  40 => 'F4',  57 => 'A3',  74 => 'B2',  91 => 'C1',
+     24 => 'H5',  41 => 'G4',  58 => 'F3',  75 => 'A2',  92 => 'B1',
+     25 => 'I5',  42 => 'H4',  59 => 'G3',  76 => 'F2',  93 => 'A1',
+     26 => 'E6',  43 => 'I4',  60 => 'H3',  77 => 'G2',  94 => 'F1',
+     27 => 'D6',  44 => 'E7',  61 => 'I3',  78 => 'H2',  95 => 'G1',
+     28 => 'C6',  45 => 'D7',  62 => 'E8',  79 => 'I2',  96 => 'H1',
+     29 => 'B6',  46 => 'C7',  63 => 'D8',  80 => 'E9',  97 => 'I1',
+     30 => 'A6',  47 => 'B7',  64 => 'C8',  81 => 'D9',
+     31 => 'F6',  48 => 'A7',  65 => 'B8',  82 => 'C9',
+     32 => 'G6',  49 => 'F7',  66 => 'A8',  83 => 'B9',
+     33 => 'H6',  50 => 'G7',  67 => 'F8',  84 => 'A9',
 );
 
 my %cropHiSpeed = ( #IB
@@ -1321,6 +1361,7 @@ my %binaryDataAttrs = (
              16 => 'Electronic',
            # 33 => ? seen for 1J2
              48 => 'Electronic Front Curtain',
+           # 81 => ? seen for Z50
         },
     },
     0x0035 => { #32
@@ -1367,14 +1408,15 @@ my %binaryDataAttrs = (
                 2 => 'G',
                 3 => 'VR',
                 4 => '1', #PH
-                # bit 5 set for FT-1 adapter? - PH
+                5 => 'FT-1', #PH/IB
                 6 => 'E', #PH (electromagnetic aperture mechanism)
-                # bit 7 set for AF-P lenses? - PH
+                7 => 'AF-P', #PH/IB
             }) : 'AF';
             # remove commas and change "D G" to just "G"
             s/,//g; s/\bD G\b/G/;
-            s/ E\b// and s/^(G )?/E /;  # put "E" at the start instead of "G"
-            s/ 1// and $_ = "1 $_";     # put "1" at start
+            s/ E\b// and s/^(G )?/E /;      # put "E" at the start instead of "G"
+            s/ 1// and $_ = "1 $_";         # put "1" at start
+            s/FT-1 // and $_ .= ' FT-1';    # put "FT-1" at end
             return $_;
         ],
         PrintConvInv => q[
@@ -1384,6 +1426,8 @@ my %binaryDataAttrs = (
             $bits |= 0x06 if $val =~ /\bG\b/i;  # bits 1 and 2
             $bits |= 0x08 if $val =~ /\bVR\b/i; # bit 3
             $bits |= 0x10 if $val =~ /\b1\b/;   # bit 4
+            $bits |= 0x20 if $val =~ /\bFT-1/i; # bit 5
+            $bits |= 0x80 if $val =~ /\bAF-P/i; # bit 7 (not used by all models)
             $bits |= 0x46 if $val =~ /\bE\b/i;  # bits 1, 2 and 6
             return $bits;
         ],
@@ -3309,7 +3353,7 @@ my %binaryDataAttrs = (
             5 => 'On (5)', #PH (1S2[128/129], 1J4/1V3[129])
             6 => 'On (105-point)', #PH (1J4/1V3[128/130])
             7 => 'On (153-point)', #PH (D5/D500/D850)
-            8 => 'On (8)', #PH (Z7)
+            8 => 'On (81-point)', #38
         },
     },
     7 => [
@@ -3519,7 +3563,7 @@ my %binaryDataAttrs = (
             Name => 'AFPointsUsed',
             Condition => '$$self{PhaseDetectAF} == 5',
             Notes => q{
-                newer models with 135-point AF -- 9 rows (B-J) and 15 colums (1-15).  Center
+                newer models with 135-point AF -- 9 rows (B-J) and 15 columns (1-15). Center
                 point is F8
             },
             Format => 'undef[21]',
@@ -3554,18 +3598,18 @@ my %binaryDataAttrs = (
             PrintConv => sub { PrintAFPoints(shift, \%afPoints153); },
             PrintConvInv => sub { PrintAFPointsInv(shift, \%afPoints153); },
         },
-        { #PH (Z7) (NC)
+        { #38 (Z6/Z7/Z50)
             Name => 'AFPointsUsed',
-            Condition => '$$self{PhaseDetectAF} == 8',
+            Condition => '$$self{PhaseDetectAF} == 8 and $$self{Model} =~ /^NIKON Z/',
             Notes => q{
-                models with 493-point AF -- 17 rows (A-Q) and 29 columns (1-29). Center
-                point is I15
+                models with 81-selectable point AF -- 9 rows (A-I) and 9 columns (1-9) for
+                phase detect AF points. Center point is E5
             },
-            Format => 'undef[62]',
-            ValueConv => 'join(" ", unpack("H2"x62, $val))',
+            Format => 'undef[13]',
+            ValueConv => 'join(" ", unpack("H2"x13, $val))',
             ValueConvInv => '$val=~tr/ //d; pack("H*",$val)',
-            PrintConv => sub { PrintAFPointsGrid(shift, 29); },
-            PrintConvInv => sub { PrintAFPointsGridInv(shift, 29, 62); },
+            PrintConv => sub { PrintAFPoints(shift, \%afPoints81); },
+            PrintConvInv => sub { PrintAFPointsInv(shift, \%afPoints81); },
         },
         { #PH
             Name => 'AFPointsUsed',
@@ -4492,8 +4536,7 @@ my %nikonFocalConversions = (
             12 => 'Nikkor Z DX 50-250mm f/4.5-6.3 VR',
             13 => 'Nikkor Z 24-70mm f/2.8 S',
             14 => 'Nikkor Z 85mm f/1.8 S',
-            # missing from this list:
-            # Nikkor Z 58mm f/0.95 S Noct (coming soon)
+            15 => 'Nikkor Z 24mm f/1.8 S', #IB
         },
     },
     0x36 => {
@@ -4655,7 +4698,7 @@ my %nikonFocalConversions = (
         Priority => 0,
     },
     # note: DecryptLen currently set to 0x251
-    
+
     # 0x55c - int16u[2400] TiffMeteringImage2: 60x40 image (ShotInfoVersion 0800, ref JR)
     # 0x181c - int16u[1200] TiffMeteringImage?: 60x20 image for some NEF's (ShotInfoVersion 0800, ref JR)
     # 0x217c - int16u[2400] TiffMeteringImage3: 60x40 image (ShotInfoVersion 0800, ref JR)
@@ -9581,7 +9624,7 @@ Nikon maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

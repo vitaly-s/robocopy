@@ -35,7 +35,7 @@ use Image::ExifTool::Sony;
 use Image::ExifTool::Validate;
 use Image::ExifTool::MacOS;
 
-$VERSION = '3.31';
+$VERSION = '3.34';
 @ISA = qw(Exporter);
 
 sub NumbersFirst($$);
@@ -113,6 +113,7 @@ my %formatOK = (
     %Image::ExifTool::Exif::formatNumber,
     0 => 1,
     1 => 1,
+    2 => 1, # (writable for docs only)
     real    => 1,
     integer => 1,
     date    => 1,
@@ -317,7 +318,7 @@ When reading, C<struct> tags are extracted only if the L<Struct|../ExifTool.html
 option is used.  Otherwise the corresponding I<Flattened> tags, indicated by
 an underline (C<_>) after the B<Writable> type, are extracted.  When
 copying, by default both structured and flattened tags are available, but
-the flattened tags are considered "unsafe" so they they aren't copied unless
+the flattened tags are considered "unsafe" so they aren't copied unless
 specified explicitly.  The L<Struct|../ExifTool.html#Struct> option may be disabled by setting Struct
 to 0 via the API or with --struct on the command line to copy only flattened
 tags, or enabled by setting Struct to 1 via the API or with -struct on the
@@ -448,13 +449,13 @@ language code to write the default language without deleting alternate
 languages.  Note that "eng" is treated as a default language when reading,
 but not when writing.
 
-According to the specification, many QuickTime date/time tags should be
-stored as UTC.  Unfortunately, digital cameras often store local time values
-instead (presumably because they don't know the time zone).  For this
-reason, by default ExifTool does not assume a time zone for these values.
-However, if the L<QuickTimeUTC|../ExifTool.html#QuickTimeUTC> API option is set, then ExifTool will assume
-these values are properly stored as UTC, and will convert them to local time
-when extracting.
+According to the specification, integer-format QuickTime date/time tags
+should be stored as UTC.  Unfortunately, digital cameras often store local
+time values instead (presumably because they don't know the time zone).  For
+this reason, by default ExifTool does not assume a time zone for these
+values.  However, if the L<QuickTimeUTC|../ExifTool.html#QuickTimeUTC> API option is set, then ExifTool will
+assume these values are properly stored as UTC, and will convert them to
+local time when extracting.
 
 See
 L<https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/>
@@ -630,10 +631,9 @@ new XMP tags which are listed in the subsequent tables below.  See
 L<http://www.metadataworkinggroup.org/> for the official MWG specification.
 },
     MacOS => q{
-On MacOS systems, there are a number of additional tags with names beginning
-with "MDItem" and "XAttr" that may be extracted.  These tags are not
-extracted by default -- they must be specifically requested or enabled via
-an API option.
+On MacOS systems, the there are additional MDItem and XAttr Finder tags that
+may be extracted.  These tags are not extracted by default -- they must be
+specifically requested or enabled via an API option.
 
 The tables below list some of the tags that may be extracted, but ExifTool
 will extract all available information even for tags not listed.
@@ -650,7 +650,7 @@ L<Image::ExifTool::BuildTagLookup|Image::ExifTool::BuildTagLookup>.
 
 ~head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
@@ -943,6 +943,10 @@ TagID:  foreach $tagID (@keys) {
                 } elsif (not $$tagInfo{SubDirectory}) {
                     $writable = $$table{WRITABLE};
                 }
+                # in general, we can't write unless we have a WRITE_PROC
+                if ($writable and not ($$table{WRITE_PROC} or $tableName =~ /Shortcuts/ or $writable eq '2')) {
+                    undef $writable;
+                }
                 # validate some characteristics of obvious date/time tags
                 my @g = $et->GetGroup($tagInfo);
                 if ($$tagInfo{List} and $g[2] eq 'Time' and $writable and not $$tagInfo{Protected} and
@@ -1166,7 +1170,7 @@ TagID:  foreach $tagID (@keys) {
                             my $n = scalar @values;
                             my ($bits, $i, $v);
                             foreach (@pk) {
-                                next if $_ eq '';
+                                next if $_ eq '' and $$printConv{$_} eq '';
                                 $_ eq 'BITMASK' and $bits = $$printConv{$_}, next;
                                 $_ eq 'OTHER' and next;
                                 my $index;
@@ -1260,16 +1264,20 @@ TagID:  foreach $tagID (@keys) {
                     }
                 }
                 if ($subdir and not $$tagInfo{SeparateTable}) {
-                    # subdirectories are only writable if specified explicitly
-                    my $tw = $$tagInfo{Writable};
-                    $writable = 'yes' if $tw and $writable eq '1';
-                    $writable = '-' . ($tw ? $writable : '');
-                    $writable .= '!' if $tw and ($$tagInfo{Protected} || 0) & 0x01;
-                    $writable .= '+' if $$tagInfo{List};
-                    if (defined $$tagInfo{Permanent}) {
-                        $writable .= '^' unless $$tagInfo{Permanent};
-                    } elsif (defined $$table{PERMANENT}) {
-                        $writable .= '^' unless $$table{PERMANENT};
+                    if ($writable) {
+                        # subdirectories are only writable if specified explicitly
+                        my $tw = $$tagInfo{Writable};
+                        $writable = 'yes' if $tw and $writable eq '1' or $writable eq '2';
+                        $writable = '-' . ($tw ? $writable : '');
+                        $writable .= '!' if $tw and ($$tagInfo{Protected} || 0) & 0x01;
+                        $writable .= '+' if $$tagInfo{List};
+                        if (defined $$tagInfo{Permanent}) {
+                            $writable .= '^' unless $$tagInfo{Permanent};
+                        } elsif (defined $$table{PERMANENT}) {
+                            $writable .= '^' unless $$table{PERMANENT};
+                        }
+                    } else {
+                        $writable = '-';
                     }
                 } else {
                     # not writable if we can't do the inverse conversions
@@ -1290,7 +1298,7 @@ TagID:  foreach $tagID (@keys) {
                     if (not $writable) {
                         $writable = 'no';
                     } else {
-                        $writable eq '1' and $writable = $format ? $format : 'yes';
+                        $writable = $format ? $format : 'yes' if $writable eq '1' or $writable eq '2';
                         my $count = $$tagInfo{Count} || 1;
                         # adjust count to Writable size if different than Format
                         if ($writable and $format and $writable ne $format and
@@ -1466,7 +1474,7 @@ TagID:  foreach $tagID (@keys) {
         my $tag;
         foreach $tag (sort keys %$struct) {
             my $tagInfo = $$struct{$tag};
-            next unless ref $tagInfo eq 'HASH';
+            next unless ref $tagInfo eq 'HASH' and $tag ne 'NAMESPACE';
             my $writable = $$tagInfo{Writable};
             my @vals;
             unless ($writable) {
@@ -2706,7 +2714,7 @@ Returned list of writable pseudo tags.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

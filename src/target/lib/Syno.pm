@@ -98,3 +98,7 @@ sub share_list
     return (wantarray ? @share_list : \@share_list);
 }
 
+sub serial_number
+{
+    `cat /proc/sys/kernel/syno_serial`;
+}

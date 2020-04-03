@@ -1838,7 +1838,7 @@ my %offOn = ( 0 => 'Off', 1 => 'On' );
     },
 );
 
-# Image stabilization inforamtion used by the Sony DSLR-A100 (ref 20)
+# Image stabilization information used by the Sony DSLR-A100 (ref 20)
 %Image::ExifTool::Minolta::ISInfoA100 = (
     PROCESS_PROC => \&Image::ExifTool::ProcessBinaryData,
     WRITE_PROC => \&Image::ExifTool::WriteBinaryData,
@@ -2923,7 +2923,7 @@ and write Minolta RAW (MRW) images.
 
 =head1 AUTHOR
 
-Copyright 2003-2019, Phil Harvey (phil at owl.phy.queensu.ca)
+Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
