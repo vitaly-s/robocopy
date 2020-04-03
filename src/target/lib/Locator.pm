@@ -10,6 +10,10 @@ use Geo::JSON::Utils;
 #use Geo::JSON::Types;
 #use TypeDefs;
 
+sub DEFAULT_THRESHOLD { 1000 }
+sub DEFAULT_LANGUAGE { Geo::Coder::DEFAULT_LANGUAGE }
+
+
 sub new
 {
     my $class = ref $_[0] ? ref shift() : shift();
@@ -23,8 +27,8 @@ sub new
 
     my $new = bless({
         coder => $coder,
-#        language => $language,
-        threshold => 1000, # 1 km
+        language => DEFAULT_LANGUAGE,
+        threshold => DEFAULT_THRESHOLD, # 1 km
         cache => [],
         invalid_cache => [],
     }, $class);

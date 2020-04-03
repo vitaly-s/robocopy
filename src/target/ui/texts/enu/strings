@@ -36,9 +36,14 @@ select_for_run     = "Select Folders"
 format_codes       = "<b>Fields codes</b><hr><u><b>Date:</b></u><br><b>{dd}</b> - day of month (01-31)<br><b>{MM}</b> - month number (01-12)<br><b>{MMM}</b> - abbreviated month name<br><b>{MMMM}</b> - full month name<br><b>{yy}</b> - 2-digit year (00-99)<br><b>{yyyy}</b> - 4-digit year (ie. 2006)<br><u><b>Time:</b></u><br><b>{HH}</b> - hour on a 24-hour clock (00-23)<br><b>{hh}</b> - hour on a 12-hour clock (01-12)<br><b>{mm}</b> - minute (00-59)<br><b>{ss}</b> - seconds (00-59)<br><b>{tt}</b> - 'AM' or 'PM'<br><u><b>File:</b></u><br><b>{file_dir}</b> - source file directory<br><b>{file_name}</b> - source file name (without the extension)<br><b>{file_ext}</b> - source file extension (not including the ".")<br><u><b>Location:</b></u><br><b>{country}</b> - country<br><b>{state}</b> - state<br><b>{city}</b> - city<br><u><b>Other:</b></u><br><b>{camera_make}</b> - camera maker<br><b>{camera_model}</b> - camera model<br><b>{artist}</b> - artist<br><b>{album}</b> - album<br><b>{title}</b> - title<br>"
 [config]
 title              = "Configuration"
+integration        = "Integration"
 autorun            = "Autorun"
 run_on_attach_disk = "Run on attach external disk"
 run_after_usbcopy  = "Run after USB/SD Copy"
+location           = "Location"
+locator            = "Locator"
+threshold          = "Threshold (in meters)"
+language           = "Language"
 
 [task]
 #calculating       = "Calculating the file size"

@@ -463,82 +463,270 @@ Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
     constructor: function (cfg) {
         this.owner = cfg.owner;
-        this.panel = this.createPanel(cfg);
+        cfg = SYNO.LayoutConfig.fill(this.fillConfig(cfg));
+        SYNO.SDS.RoboCopy.ConfigWindow.superclass.constructor.call(this, cfg);
+        this.defineBehaviors();
+    },
+    defineBehaviors: function() {
+//        if (true === _S("is_admin")) {
+//            var a = new SYNO.SDS.Utils.EnableCheckGroup(this.form, "bandwidth_enable", [this.btnBandwidthSettingId])
+//        }
+//        if ((_D("usbcopy") !== "yes") && (_D("sdcopy") !== "yes")) {
+//            this.panel.getForm().findField("run_after_usbcopy").disable();
+//        }
+//        this.getTabPanel().addDeactivateCheck(this);
+//        this.integrationForm = this.get("tab").get("integration");
+//        this.locationForm = this.get("tab").get("location");
+    },
+    fillConfig: function(params) {
+        var tabs = [];
+        if (isDsmV4()) {
+            tabs.push(this.fillIngerationTab());
+        }
+        tabs.push(this.fillLocationTab());
         //
-        cfg = Ext.apply({
+        var cfg = {
             title: _RC_STR("config", "title"),
             resizable: false,
             layout: "fit",
             width: 500,
-            height: 200,
+            height: 300,
+            padding: "10px",
+            border: false,
+            items: [{
+                xtype: getXType("syno_tabpanel", "tabpanel"),
+                plain: true,
+                itemId: "tab",
+                activeTab: 0,
+                items: tabs
+            }],
             buttons: [{
-                text: _T("common", "apply"),
+                text: _T("common", "ok"),
                 scope: this,
-                handler: this.onClickApply
+                handler: this.saveHandler,
             }, {
                 text: _T("common", "cancel"),
                 scope: this,
-                handler: this.close
+                handler: this.closeHandler
             }],
-            items: [this.panel]
-        }, cfg);
- 
-        SYNO.SDS.RoboCopy.ConfigWindow.superclass.constructor.call(this, cfg);
-        
-//        if ((_D("usbcopy") !== "yes") && (_D("sdcopy") !== "yes")) {
-//            this.panel.getForm().findField("run_after_usbcopy").disable();
-//        }
+            keys: [{
+                key: [10, 13],
+                fn: this.saveHandler,
+                scope: this
+            }, {
+                key: 27,
+                fn: this.closeHandler,
+                scope: this
+            }],
+            listeners: {
+                scope: this,
+                single: true,
+                afterlayout: this.onAfterLayout
+            }
+        };
+
+        return Ext.apply(params, cfg);
     },
-    createPanel: function(params) {
-        var cfg = {
-            padding: 20,
-//            labelWidth: 150,
+    fillIngerationTab: function() {
+        var a = {
+            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            itemId: "integration",
             border: false,
+            padding: 20,
+            trackResetOnLoad: true,
+            title: _RC_STR("config", "integration"),
             items: [{
                 xtype: "fieldset",
                 title: _RC_STR("config", "autorun"),
                 items: [{
                     synotype: "check",
-                    id: "run_after_usbcopy",
+                    name: "run_after_usbcopy",
                     disabled: ((_D("usbcopy", "no") === "no") && (_D("sdcopy", "no") === "no")),
-                    boxLabel: _RC_STR("config", "run_after_usbcopy"),
-                    checked: params.data.after_usbcopy
+                    boxLabel: _RC_STR("config", "run_after_usbcopy")
                 }, {
                     synotype: "check",
-                    id: "run_on_attach_disk",
-                    boxLabel: _RC_STR("config", "run_on_attach_disk"),
-                    checked: params.data.on_attach_disk
+                    name: "run_on_attach_disk",
+                    boxLabel: _RC_STR("config", "run_on_attach_disk")
                 }]
             }]
         };
-        SYNO.LayoutConfig.fill(cfg);
-        return new Ext.form.FormPanel(cfg);
+        return a;
     },
-    onClickApply: function () {
+    fillLocationTab: function () {
+        var a = {
+            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            itemId: "location",
+            border: false,
+            padding: 20,
+            trackResetOnLoad: true,
+            title: _RC_STR("config", "location"),
+            items: [{
+                xtype: "fieldset",
+                title: _RC_STR("config", "locator"),
+                items: [{
+                    synotype: "number",
+                    fieldLabel: _RC_STR("config", "threshold"),
+                    width: 200,
+                    minValue: 100,
+                    maxValue: 10000,
+                    allowBlank: false,
+//                    blankText: "Trashold may be not empty",
+                    name: "locator_threshold"
+                },{
+                    synotype: "combo",
+                    name: "locator_language",
+                    width: 200,
+                    fieldLabel: _RC_STR("config", "language"),
+                    store: [
+                        ["en", _T("common", "language_enu")],
+                        ["fr", _T("common", "language_fre")],
+                        ["de", _T("common", "language_ger")],
+                        ["it", _T("common", "language_ita")],
+                        ["ås", _T("common", "language_spn")],
+//                        ["cht", _T("common", "language_cht")],
+//                        ["chs", _T("common", "language_chs")],
+//                        ["jpn", _T("common", "language_jpn")],
+//                        ["krn", _T("common", "language_krn")],
+//                        ["ptb", _T("common", "language_ptb")],
+                        ["ru", _T("common", "language_rus")]
+//                        ["dan", _T("common", "language_dan")],
+//                        ["nor", _T("common", "language_nor")],
+//                        ["sve", _T("common", "language_sve")],
+//                        ["nld", _T("common", "language_nld")],
+//                        ["plk", _T("common", "language_plk")],
+//                        ["ptg", _T("common", "language_ptg")],
+//                        ["hun", _T("common", "language_hun")],
+//                        ["trk", _T("common", "language_trk")],
+//                        ["csy", _T("common", "language_csy"])
+                    ]
+                }]
+            }]
+        };
+        return a;
+    },
+    getAllForms: function() {
+        var result = [];
+        var tab = this.get("tab");
+        if (tab) {
+            tab.items.each(function(e,b,d) {
+                if (e.getForm) {
+                    var frm = e.getForm();
+                    result.push(frm);
+                }
+            }, this);
+        }
+        return result;
+    },
+    isAnyFormDirty: function () {
+        var a = this.getAllForms();
+        var b = false;
+        Ext.each(a, function(e, c, d) {
+            if (e.isDirty()) {
+                b = true;
+                return false
+            }
+        }, this);
+        return b
+    },
+    isAllFormValid: function() {
+        var result = true;
+        var tab = this.get("tab");
+        if (tab) {
+            tab.items.each(function(v,i,a) {
+                if (v.getForm) {
+                    var frm = v.getForm();
+                    if (!frm.isValid()) {
+                        result = false;
+                        tab.setActiveTab(i);
+                        return false
+                    }
+                }
+            }, this);
+        }
+        return result;
+    },
+    onAfterLayout: function() {
+        this.setStatusBusy();
+        this.addAjaxTask({
+            single: true,
+            autoJsonDecode: true,
+            url: SYNO.SDS.RoboCopy.CGI,
+            params: {
+                action: "settings"
+            },
+            callback: function(a, c, b) {
+                if (!b.success) {
+                    this.getMsgBox().alert(this.title, _T("error", "error_system_busy"));
+                    return
+                }
+                Ext.each(this.getAllForms(), function(itm, idx, all) {
+                    itm.setValues(b.data);
+                }, this);
+                this.clearStatusBusy()
+            },
+            scope: this
+        }).start(true)
+    },
+    saveHandler: function() {
+        if (!this.isAllFormValid()) {
+            return;
+        }
+        if (!this.isAnyFormDirty()) {
+            this.close();
+            return
+        }
+        var params = {};
+        Ext.each(this.getAllForms(), function(f,i,a){
+//            console.log("Get values from ", f);
+            var d = f.getFieldValues();
+//            var d = f.getValues();
+            Ext.apply(params, d);
+        }, this);
         this.setStatusBusy({
             text: _T("common", "saving")
         });
-        var rqst = new SYNO.SDS.RoboCopy.Request({
-                url: SYNO.SDS.RoboCopy.CGI,
-                params: {
-                    action: 'integration',
-                    after_usbcopy: Ext.getCmp("run_after_usbcopy").getValue(),
-                    on_attach_disk: Ext.getCmp("run_on_attach_disk").getValue()
-                },
-                callback: function (options, success, response) {
-                    this.clearStatusBusy();
-                    if (success) {
-                        this.close();
+        this.addAjaxTask({
+            single: true,
+            autoJsonDecode: true,
+            url: SYNO.SDS.RoboCopy.CGI,
+            method: "POST",
+            params: Ext.apply(params, {
+                action: "settings"
+            }),
+            callback: function(c, f, d) {
+                this.clearStatusBusy();
+                if (!f || !d) {
+                    this.getMsgBox().alert(_T("tree", "leaf_packagemanage"), _T("common", "error_system"));
+                    return
+                }
+                if (!d.success || 0 > d.data.progress) {
+                    var e = _T("error", "error_system_busy");
+                    if (d.errinfo && d.errinfo.sec && d.errinfo.key) {
+                        e = _T(d.errinfo.sec, d.errinfo.key)
                     }
-                    else {
-                        this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
-                    }
-                },
-                scope: this
-        });
-        rqst.send();
+                    this.getMsgBox().alert(_T("tree", "leaf_packagemanage"), e)
+                } else {
+                    this.close()
+                }
+            },
+            scope: this
+        }).start(true)
+    },
+    closeHandler: function() {
+        if (this.isAnyFormDirty()) {
+            this.getMsgBox().confirm(this.title, _T("common", "confirm_lostchange"), function(a) {
+                if ("yes" == a) {
+                    this.close()
+                } else {
+                    return
+                }
+            }, this)
+        } else {
+            this.close()
+        }
     }
 });
+
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
@@ -957,7 +1145,6 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 '->',
                 {
                     text: _RC_STR("ui", "config"),
-                    hidden: !isDsmV4(),
                     handler: this.handleConfig,
                     scope: this
                 }]
@@ -1072,32 +1259,13 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         this.runProcess(folders);
     },
     handleConfig: function() {
-        this.setStatusBusy();
-        var rqst = new SYNO.SDS.RoboCopy.Request({
-                url: SYNO.SDS.RoboCopy.CGI,
-                method: "GET",
-                params: {
-                    action: 'integration'
-                },
-                callback: function (options, success, response) {
-                    this.clearStatusBusy();
-                    if (!success) {
-                        this.getMsgBox().alert(_T("error", "error_error"), 
-                            SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
-                    }
-                    else {
-                        var cfg = {
-                            owner: this,
-                            data: response
-                        };
-                        cfg = Ext.apply(cfg, response);
-                        var dlg = new SYNO.SDS.RoboCopy.ConfigWindow(cfg);
-                        dlg.open();
-                    }
-                },
-                scope: this
-        });
-        rqst.send();
+        if (!this.SettingDialog || this.SettingDialog.isDestroyed) {
+            _DEBUG("Create settnig dialog");
+            this.SettingDialog = new  SYNO.SDS.RoboCopy.ConfigWindow({
+                owner: this
+            });
+        }
+        this.SettingDialog.show();
     },
     openInfo: function (item) {
         var edt = null;

@@ -30,6 +30,7 @@ use task_info;
 use integration;
 use Geo::Coder;
 use Locator;
+use Settings;
 
 use Data::Dumper;
 
@@ -125,7 +126,12 @@ sub create_locator
 {
 #    my $coder = create_geocoder(); #agent => "XXX");
     my $locator = Locator->new();
-    #$locator->language('rus') if defined $locator;
+    eval {
+        my $setting = Settings::load;
+        $locator->threshold($setting->locator_threshold);
+        $locator->language($setting->locator_language);
+    };
+
     return $locator;
 }
 
@@ -539,65 +545,63 @@ sub action_post_task_list
 
 ##############################################################################
 # Configuration
-sub action_get_integration
+sub action_get_settings
 {
-    my $after_usbcopy = integration::is_run_after_usbcopy;
-    my $on_attach_disk = integration::is_run_on_disk_attach;
-    
-#    my $conf = ini_read(DEFAULT_GLOBALS);
-#    if (defined $conf->{global}) {
-#        $after_usbcopy = 1 if $conf->{global}->{after_usbcopy} eq 'yes';
-#        $on_attach_disk = 1 if $conf->{global}->{on_attach_disk} eq 'yes';
-#    }
-    
-    RESPONSE({'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk});
-#    print "Content-type: application/json; charset=UTF-8\n\n";
-#    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
+    my $setting = Settings::load;
+    RESPONSE({
+        'run_after_usbcopy' => integration::is_run_after_usbcopy, 
+        'run_on_attach_disk' => integration::is_run_on_disk_attach,
+        'locator_threshold' => $setting->locator_threshold,
+        'locator_language' => $setting->locator_language
+    });
 }
 
-sub action_post_integration
+sub action_post_settings
 {
     my %params = @_;
-    my $after_usbcopy = integration::is_run_after_usbcopy;
-    my $on_attach_disk = integration::is_run_on_disk_attach;
 
-#    print "Content-type: application/json; charset=UTF-8\n\n";
-    if ($params{after_usbcopy} =~ /^(yes|true|1)$/) {
-        unless ($after_usbcopy) {
-            integration::set_run_after_usbcopy();
-            $after_usbcopy = integration::is_run_after_usbcopy;
+    # Integration
+    if (exists $params{run_after_usbcopy}) {
+        my $after_usbcopy = integration::is_run_after_usbcopy;
+
+        if ($params{run_after_usbcopy} =~ /^(yes|true|1)$/) {
+            unless ($after_usbcopy) {
+                integration::set_run_after_usbcopy();
+            }
         }
-    }
-    else {
-        if ($after_usbcopy) {
-            integration::remove_run_after_usbcopy();
-            $after_usbcopy = integration::is_run_after_usbcopy;
+        else {
+            if ($after_usbcopy) {
+                integration::remove_run_after_usbcopy();
+            }
         }
+        $params{run_after_usbcopy} = integration::is_run_after_usbcopy;
     }
     
-    if ($params{on_attach_disk} =~ /^(yes|true|1)$/) {
-        unless ($on_attach_disk) {
-            integration::set_run_on_disk_attach();
-            $on_attach_disk = integration::is_run_on_disk_attach;
+    if (exists $params{run_on_attach_disk}) {
+        my $on_attach_disk = integration::is_run_on_disk_attach;
+        if ($params{run_on_attach_disk} =~ /^(yes|true|1)$/) {
+            unless ($on_attach_disk) {
+                integration::set_run_on_disk_attach();
+            }
         }
-    }
-    else {
-        if ($on_attach_disk) {
-            integration::remove_run_on_disk_attach();
-            $on_attach_disk = integration::is_run_on_disk_attach;
+        else {
+            if ($on_attach_disk) {
+                integration::remove_run_on_disk_attach();
+            }
         }
+        $params{run_on_attach_disk} = integration::is_run_on_disk_attach;
     }
 
-#    print '{"errinfo" : {"key" : "invalid_params", "sec" : "error"}, "success" : false}';
+    # Other setting
+    my $setting = Settings::load;
+    $setting->locator_threshold($params{locator_threshold}) if exists $params{locator_threshold};
+    $setting->locator_language($params{locator_language}) if exists $params{locator_language};
 
-#    my $conf = ini_read(DEFAULT_GLOBALS);
-#    $conf->{global}->{after_usbcopy} = $after_usbcopy;
-#    $conf->{global}->{on_attach_disk} = $on_attach_disk;
-#    ini_write(DEFAULT_GLOBALS, $conf);
-#    
-#    print '{"data" : {"after_usbcopy" : ' . $after_usbcopy . ', "on_attach_disk" : ' . $on_attach_disk . '}, "success" : true}';
-    RESPONSE({'after_usbcopy' => $after_usbcopy, 'on_attach_disk' => $on_attach_disk});
+    $setting->save;
+    
+    RESPONSE(\%params);
 }
+
 
 ##############################################################################
 # Tests

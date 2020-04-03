@@ -33,6 +33,7 @@ use Syno;
 use integration;
 use Geo::Coder;
 use Locator;
+use Settings;
 
 
 use Image::ExifTool qw(:Public);
@@ -109,7 +110,11 @@ my $cfg = rule::load_list(undef, 'priority');
 # Create locator
 #    my $coder = create_geocoder(); #agent => "XXX");
 my $locator = Locator->new();
-#$locator->language('rus') if defined $locator;
+eval {
+    my $setting = Settings::load;
+    $locator->threshold($setting->locator_threshold);
+    $locator->language($setting->locator_language);
+};
 
 # Main cycle
 my $error;
