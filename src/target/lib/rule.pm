@@ -19,7 +19,7 @@ package rule;
     use constant CONFIG_FIELDS => {
                     'id' => 0,
                     'priority' => 0,
-                    'src_dir' => '',
+#                    'src_dir' => '',
                     'src_ext' => '',
                     'dest_folder' => '',
                     'dest_dir' => '',
@@ -108,12 +108,12 @@ package rule;
         return int($self->{priority});
     }
 
-    sub src_dir {
-        my ($self, $value) = @_;
-        $self->{src_dir} = $value if defined $value;
-        return '' unless defined $self->{src_dir};
-        return $self->{src_dir};
-    }
+#    sub src_dir {
+#        my ($self, $value) = @_;
+#        $self->{src_dir} = $value if defined $value;
+#        return '' unless defined $self->{src_dir};
+#        return $self->{src_dir};
+#    }
     
     sub src_ext {
         my ($self, $value) = @_;
@@ -230,47 +230,58 @@ package rule;
         (
             new rule({
                 'priority' => 1,
-                'src_dir' => 'DCIM',
-                'src_ext' => 'jpg',
+#                'src_dir' => 'DCIM',
+                'src_ext' => 'jp*g',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'image/{yyyy}-{MM}-{dd}',
+                'dest_dir'=>'Image/{yyyy}/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy images'
             }),
             new rule({
                 'priority' => 2,
-                'src_dir' => 'MP_ROOT',
+#                'src_dir' => 'MP_ROOT',
                 'src_ext' => 'mpg',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'video/{yyyy}-{MM}-{dd}',
+                'dest_dir'=>'Video/{yyyy}/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
                 'description' => 'Copy videos'
             }),
             new rule({
                 'priority' => 3,
-                'src_dir' => '',
-                'src_ext' => '3gp',
+#                'src_dir' => 'MP_ROOT',
+                'src_ext' => 'mp4',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'video/{yyyy}-{MM}-{dd}',
+                'dest_dir'=>'Video/{yyyy}/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
-                'description' => 'Copy mobile videos'
+                'description' => 'Copy videos'
             }),
             new rule({
                 'priority' => 4,
-                'src_dir' => '',
-                'src_ext' => '',
+#                'src_dir' => 'MP_ROOT',
+                'src_ext' => 'avi',
                 'src_remove' => 0,
                 'dest_folder'=>$share,
-                'dest_dir'=>'other/{yyyy}-{MM}-{dd}',
+                'dest_dir'=>'Video/{yyyy}/{yyyy}-{MM}-{dd}',
                 'dest_file'=>'',
                 'dest_ext'=>'',
-                'description' => 'Copy others'
+                'description' => 'Copy videos'
+            }),
+            new rule({
+                'priority' => 5,
+#                'src_dir' => '',
+                'src_ext' => '3gp',
+                'src_remove' => 0,
+                'dest_folder'=>$share,
+                'dest_dir'=>'Video/{yyyy}/{yyyy}-{MM}-{dd}',
+                'dest_file'=>'',
+                'dest_ext'=>'',
+                'description' => 'Copy mobile videos'
             })
         );
         return (wantarray ? @demo : \@demo);

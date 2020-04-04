@@ -726,7 +726,7 @@ sub _action_test
             [
                 'priority', 
                 'src_ext',
-                'src_dir',
+#                'src_dir',
                 'dest_folder',
                 'dest_dir',
                 'dest_file',
@@ -737,7 +737,7 @@ sub _action_test
                         [
                 'NN', 
                 'Ext',
-                'From',
+#                'From',
                 'dest_folder',
                 'dest_dir',
                 'dest_file',

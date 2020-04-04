@@ -179,8 +179,8 @@ sub prepare($$;\$) {
 #            $dir =~ s/[@]$share_name/$share_path/;
 #        }
     my $src_path = catdir($dir);
-    my $src_dir = $self->{src_dir};
-    $src_path = catdir($src_path, $src_dir) if defined $src_dir;
+#    my $src_dir = $self->{src_dir};
+#    $src_path = catdir($src_path, $src_dir) if defined $src_dir;
     $self->{src_path} = $src_path;
     $self->{prepared_path} = $dir;
     

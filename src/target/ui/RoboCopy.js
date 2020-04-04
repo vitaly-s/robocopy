@@ -751,7 +751,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             resizable: false,
             layout: "fit",
             width: 560,
-            height: 350,
+            height: 320,
             buttons: [{
                 text: _T("common", "ok"),
                 scope: this,
@@ -768,7 +768,8 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
         this.mon(this.panel, "afterlayout", function (c, d) {
             SYNO.SDS.Utils.AddTip(this.panel.getForm().findField('mai_info_dest_dir').getEl(), 
                                 _RC_STR("ui", "format_codes"));
-            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_file").getEl(), _RC_STR("ui", "format_codes"));
+            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_file").getEl(), 
+                _RC_STR("ui", "format_codes"));
 //            SYNO.SDS.Utils.AddTip(Ext.getCmp("mai_info_dest_ext").getEl(), _RC_STR("ui", "format_codes"));
         }, this, {
             single: true
@@ -786,7 +787,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             id: this.item_id,
             priority: Ext.getCmp("mai_info_priority").getValue(),
             description: Ext.getCmp("mai_info_description").getValue(),
-            src_dir: Ext.getCmp("mai_info_src_dir").getValue(),
+//            src_dir: Ext.getCmp("mai_info_src_dir").getValue(),
             src_ext: Ext.getCmp("mai_info_src_ext").getValue(),
             dest_folder: Ext.getCmp("mai_info_dest_folder").getValue(),
             dest_dir: Ext.getCmp("mai_info_dest_dir").getValue(),
@@ -833,26 +834,29 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 allowBlank: false,
                 blankText: "Priority may be not empty",
                 id: "mai_info_priority",
+                name: "priority",
                 value: params.priority
             },{
                 synotype: "text",
                 fieldLabel: _RC_STR("ui", "description"),
                 maxlength: 255,
                 id: "mai_info_description",
+                name: "description",
                 width: 300,
                 value: params.description
             },{
                 synotype: "text",
                 fieldLabel: _RC_STR("ui", "src_ext"),
                 id: "mai_info_src_ext",
+                name: "src_ext",
                 value: params.src_ext
             },{
-                synotype: "text",
-                fieldLabel: _RC_STR("ui", "src_dir"),
-                id: "mai_info_src_dir",
-                width: 300,
-                value: params.src_dir
-            },{
+//                synotype: "text",
+//                fieldLabel: _RC_STR("ui", "src_dir"),
+//                id: "mai_info_src_dir",
+//                width: 300,
+//                value: params.src_dir
+//            },{
                 xtype: "radiogroup",
                 id: "mai_info_src_remove",
                 itemId: "src_remove",
@@ -875,6 +879,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 synotype: "combo",
                 fieldLabel: _RC_STR("ui", "dest_folder"),
                 id: "mai_info_dest_folder",
+                name: "dest_folder",
                 editable: false,
                 store: storeShares,
                 forceSelection: true,
@@ -889,6 +894,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 synotype: "text",
                 fieldLabel: _RC_STR("ui", "dest_dir"),
                 id: "mai_info_dest_dir",
+                name: "dest_dir",
                 width: 300,
                 value: params.dest_dir,
                 boxLabel: ""
@@ -896,6 +902,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
                 synotype: "text",
                 fieldLabel: _RC_STR("ui", "dest_file"),
                 id: "mai_info_dest_file",
+                name: "dest_file",
                 width: 300,
                 value: params.dest_file
 //            },{
@@ -975,7 +982,8 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             },
             url: SYNO.SDS.RoboCopy.CGI,
             fields: [
-                'id', {name:'priority', type: 'int'}, 'src_dir', 'src_ext', {name:'src_remove', type: 'boolean'},
+                'id', {name:'priority', type: 'int'},// 'src_dir', 
+                'src_ext', {name:'src_remove', type: 'boolean'},
                 'dest_folder', 'dest_dir', 'dest_file', 'dest_ext', 'description'
             ],
             totalProperty: 'total',
@@ -1076,11 +1084,11 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 id: "mai_grid_src_ext",
                 width: 50
             }, {
-                header:  _RC_STR("ui", "src_dir_short"),
-                dataIndex: "src_dir",
-                id: "mai_grid_src_dir",
-                width: 100
-            }, {
+//                header:  _RC_STR("ui", "src_dir_short"),
+//                dataIndex: "src_dir",
+//                id: "mai_grid_src_dir",
+//                width: 100
+//            }, {
                 header:  _RC_STR("ui", "src_remove_short"),
                 dataIndex: "src_remove",
                 id: "mai_grid_src_remove",
@@ -1099,7 +1107,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 header:  _RC_STR("ui", "dest_dir_short"),
                 dataIndex: 'dest_dir',
                 id: "mai_grid_dest_dir",
-                width: 150
+                width: 250 //150
             }, {
                 header:  _RC_STR("ui", "dest_file_short"),
                 dataIndex: 'dest_file',
