@@ -36,7 +36,7 @@ make()
 	# check perl files
 	for srcfile in `grep -ril '^#!.*perl' ./_tmp/package/`
 	do
-		perl -c "$srcfile" >/dev/null 2>&1 >/dev/null
+		perl -I./_tmp/package/lib -c "$srcfile" >/dev/null 2>&1 >/dev/null
 		if [ "$?" -ne 0 ]
 		then
 			echo "Error in \"${srcfile##*/}\""

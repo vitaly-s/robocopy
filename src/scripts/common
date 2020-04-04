@@ -79,7 +79,7 @@ start() {
 	HAS_ERROR=0
 	for file in $SRC_FILES
 	do
-		VALID_RESULT=`perl -c "${PRIVATE_LOCATION}/${file}" 2>&1`
+		VALID_RESULT=`perl -I"${PRIVATE_LOCATION}/lib" -c "${PRIVATE_LOCATION}/${file}" 2>&1`
 		if [ "$?"  -ne 0 ]
 		then
 			HAS_ERROR=1
