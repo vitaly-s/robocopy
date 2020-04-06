@@ -6,16 +6,10 @@ use Carp;
 
 use base 'Exporter';
 
-our @EXPORT = qw( create_geocoder ACCURACY_COUNTRY ACCURACY_STATE ACCURACY_CITY ACCURACY_HOUSE );
+our @EXPORT = qw( create_geocoder );
 
 require Geo::Address;
 
-sub ACCURACY_COUNTRY { 'country' }
-sub ACCURACY_STATE { 'state' }
-sub ACCURACY_CITY { 'city' }
-sub ACCURACY_HOUSE { 'house' }
-
-sub DEFAULT_ACCURACY { ACCURACY_CITY }
 sub DEFAULT_LANGUAGE { 'en' }
 
 

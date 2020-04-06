@@ -3,6 +3,10 @@ package Geo::Address;
 use Carp;
 #use base Exporter;
 
+use overload q("") => \&as_string,
+    q(==) => \&equal_to,
+    q(!=) => sub { !shift->equal_to(shift); };
+
 BEGIN
 {
     use TypeDefs 
@@ -157,5 +161,35 @@ sub type
     }
     $old_value;
 }
+
+
+sub TO_JSON {
+    return { %{ shift() } };
+}
+
+sub as_string
+{
+    my $self = shift;
+    return join (', ', grep( { defined $_ }  map { $self->{$_} } qw/ country state county city suburb road house / ));
+}
+
+sub equal_to
+{
+    my ($a, $b) = @_;
+    
+    return 0 unless defined $a
+        && defined $b
+        && UNIVERSAL::isa($a, __PACKAGE__)
+        && UNIVERSAL::isa($b, __PACKAGE__)
+        && scalar(keys %$a) == scalar(keys %$b);
+
+    foreach my $key (keys %$a) {
+        return 0 unless defined($a->{$key}) == defined($b->{$key});
+        next unless defined($a->{$key});
+        return 0 unless $a->{$key} eq $b->{$key};
+    }
+    return !!1;
+}
+
 
 1;

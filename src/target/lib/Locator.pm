@@ -19,11 +19,10 @@ sub new
     my $class = ref $_[0] ? ref shift() : shift();
 
     my $coder = $_[0] || create_geocoder();
-#    my $language = $_[1];
     
     croak 'The new() method reqiare coder value' unless defined $coder
         && ref $coder
-        && $coder->isa('Geo::Coder::Base');
+        && UNIVERSAL::isa($coder, 'Geo::Coder::Base');
 
     my $new = bless({
         coder => $coder,
@@ -62,20 +61,13 @@ sub locate
     return unless defined $latitude and defined $longitude;
     # find in cache
     foreach my $item (@{$self->{cache}}) {
-        next unless defined $item && ref $item eq 'HASH' && defined $item->{place};
-#        print STDERR __PACKAGE__, " check INBOX '", $item->{place}->displayName, "'\n";
-#        print STDERR __PACKAGE__, '  bbox: ', Str->convert($item->{place}->bbox), "\n" if defined($item->{place}->bbox);
-        next unless $item->{place}->in_bbox($longitude, $latitude);
-        my $geometry = $item->{place}->geometry;
+        next unless $item->in_bbox($longitude, $latitude);
+        my $geometry = $item->geometry;
         if (defined($geometry) && $geometry->is_region) {
             next unless $geometry->inside([$longitude, $latitude]);
 #            print STDERR __PACKAGE__, " HIGH accuracy (cache)\n";
-            return $item->{place}->address;
+            return $item->address;
         }
-#        if (defined $item->{city} && $item->{city}->geometry->inside([$longitude, $latitude])) {
-#            print STDERR __PACKAGE__, " LOW accuracy (cache)\n";
-#            return $item->{place}->address;
-#        }
     }
     # find in invalid cache
     foreach my $item (@{$self->{invalid_cache}}) {
@@ -86,49 +78,36 @@ sub locate
         }
     }
 
+#    print STDERR __PACKAGE__, " try geocode\n";
+    my $address;
+    eval { $address = $self->{coder}->reverse($latitude, $longitude, $self->{language}) };
+    
+    return unless defined $address;
+    
+    my $city_adr = $address->clone;
+    $city_adr->suburb(undef);
+    $city_adr->road(undef);
+    $city_adr->house(undef);
+    $city_adr->postCode(undef);
+    
 #    print STDERR __PACKAGE__, " try CITY geocode\n";
     my $place;
-    eval { $place = $self->{coder}->reverse($latitude, $longitude, Geo::Coder::ACCURACY_CITY, $self->{language}, 1) };
+    eval { $place = $self->{coder}->lookup($city_adr) } if defined $city_adr->city;
 #    print STDERR __PACKAGE__, " coder->reverse '", $@, "'\n" if $@;
-    if (defined($place) && defined($place->address)) {
-#        print STDERR __PACKAGE__, " located place '",$place->displayName, "'\n";
-        if (defined($place->address->city)
-            && defined($place->geometry) && $place->geometry->is_region)
-        {
-#            print STDERR __PACKAGE__, " add to CHACHE\n";
-            my $new_item = {place => $place};
-#            if (defined($place->address->suburb) || defined($place->address->road)) {
-#    #            print STDERR __PACKAGE__, " try lookup city\n";
-#                my $city_adr = $place->address->clone();
-#                $city_adr->suburb(undef);
-#                #$city_adr->street(undef);
-#                my $city;
-#                eval {$city = $self->{coder}->lookup($city_adr, $self->{language})};
-#                $new_item->{city} = $city if defined $city && $city->geometry->is_region;
-#            }
-            push @{$self->{cache}}, $new_item;
-            
-            return $place->address;
-        }
+    if (defined($place && defined($place->geometry) && $place->geometry->is_region)) {
+#        print STDERR __PACKAGE__, " add to CHACHE ", $place->address->city, "\n";
+        push @{$self->{cache}}, $place;
     }
     else {
-#        print STDERR __PACKAGE__, " try COUNTRY geocode\n";
-        eval { $place = $self->{coder}->reverse($latitude, $longitude, 
-            Geo::Coder::ACCURACY_COUNTRY, $self->{language}) };
-#        print STDERR __PACKAGE__, " located place '",$place->displayName, "'\n" if defined $place;
-    }
-    if (defined $place) {
 #        print STDERR __PACKAGE__, " add to INVALID_CHACHE\n";
         # fill invalid_cache
         my $invalid_item = {
             point => [$latitude, $longitude],
-            address => $place->address,
+            address => $city_adr,
         };
         push @{$self->{invalid_cache}}, $invalid_item;
-        
-        return $place->address;
     }
-    undef;
+    $city_adr;
 }
 
 # See:
