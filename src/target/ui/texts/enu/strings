@@ -44,6 +44,11 @@ location           = "Location"
 locator            = "Locator"
 threshold          = "Threshold (in meters)"
 language           = "Language"
+general            = "General"
+conflict_policy    = "File conflict policy"
+rename             = "Rename"
+overwrite          = "Overwrite"
+skip               = "Skip"
 
 [task]
 #calculating       = "Calculating the file size"

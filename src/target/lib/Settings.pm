@@ -4,11 +4,10 @@ use strict;
 use Carp;
 use JSON::XS;
 
-require Locator;
-
+use Locator;
+use rule_processor;
 
 sub SETTING_FILE { '/var/packages/robocopy/etc/settings.conf' }
-
 
 sub new
 {
@@ -26,6 +25,7 @@ sub new
     my $new = bless({
             locator_threshold => $args->{locator_threshold} || Locator::DEFAULT_THRESHOLD,
             locator_language => $args->{locator_language} || Locator::DEFAULT_LANGUAGE,
+            conflict_policy => $args->{conflict_policy} || rule_processor::DEFAULT_CONFLICT_POLICY,
         } , $class);
     return $new;
 }
@@ -46,6 +46,16 @@ sub locator_language
     my $old = $self->{locator_language};
     if (@_) {
         $self->{locator_language} = shift;
+    }
+    $old;
+}
+
+sub conflict_policy 
+{
+    my $self = shift;
+    my $old = $self->{conflict_policy};
+    if (@_) {
+        $self->{conflict_policy} = shift;
     }
     $old;
 }

@@ -44,6 +44,12 @@ location           = "Расположение"
 locator            = "Локатор"
 threshold          = "Порог (в метрах)"
 language           = "Язык"
+general            = "Общие"
+conflict_policy    = "Политика разрешения конфликтов"
+rename             = "Переименовать"
+overwrite          = "Переписать"
+skip               = "Пропустить"
+
 
 [task]
 #calculating       = "Расчет размера фаилов"

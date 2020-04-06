@@ -477,9 +477,11 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //        this.getTabPanel().addDeactivateCheck(this);
 //        this.integrationForm = this.get("tab").get("integration");
 //        this.locationForm = this.get("tab").get("location");
+        this.generalForm = this.get("tab").get("general");
     },
     fillConfig: function(params) {
         var tabs = [];
+        tabs.push(this.fillGeneralTab());
         if (isDsmV4()) {
             tabs.push(this.fillIngerationTab());
         }
@@ -526,6 +528,44 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
         };
 
         return Ext.apply(params, cfg);
+    },
+    fillGeneralTab: function() {
+        var a = {
+            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            itemId: "general",
+            border: false,
+            padding: 20,
+            trackResetOnLoad: true,
+            title: _RC_STR("config", "general"),
+            items: [{
+                synotype: "desc",
+                value: _RC_STR("config", "conflict_policy"),
+                indent: 1
+            }, {
+                itemId: "skip",
+                synotype: "radio",
+                name: "conflict_policy",
+                inputValue: "skip",
+                boxLabel: _RC_STR("config", "skip"),
+                chacked: true,
+                indent: 2
+            }, {
+                itemId: "rename",
+                synotype: "radio",
+                name: "conflict_policy",
+                inputValue: "rename",
+                boxLabel: _RC_STR("config", "rename"),
+                indent: 2
+            }, {
+                itemId: "overwrite",
+                synotype: "radio",
+                name: "conflict_policy",
+                inputValue: "overwrite",
+                boxLabel: _RC_STR("config", "overwrite"),
+                indent: 2
+            }]
+        };
+        return a;
     },
     fillIngerationTab: function() {
         var a = {
@@ -682,6 +722,12 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //            var d = f.getValues();
             Ext.apply(params, d);
         }, this);
+        
+        if (this.generalForm) {
+            Ext.apply(params, {
+                conflict_policy: this.generalForm.getForm().findField("conflict_policy").getGroupValue(),
+            });
+        }
         this.setStatusBusy({
             text: _T("common", "saving")
         });

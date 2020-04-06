@@ -121,16 +121,22 @@ sub print_json($)
     print decode("UTF-8", JSON::XS->new->utf8->convert_blessed->encode(@_));
 }
 
+sub load_settings
+{
+    my $setting = Settings->new;
+    eval { $setting = Settings::load };
+    Syno::log("Read setting error: $@", 'warn') if $@;
+    $setting;
+}
 
 sub create_locator
 {
+    my $setting = shift || load_settings;
 #    my $coder = create_geocoder(); #agent => "XXX");
     my $locator = Locator->new();
-    eval {
-        my $setting = Settings::load;
-        $locator->threshold($setting->locator_threshold);
-        $locator->language($setting->locator_language);
-    };
+
+    $locator->threshold($setting->locator_threshold);
+    $locator->language($setting->locator_language);
 
     return $locator;
 }
@@ -426,13 +432,15 @@ sub action_post_task_run
     my $total_size = 0;
     my $error;
     
-    my $locator = create_locator;
+    my $settings = load_settings;
+    my $locator = create_locator($settings);
 
 
     foreach my $rule (@cfg) {
         foreach my $dir (@dirs) {
             # Create processor
             my $processor = new rule_processor($rule, $locator);
+            $processor->conflict_policy($settings->conflict_policy);
             $processor->user($user) if defined $user;
             if ($processor->prepare($dir, \$error)) {
                 my $size;
@@ -552,7 +560,8 @@ sub action_get_settings
         'run_after_usbcopy' => integration::is_run_after_usbcopy, 
         'run_on_attach_disk' => integration::is_run_on_disk_attach,
         'locator_threshold' => $setting->locator_threshold,
-        'locator_language' => $setting->locator_language
+        'locator_language' => $setting->locator_language,
+        'conflict_policy' => $setting->conflict_policy,
     });
 }
 
@@ -596,6 +605,7 @@ sub action_post_settings
     my $setting = Settings::load;
     $setting->locator_threshold($params{locator_threshold}) if exists $params{locator_threshold};
     $setting->locator_language($params{locator_language}) if exists $params{locator_language};
+    $setting->conflict_policy($params{conflict_policy}) if exists $params{conflict_policy};
 
     $setting->save;
     
@@ -752,6 +762,7 @@ sub _action_test
         my @dirs = split(/\|/, $params{folders});
         my $dir_count = scalar(@dirs);
         my $error;
+#        my $setting
         my $locator = create_locator;
 
         my $task;

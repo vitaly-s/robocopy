@@ -48,6 +48,10 @@ $SIG{INT} = \&handle_user_abort;
 $SIG{KILL} = \&handle_system_abort;
 $SIG{TERM} = \&handle_system_abort;
 
+binmode(STDIN, ":utf8");
+binmode(STDOUT, ":utf8");
+binmode(STDERR, ":utf8");
+
 
 if (basename($0) eq 'synousbcopy') {
     unless (-x ORIGINAL_SYNOUSBCOPY) {
@@ -107,14 +111,13 @@ Syno::beep();
 # Read config
 my $cfg = rule::load_list(undef, 'priority');
 
-# Create locator
-#    my $coder = create_geocoder(); #agent => "XXX");
+my $settings = Settings->new;
+eval { $settings = Settings::load };
+Syno::log("Read setting error: $@", 'warn') if $@;
+
 my $locator = Locator->new();
-eval {
-    my $setting = Settings::load;
-    $locator->threshold($setting->locator_threshold);
-    $locator->language($setting->locator_language);
-};
+$locator->threshold($settings->locator_threshold);
+$locator->language($settings->locator_language);
 
 # Main cycle
 my $error;
@@ -124,6 +127,7 @@ foreach my $dir (@dirs) {
     foreach my $rule (@$cfg) {
 #        print "\tProcess \"$rule->{description}\" [$rule->{src_dir}/$rule->{src_mask}]\n\t\t$rule->{dest_path}\n" if $verbose;
         my $processor = new rule_processor($rule, $locator);
+        $processor->conflict_policy($settings->conflict_policy);
         if ($processor->prepare($dir, \$error)) {
             print "\t" . $processor->src_dir() . "\n" if $verbose;
             my $files = $processor->find_files();

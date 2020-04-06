@@ -7,6 +7,7 @@
 
 package rule_processor;
 
+use Carp;
 use strict;
 use utf8;
 use Encode;
@@ -55,6 +56,11 @@ use constant EXCLUDE_NAMES => (
     '#snapshot',
 );
 
+sub CONFLICT_POLICY_SKIP { 'skip' }
+sub CONFLICT_POLICY_RENAME { 'rename' }
+sub CONFLICT_POLICY_OVERWRITE { 'overwrite' }
+
+sub DEFAULT_CONFLICT_POLICY { CONFLICT_POLICY_SKIP }
 
 sub new {
     my($class, $rule, $locator) = @_;
@@ -69,10 +75,24 @@ sub new {
         $self->{$key} = $rule->{$key};
     }
     $self->{locator} = $locator if defined $locator && ref($locator) eq 'Locator';
+    $self->{conflict_policy} = DEFAULT_CONFLICT_POLICY;
     
     bless $self, $class;
    
     return $self;
+}
+
+sub conflict_policy
+{
+    my $self = shift;
+    my $old = $self->{conflict_policy};
+    if (@_) {
+        my $value = shift;
+        croak "Invalid value" unless defined $value 
+            || grep { $value eq $_ } CONFLICT_POLICY_SKIP CONFLICT_POLICY_RENAME CONFLICT_POLICY_OVERWRITE;
+        $self->{conflict_policy} = $value;
+    }
+    $old;
 }
 
 sub dest_dir {
@@ -270,6 +290,7 @@ sub process_file($$;\$)
         return 0;
     }
 #        print "\t\t$file -> $dest_file\n" if $verbose;
+#    print STDERR "\t$file -> $dest_file\n";
     # Create destination dir
     my @created = mkpath(dirname($dest_file), 0, 0755);
     chown $self->{user_uid}, $self->{user_gid}, @created if defined($self->{user_uid}) && defined ($self->{user_gid});
@@ -278,10 +299,53 @@ sub process_file($$;\$)
         $$error = "Cannot overwrite directory \"$dest_file\"";
         return 0;
     }
-    elsif (-f $dest_file) {
+    if (-f $dest_file) {
         if (compare($file, $dest_file) == 1) {
-            $$error = "Cannot overwrite file \"$dest_file\", because it not identical to \"$file\"";
-            return 0;
+#            print STDERR "\t\tfile != dest_file (",$self->{conflict_policy},")\n";
+
+            if ($self->{conflict_policy} eq CONFLICT_POLICY_OVERWRITE) {
+                # nothing
+            }
+            elsif ($self->{conflict_policy} eq CONFLICT_POLICY_RENAME) {
+                # compare copies
+                my $copy_exists = 0;
+                my ($d_name,$d_path,$d_suffix) = fileparse($dest_file,qr/\.[^.]*/);
+                $d_name .= '_';
+                finddepth sub {
+                    return if $copy_exists;
+                    my $file_name = $_;
+                    utf8::decode($file_name) unless utf8::is_utf8($file_name);
+                    
+                    return unless -f "$file_name" && $file_name =~ /$d_name\d{3}$d_suffix/i;
+                    
+                    my $dest_file_copy = catfile($d_path, $file_name);
+                    if (compare($file, $dest_file_copy) == 0) {
+                        $copy_exists = 1;
+                        $File::Find::prune = $copy_exists;
+#                        print STDERR "\t\t\tfile == $file_name \n";
+                    }
+                }, $d_path;
+
+                if ($copy_exists) {
+                    if ($src_remove) {
+                        unless (unlink($file)) { 
+                            $$error = "Cannot delete file \"$file\"";
+                            return 0;
+                        }
+                    }
+                    return 1;
+                }
+                # caclulate new copy name
+                foreach my $idx( 0 .. 999 ) {
+                    $dest_file = catfile($d_path, $d_name . sprintf("%03d", $idx) . $d_suffix);
+                    last unless -f "$dest_file";
+                }
+#                print STDERR "\t\t\tfile ==> $dest_file \n";
+            }
+            else {
+                $$error = "Cannot overwrite file \"$dest_file\", because it not identical to \"$file\"";
+                return 0;
+            }
         }
         elsif ($src_remove) {
             unless (unlink($file)) { 
@@ -290,28 +354,27 @@ sub process_file($$;\$)
             }
         }
     }
-    else {
 #            local $SIG{KILL} = \&cleanup;
-        $writed_file = $dest_file;
+    $writed_file = $dest_file;
 
-        if ($src_remove) {
-            unless (move($file, $dest_file)) {
-                $$error = "Cannot move file \"$file\" to \"$dest_file\": $!";
-                return 0;
-            }
+    if ($src_remove) {
+        unless (move($file, $dest_file)) {
+            $$error = "Cannot move file \"$file\" to \"$dest_file\": $!";
+            return 0;
         }
-        else {
-            unless (copy($file, $dest_file)) {
-                $$error = "Cannot copy file \"$file\" to \"$dest_file\": $!";
-                return 0;
-            }
-        }
-        # update file owner
-        chown $self->{user_uid}, $self->{user_gid}, ($dest_file) if defined($self->{user_uid}) && defined ($self->{user_gid});
-        # update file time
-        utime($file_time, $file_time, $dest_file);
-        undef $writed_file;
     }
+    else {
+        unless (copy($file, $dest_file)) {
+            $$error = "Cannot copy file \"$file\" to \"$dest_file\": $!";
+            return 0;
+        }
+    }
+    # update file owner
+    chown $self->{user_uid}, $self->{user_gid}, ($dest_file) if defined($self->{user_uid}) && defined ($self->{user_gid});
+    # update file time
+    utime($file_time, $file_time, $dest_file);
+    undef $writed_file;
+
     return 1;
 }
 
