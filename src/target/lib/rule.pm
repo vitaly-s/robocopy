@@ -272,17 +272,6 @@ package rule;
                 'dest_ext'=>'',
                 'description' => 'Copy videos'
             }),
-            new rule({
-                'priority' => 5,
-#                'src_dir' => '',
-                'src_ext' => '3gp',
-                'src_remove' => 0,
-                'dest_folder'=>$share,
-                'dest_dir'=>'Video/{yyyy}/{yyyy}-{MM}-{dd}',
-                'dest_file'=>'',
-                'dest_ext'=>'',
-                'description' => 'Copy mobile videos'
-            })
         );
         return (wantarray ? @demo : \@demo);
     }

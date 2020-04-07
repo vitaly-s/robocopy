@@ -1,7 +1,10 @@
 ![logo](src/target/ui/images/icon_48.png)
 
 # RoboCopy
-This package will help organize your collection of photos and videos into a custom folder structure using rules.
+This package will help organize your collection of photos and videos into a custom folder structure using rules based on EXIF information.
+
+![screen shot](ScreenShot.png)
+
 
 ## How to install
 
@@ -26,7 +29,6 @@ Rules specify what actions need to be performed on files.
 | Priority | Rule execution order. |
 | Description | Rule description. |
 | Extention | File extension for applying this rule. |
-| Source dir | Start folder to search for files. |
 | Action | How to process a file: move or copy. |
 | Destination folder | Shared destination folder. |
 | Destination dir | Destination path. (*Here you can use [value substitution](#values-for-substitution)*) |
@@ -63,8 +65,12 @@ The [Phil Harvey's ExifTool library](http://www.sno.phy.queensu.ca/~phil/exiftoo
     <tr><td>yyyy</td><td>Year with century as a decimal number.</td><td>2001</td></tr>
     <tr><td colspan="3"><i>File name</i></td></tr>
     <tr><td>file_ext</td><td>File extension</td><td></td></tr>
-    <tr><td>file_dir</td><td>Path to file (without <i>Source dir</i>)</td><td></td></tr>
+    <tr><td>file_dir</td><td>Path to file (without start dir)</td><td></td></tr>
     <tr><td>file_name</td><td>File name</td><td></td></tr>
+    <tr><td colspan="3"><i>Location</i></td></tr>
+    <tr><td>country</td><td>Country name where was made photo</td><td>United States of America</td></tr>
+    <tr><td>state</td><td>State name where was made photo</td><td>Massachusetts</td></tr>
+    <tr><td>city</td><td>City name where was made photo</td><td>Quincy</td></tr>
     <tr><td colspan="3"><i>Other</i></td></tr>
     <tr><td>title</td><td>Title of composition</td><td></td></tr>
     <tr><td>album</td><td>Album name</td><td></td></tr>
@@ -72,6 +78,35 @@ The [Phil Harvey's ExifTool library](http://www.sno.phy.queensu.ca/~phil/exiftoo
     <tr><td>camera_make</td><td>Camera maker name</td><td></td></tr>
     <tr><td>camera_model</td><td>Camera name</td><td></td></tr>
 </table>
+
+### Using fallback folders
+
+There are times when the EXIF needed to correctly name a folder doesn't exist on a photo. I made fallback folders (thanks [Elodie](https://github.com/jmathai/elodie) for idea) to help you deal with situations such as this. Here's how it works.
+
+You can specify a series of folder names by taking them in parentheses and separating them with '|'. That's a pipe, not an 'L'. Let's look at an example.
+
+```
+/{yyyy}/({album}-{title}|{city}|Other)
+```
+
+What this asks me to do is to name the last folder the same as the "album"-"title" I find in EXIF. If I don't find an album or title in EXIF then I should use the city. If there's no GPS in the EXIf or I cannot detect it then I should name the last folder "Other".
+
+
+## Location detection
+
+I use [Nominatim](https://nominatim.org/) to help me organize your photos by location. 
+
+Geolocation information is not cached between sessions.
+But for query optimization I use the following algorithm:
+1. I check that the point belongs to any city that I requested earlier (CITY_CACHE). If successful, I return the address of the city.
+2. I check that the point is near (less than the threshold) with the points that I requested earlier (POINT_CACHE). If successful, I return the address of the point.
+3. I request data from the server.
+4. I try to get a polygon that sets the boundaries of the city. If successful, then I remember it in CITY_CACHE.
+5. If step 4 is failed, then I remember the point in POINT_CACHE.
+
+Language of returned information and threshold value You can change in settings.
+
+
 
 ## Notes
 
@@ -92,8 +127,3 @@ Download sources and exec make.sh
 ```
 $ sh ./make.sh
 ```
-
-
-## Screenshots
-![screen shot](ScreenShot.png)
-

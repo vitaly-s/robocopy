@@ -1,7 +1,7 @@
 package="robocopy"
 maintainer="Vitaly Shpachenko"
 maintainer_url="https://github.com/vitaly-s/robocopy" 
-version="0.5-0012"
+version="0.6-0013"
 description="RoboCopy is a free software tool for organize photo/video files by rules."
 displayname="RoboCopy"
 dsmuidir="ui"

@@ -36,13 +36,19 @@ SYNO_DEF_INFO="/etc.defaults/synoinfo.conf"
 SYNO_USBCOPY="/usr/syno/bin/synousbcopy"
 
 SYNO_BIN_FILES="synoshare synouser synogroup synonet synoservice synowin"
-SRC_FILES="lib/integration.pm
+SRC_FILES="bin/robocopy.pl
+ui/robocopy.cgi
+lib/integration.pm
 lib/rule.pm
 lib/rule_processor.pm
 lib/Syno.pm
 lib/task_info.pm
-bin/robocopy.pl
-ui/robocopy.cgi"
+lib/FileInfo.pm
+lib/integration.pm
+lib/Locator.pm
+lib/Settings.pm
+lib/Template.pm
+"
 
 SUPPORT_USBCOPY=`get_key_value "${SYNO_DEF_INFO}" "usbcopy"`
 SUPPORT_SDCOPY=`get_key_value "${SYNO_DEF_INFO}" "sdcopy"`
@@ -139,6 +145,8 @@ preuninst() {
 	if [ "$SYNOPKG_PKG_STATUS" != "UPGRADE" ]; then
 		#remove user config file
 		rm -f "${PACKAGE_USERCONF_DIR}/rules.conf"
+		rm -f "${PACKAGE_USERCONF_DIR}/settings.conf"
+		rm -f "${PACKAGE_USERCONF_DIR}/integration.conf"
 		# remove LOG file
 		rm -f "${LOGFILE}"
 	fi

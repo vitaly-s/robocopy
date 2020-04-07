@@ -34,15 +34,39 @@ make()
 	
 	
 	# check perl files
-	for srcfile in `grep -ril '^#!.*perl' ./_tmp/package/`
+#	for srcfile in `grep -ril '^#!.*perl' ./_tmp/package/`
+	for srcfile in `find ./_tmp/package/ -type f | grep -Ev 'lib/Image/|lib/File/' | grep -E '\.(pl|pm|cgi)'`
 	do
-		perl -I./_tmp/package/lib -c "$srcfile" >/dev/null 2>&1 >/dev/null
+		if [ "x${NEED_PACK}" == "xyes" ]; then
+			# remove comments
+			sed -r -i '/^\s*#[^!].*?$|^\s*#$/d' "$srcfile"
+		fi
+		# validate file
+		perl -I./_tmp/package/lib -c "$srcfile" >/dev/null 2>&1
 		if [ "$?" -ne 0 ]
 		then
 			echo "Error in \"${srcfile##*/}\""
+			perl -I./_tmp/package/lib -c "$srcfile" 2>&1
 			exit
 		fi
+		echo "    ${srcfile##*/} - OK"
 	done
+	
+	# pack JS files
+	if [ "x${NEED_PACK}" == "xyes" ]; then
+		for srcfile in `find ./_tmp/package/ -type f -name '*.js'| grep -Ev 'lib/Image/|lib/File/'`
+		do
+			# remove comments
+			#sed -r -i '/^\s*\/\/.*?$/d' "$srcfile"
+			perl -i -0pe 's|//.*?\n|\n|g; s#/\*(.|\n)*?\*/##g;' "$srcfile"
+			# remove empty strings
+			sed -r -i '/^\s*$/d' "$srcfile"
+			#remove start space chars
+			sed -r -i 's/^\s*//' "$srcfile"
+			# validate file
+			echo "    ${srcfile##*/} - PACKED"
+		done
+	fi
 
 	# pack php files
 	for phpfile in `grep -rl '<?php' ./_tmp/package/`
@@ -88,7 +112,11 @@ case $1 in
 	clean)
 		make_clean
 	;;
+	debug)
+		make
+	;;
 	*)
+		NEED_PACK=yes
 		make
 	;;
 esac
