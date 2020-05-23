@@ -54,6 +54,9 @@ skip               = "Пропустить"
 [task]
 #calculating       = "Расчет размера фаилов"
 #process           = "Process"
+time_greater_day   = "более 1 дня"
+time_less_min      = "менее 1 минуты"
+time_remain        = "Осталось времени"
 
 [error]
 #config_write_error = "Ошибка записи настроек."

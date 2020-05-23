@@ -430,7 +430,9 @@ sub action_post_task_run
     # Prepare for work
     my @workers;
     my $total_size = 0;
+    my $total_count = 0;
     my $error;
+    my $start_time = time;
     
     my $settings = load_settings;
     my $locator = create_locator($settings);
@@ -447,6 +449,7 @@ sub action_post_task_run
                 my $files = $processor->find_files(\$size);
                 if (@$files > 0) {
                     $total_size += $size;
+                    $total_count += @$files;
                     push @workers, {'processor' => $processor,
                                     'files' => $files,
                                     'size' => $size
@@ -460,22 +463,37 @@ sub action_post_task_run
     }
 
     # Process files
-    my $processed = 0;
+    my $processed_size = 0;
+    my $processed_count = 0;
     my $error_count = 0;
+    my $start_process_time = time;
     foreach my $worker (@workers) {
         my $processor = $worker->{'processor'};
         my $files_size = $worker->{'size'};
+        my $files_count = 0 + @{$worker->{'files'}};
         foreach my $file (@{$worker->{'files'}}) {
+            my $current_time = time;
             # Update task info
             $data->{prule} = $processor->description();
             $data->{pfile} = $file;
             $data->{pdir} = $processor->prepared_path();
-            $task->progress($processed / $total_size);
+            $data->{total_size} = $total_size;
+#            $data->{total_count} = $total_count;
+            $data->{processed_size} = $processed_size;
+            $data->{processed_count} = $processed_count;
+#            $data->{processed_time} = $current_time - $start_time;
+            if ($processed_size > 0) {
+                $data->{remaining_time} = int(($current_time - $start_process_time) / $processed_size * ($total_size - $processed_size) + 0.5);
+            }
+            $task->progress($processed_size / $total_size);
             $task->write();
             #
             my $size = -s $file;
-            $processed += $size;
+            $processed_size += $size;
+            $processed_count += 1;
+            
             $files_size -= $size;
+            $files_count -= 1;
             # process file
 #            sleep 3;
             unless ($processor->process_file($file, \$error)) {
@@ -484,7 +502,9 @@ sub action_post_task_run
                 #TODO finish task if many error
             }
         }
-        $processed += $files_size;
+        # correct processed files between workers
+        $processed_size += $files_size;
+        $processed_count += $files_count;
     }
     # Try clear source dirs
     #rule_processor::crear_dir(@dirs);

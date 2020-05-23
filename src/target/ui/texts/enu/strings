@@ -53,6 +53,9 @@ skip               = "Skip"
 [task]
 #calculating       = "Calculating the file size"
 #process           = "Process"
+time_greater_day   = "more than 1 day"
+time_less_min      = "less than 1 minute"
+time_remain        = "Time remaining" 
 
 [error]
 #config_write_error = "Write configuration error."

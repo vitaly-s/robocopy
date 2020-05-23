@@ -236,6 +236,7 @@ SYNO.SDS.RoboCopy.Request = Ext.extend(Ext.util.Observable, {
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
+    simpleProgress: isDsmV4(),
     constructor: function (config, bkTask) {
         this.initVaribles(config);
         var taskid = bkTask ? bkTask.id : config.bkTaskCfg.taskid;
@@ -264,7 +265,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         if (!this.blMsgMinimized && !this.isOwnerDestroyed()) {
             var e = ((config.msgCfg.msg) ? config.msgCfg.msg : this.actingText) + "...";
             var d = (!(config.msgCfg.minimizable === false));
-            this.showProgress(this.actionText, e, this.onCancelCallBack.createDelegate(this, [bkTask]), true, config.msgCfg.progress)
+            this.showProgress(this.actionText, e, this.onCancelCallBack.createDelegate(this, [bkTask]), false, config.msgCfg.progress)
         }
         this.bkTask = bkTask;
     },
@@ -319,11 +320,53 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             return;
         }
         if (progress && data.pfile && 0 < progress) {
-            var percent = (progress * 100).toFixed(0);
-            var progressText = "<center>" + percent + "&#37;</center>";
-            var msg = SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pdir) + " / " + SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pfile);
-            this.getMsgBox().updateProgress(progress, progressText, Ext.util.Format.ellipsis(msg, 50, true));
+            var percentText = (progress * 100).toFixed(2) + "&#37;";
+            var progressText = "";
+            if (Ext.isNumber(data.total_size) && (0 < data.total_size)) {
+                progressText = Ext.util.Format.fileSize(data.processed_size || 0)
+                    + "/" + Ext.util.Format.fileSize(data.total_size);
+            }
+            else if (Ext.isNumber(data.total_count) && (0 < data.total_count)) {
+                progressText = (data.processed_count || 0)
+                    + "/" + data.total_count;
+            }
+            if (this.simpleProgress) {
+                progressText = "<center>" + percentText + "</center>";
+            }
+            else {
+                progressText = '<div><div style="float:left;">' + percentText
+                    + '</div><div style="float: right; padding-right: 28px;">' + progressText
+                    + '</div></div> </br><div style="padding-top: 5px;">' 
+                    + _RC_STR("task", "time_remain") + ": " + this.getRemainTimeStr(data.remaining_time) + "</div>"
+            }
+
+            var msg = Ext.util.Format.htmlEncode(SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pfile || ""));
+            this.getMsgBox().updateProgress(progress, progressText, 
+                //Ext.util.Format.ellipsis(msg, 50, true)
+                msg, true
+            );
         }
+    },
+    getRemainTimeStr: function(time) {
+        if (!time) {
+            return _T("common", "unknown")
+        }
+        var days, hours, mins, secs, result;
+        days = time / (24 * 3600);
+        if (days > 1) {
+            result = _RC_STR("task", "time_greater_day")
+        } else {
+            result = "";
+            hours = parseInt(time / 3600, 10);
+            mins = parseInt(time / 60 - hours * 60, 10);
+//            secs = parseInt(time - mins * 60 - hours * 3600, 10);
+            result += (hours >= 1) ? hours + " " + _T("status", "status_hour") + ", " : "";
+            result += (mins >= 1) ? mins + " " + _T("status", "status_minute") : "";
+            if (result === "") {
+                result = _RC_STR("task", "time_less_min")
+            }
+        }
+        return result;
     },
     onTaskCallBack: function (a, c, finished, progress, data) {
         _DEBUG("RoboCopy.Action.onTaskCallBack("+c+", finished:" + finished + ", progress:" + progress+")");
@@ -340,7 +383,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             }
         }
     },
-    showProgress: function (h, g, a, f, c) {
+    showProgress: function (title, msg, a, f, c) {
         var e = null;
         if (a) {
             e = {
@@ -348,11 +391,12 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             };
         }
         var b = {
-            title: h,
-            msg: g,
+            title: title,
+            msg: msg,
             width: 300,
             progress: c,
-            progressText: "<center>0&#37;</center>",
+            progressText: c ? "<center>0&#37;</center>" : "",
+            cls: "syno-webfm-progress",
             closable: false,
             buttons: e,
             fn: (a ? a : null),
