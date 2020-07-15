@@ -1,11 +1,13 @@
 [{
-	"step_title": "Package Settings",
+	"step_title": "Demo configuration",
 	"items": [{
 		"type": "multiselect",
-		"desc": "Demo configuration",
+		"_desc": "Demo configuration",
 		"subitems": [{
 			"key": "PKGWIZARD_CREATE_DEMO",
-			"desc": "Create demo configuration (uses first shared folder)"
+			"desc": "Create demo configuration"
 		}]
+	}, {
+		"desc": "* In demo rules will be used shared folder <strong>'photo'</strong> or other, if <strong>'photo'</strong> not exists."
 	}]
 }]

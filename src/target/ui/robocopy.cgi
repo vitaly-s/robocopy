@@ -483,7 +483,7 @@ sub action_post_task_run
             $data->{processed_count} = $processed_count;
 #            $data->{processed_time} = $current_time - $start_time;
             if ($processed_size > 0) {
-                $data->{remaining_time} = int(($current_time - $start_process_time) / $processed_size * ($total_size - $processed_size) + 0.5);
+                $data->{remaining_time} = int(($current_time - $start_time) / $processed_size * ($total_size - $processed_size) + 0.5);
             }
             $task->progress($processed_size / $total_size);
             $task->write();

@@ -162,6 +162,10 @@ postuninst() {
 	exit 0
 }
 
+preinst() {
+	exit 0
+}
+
 postinst() {
 	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.pl
@@ -173,11 +177,14 @@ postinst() {
 #	fi
 #	echo "PKGWIZARD_CREATE_DEMO: ${PKGWIZARD_CREATE_DEMO}" 1>>$LOGFILE
 	if [ "x${PKGWIZARD_CREATE_DEMO}" == "xtrue" ]; then
-		DEF_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
-		if [ -n "$DEF_SHARE" ]; then
-			echo "    Create demo configuration [${DEF_SHARE}]." 1>>$LOGFILE
-#			echo "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');" 1>>$LOGFILE
-			perl -e "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${DEF_SHARE}');"
+		if [ -z "$PKGWIZARD_SHARE" ]; then
+			PKGWIZARD_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | grep photo`
+			[ -z "$PKGWIZARD_SHARE" ] && PKGWIZARD_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
+		fi
+		if [ -n "$PKGWIZARD_SHARE" ]; then
+			echo "    Create demo configuration [${PKGWIZARD_SHARE}]." 1>>$LOGFILE
+#			echo "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${PKGWIZARD_SHARE}');" 1>>$LOGFILE
+			perl -e "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${PKGWIZARD_SHARE}');"
 		else
 			echo "    Cannot create demo configuration." 1>>$LOGFILE
 		fi
