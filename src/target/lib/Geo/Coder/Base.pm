@@ -41,10 +41,10 @@ sub reverse
     croak('Not implemented yet.');
 }
 
-# return Geo::Address
+# return Geo::Place
 sub search
 {
-    my ($self, $search) = @_;
+    my ($self, $query, $language) = @_;
     croak('Not implemented yet.');
 }
 

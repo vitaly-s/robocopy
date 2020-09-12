@@ -4,6 +4,7 @@ use Carp;
 use base qw(Geo::Coder::Base);
 use Geo::JSON;
 require Geo::Address;
+require Geo::Place;
 require Geo::Coder;
 use JSON::XS qw/ /;
 
@@ -28,6 +29,7 @@ sub SOURCE { 'https://nominatim.openstreetmap.org' }
 #print STDERR __PACKAGE__, "" ,Dumper(@VALID_KEYS_CITY), "\n\n";
 
 
+# return Geo::Address
 sub reverse
 {
     my ($self, $latitude, $longitude, $language) = @_;
@@ -75,7 +77,7 @@ sub reverse
     return parse_address($features->[0]->properties->{address});
 }
 
-
+# return Geo::Place
 sub lookup
 {
     my ($self, $address) = @_;
@@ -131,6 +133,33 @@ sub _lookup_address
         && @$features > 0;
 
     $features->[0];
+}
+
+# return Geo::Place
+sub search
+{
+    my ($self, $query, $language, $geometry) = @_;
+    croak "Required parameter: query" unless defined $query;
+
+    my %data = (
+        'q'               => $query,
+        'format'          => 'geojson',
+#        'polygon_geojson' => 1,
+        'addressdetails'  => 1,
+        'accept-language' => $language || Geo::Coder::DEFAULT_LANGUAGE,
+    );
+    $data{polygon_geojson} = 1 if $geometry;
+
+my $uri = URI->new(SOURCE . '/search');
+    $uri->query_form(%data);
+#    print STDERR "\t", __PACKAGE__, " GET 1 ", Dumper($uri), " \n";
+    my $context = $self->get_request($uri);
+    next undef unless defined $context;
+    my $features = Geo::JSON::from_json($context)->features;
+
+    return unless ref $features eq 'ARRAY' && @$features > 0;
+
+    return parse_feature($features->[0]);
 }
 
 sub parse_address($)

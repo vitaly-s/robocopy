@@ -55,7 +55,34 @@ sub threshold
     return $old;
 }
 
-sub locate
+sub search($$)
+{
+    my ($self, $query) = @_;
+    return unless defined $query;
+    my $place;
+    eval { $place = $self->{coder}->search($query, $self->{language}) };
+#    print STDERR __PACKAGE__, " coder->search '", $@, "'\n" if $@;
+    my $address;
+    my $point;
+    if (defined $place) {
+#        print STDERR __PACKAGE__, " coder->search 'address': ", ref($place->address), "\n";
+#        print STDERR __PACKAGE__, " coder->search 'geometry': ", ref($place->geometry), "\n";
+        $address = $place->address;
+        if (defined($place->geometry) && ref($place->geometry) eq 'Geo::JSON::Point') {
+            $point = {
+                latitude => $place->geometry->coordinates->[1],
+                longitude => $place->geometry->coordinates->[0],
+            };
+        }
+#        print STDERR __PACKAGE__, " address ", join(',', keys %{$adress}), "\n";
+    }
+    if (wantarray) {
+        return ($address, $point);
+    }
+    return $address;
+}
+
+sub locate($$$)
 {
     my ($self, $latitude, $longitude) = @_;
     return unless defined $latitude and defined $longitude;

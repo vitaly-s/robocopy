@@ -170,7 +170,7 @@ sub TO_JSON {
 sub as_string
 {
     my $self = shift;
-    return join (', ', grep( { defined $_ }  map { $self->{$_} } qw/ country state county city suburb road house / ));
+    return join (', ', grep( { defined $_ } map { $self->{$_} } qw/ house road suburb city county state postCode country / ));
 }
 
 sub equal_to

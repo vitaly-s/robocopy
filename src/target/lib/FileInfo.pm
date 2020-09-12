@@ -66,6 +66,191 @@ sub load($;$)
     return bless($info, $class);
 }
 
+sub new(;$)
+{
+    my $class = __PACKAGE__; #ref $_[0] ? ref shift() : shift();
+    my $locator = shift;
+    croak "Invalid locator" if defined $locator && ref $locator ne 'Locator';
+    my $info = {};
+    $info->{locator} = $locator if defined $locator && ref $locator eq 'Locator';
+    return bless($info, $class);
+}
+
+sub dumpExif($)
+{
+    my $file = shift;
+    my $exifTool = new Image::ExifTool;
+    $exifTool->Options(
+#        DateFormat => '%Y-%m-%d %H:%M:%S', 
+        StrictDate => 1,
+        CoordFormat => '%+.6f',
+        QuickTimeUTC => 1, 
+#        Exclude => ['ThumbnailImage']
+    );
+    my $info = $exifTool->ImageInfo($file);
+    my $result = '';
+    foreach (sort keys %$info) {
+        my $val = tagValue($$info{$_});
+        my $tag = $exifTool->GetGroup($_, 0) . ':'. $_;
+
+        $result .= sprintf("%-30s : %s\n", $tag, $val);
+    }
+    return $result;
+}
+
+sub tagValue($)
+{
+    my $val = shift;
+    if (ref $val eq 'ARRAY') {
+        $val = '[' . join(', ', @$val) ;
+    } elsif (ref $val eq 'SCALAR') {
+#        $val = '(Binary data)';
+        if ($$val =~ /^Binary data/) {
+            $val = "($$val)";
+        } else {
+            my $len = length($$val);
+            $val = "(Binary data $len bytes)";
+        }
+    } else {
+        utf8::decode($val) unless utf8::is_utf8($val);
+    }
+    
+    return $val;
+}
+
+sub exifCompare($$)
+{
+    my ($file1, $file2) = @_;
+    
+    my $exifTool = new Image::ExifTool;
+    $exifTool->Options(
+#        DateFormat => '%Y-%m-%d %H:%M:%S', 
+        StrictDate => 1,
+        CoordFormat => '%+.6f',
+        QuickTimeUTC => 1, 
+#        Exclude => ['ThumbnailImage']
+    );
+    my $info1 = $exifTool->ImageInfo($file1);
+    my $info2 = $exifTool->ImageInfo($file2);
+    
+#    print STDERR $file1, "\n", $file2, "\n";
+    foreach (sort keys %$info1) {
+        my $tag = $exifTool->GetGroup($_, 0) . ':'. $_;
+        my $val1 = tagValue($$info1{$_});
+        my $val2 = (exists $$info2{$_} ? tagValue($$info2{$_}) : undef);
+#        next if $val1 eq $val2;
+        printf("%-24s | %-25s | %s\n", $tag, $val1, (defined $val2 ? $val2 : '<UNDEF>'));
+    }
+    foreach (sort keys %$info2) {
+        next if exists $$info1{$_};
+        my $tag = $exifTool->GetGroup($_, 0) . ':'. $_;
+        my $val2 = tagValue($$info2{$_});
+        printf("%-24s | %-25s | %s\n", $tag, '', $val2);
+    }
+}
+
+sub update($$;$)
+{
+    my ($self, $file, $dest_file) = @_;
+
+   return undef unless Image::ExifTool::CanWrite(defined $dest_file ? $dest_file : $file);
+
+    my $exifTool = new Image::ExifTool;
+    $exifTool->Options(
+#        DateFormat => '%Y-%m-%d %H:%M:%S', 
+        StrictDate => 1,
+        CoordFormat => '%+.6f',
+        QuickTimeUTC => 1, 
+        Exclude => ['ThumbnailImage']
+    );
+    #'%Y-%m-%d %H:%M:%S%z'
+    
+
+    $exifTool->ExtractInfo($file);
+    my @tags = $exifTool->GetFoundTags();
+#     print STDERR "Found tags:\n", Dumper(\@tags), "\n";
+    my @writableTags = $exifTool->GetWritableTags();
+    # print STDERR "Writable tags:\n", Dumper(\@writableTags), "\n";
+    # Update DATE
+    if (defined $self->{date}) {
+        my $dt = strftime('%Y-%m-%d %H:%M:%S', localtime($self->{date}));
+        _update_tags($exifTool, $dt, @{$FIELD_MAP{date}});
+    }
+    # Update TITLE
+    if (defined $self->{title}) {
+        my $title;
+        $title = $self->{title} if $self->{title} ne '';
+        _update_tags($exifTool, $title, @{$FIELD_MAP{title}});
+    }
+    # Update LOCATION
+    if (defined $self->{latitude} && defined $self->{longitude}) {
+        _update_tags($exifTool, $self->{latitude}, @{$FIELD_MAP{latitude}});
+        _update_tags($exifTool, ($self->{latitude} < 0 ? 'S' : 'N'), 'EXIF:GPSLatitudeRef');
+        _update_tags($exifTool, $self->{longitude}, @{$FIELD_MAP{longitude}});
+        _update_tags($exifTool, ($self->{longitude} < 0 ? 'W' : 'E'), 'EXIF:GPSLongitudeRef');
+    }
+
+#    $exifTool->SetNewValue('xmp:all');
+#    printf STDERR "\tRemove XMP properties\n";
+    if (grep( { $_ eq 'XMPToolkit' } @tags ) == 0) {
+#        printf STDERR "\t\tRemove XMPToolkit\n";
+        $exifTool->SetNewValue('XMP-x:XMPToolkit' => undef, Protected => 1);
+    }
+    $exifTool->SetNewValue('XMP:CreationDate' => undef, Protected => 1);
+#    printf STDERR "\tWrite : $file\n";
+#    unlink($dest_file) if -f $dest_file;
+
+    my $result = $exifTool->WriteInfo($file, $dest_file);
+#    print STDERR __PACKAGE__, " WriteInfo: ".(defined $result ? $result : '<UNDEF>'). "\n";
+    unless ($result) {
+#        my $errorMessage = $exifTool->{'Error'};
+#        my $warningMessage = $exifTool->{'Warning'};
+#        print STDERR __PACKAGE__, " Update [" . basename($file) . "] error: \n";
+#        print STDERR "\t $errorMessage\n" if defined $errorMessage;
+#        print STDERR "\t $warningMessage\n" if defined $warningMessage;
+        
+    }
+    if (defined $self->{date}) {
+#        printf STDERR "\tUpdate file modify date\n";
+        $exifTool->SetFileModifyDate(defined $dest_file ? $dest_file : $file);
+    }   
+#    exifCompare($file, $dest_file);
+    return $result;
+}
+
+sub _update_tags($$@)
+{
+    my ($exifTool, $value, @tags) = @_;
+
+    if (defined $value) {
+        my $updated = 0;
+        # Try update exists tags
+        foreach my $tag (@tags) {
+#            printf STDERR "\tTry update '$tag' = '$value'\n";
+            my $old_value = $exifTool->GetValue($tag);
+#            printf STDERR "\t\t$tag == '$old_value'\n";
+            if (defined $old_value) {
+                #my ($x, undef) = 
+                $exifTool->SetNewValue($tag => $value, EditOnly => 1, Protected => 1);
+                ++$updated;
+            }
+            
+        }
+        if ($updated == 0) {
+            my $tag = $tags[0];
+#            printf STDERR "\tTry add '$tag' = '$value'\n";
+            $exifTool->SetNewValue($tag => $value, Protected => 1);
+        }
+    }
+    else {
+        foreach my $tag (@tags) {
+#            printf STDERR "\tTry delete '$tag'\n";
+            $exifTool->SetNewValue($tag => undef, DelValue => 1, Protected => 1);
+        }
+    }
+}
+
+
 sub base_dir
 {
     my $self = shift;
@@ -85,7 +270,49 @@ sub base_dir
 
 sub datetime
 {
-    shift->{date};
+    my $self = shift;
+    my $old_value = $self->{date};
+    if (@_) {
+        $self->{date} = shift;
+    }
+    $old_value;
+}
+
+sub title
+{
+    my $self = shift;
+    my $old_value = $self->{title};
+    if (@_) {
+        $self->{title} = shift;
+    }
+    $old_value;
+}
+
+sub location($)
+{
+    my $self = shift;
+    my $old_value = $self->{location};
+    if (@_) {
+        croak 'First parameter to location() must be a Geo::Address ref data' unless ref $_[0]
+                                                                && $_[0]->isa('Geo::Address');
+
+        $self->{location} = shift;
+        if (@_) {
+            my $point = scalar @_ == 1
+                ? (ref $_[0] eq 'HASH'
+                    ? {%{$_[0];}}
+                    : croak('Second parameter to location() must be a HASH')
+                )
+                : (@_ % 2 
+                    ? croak("Second parameter to location() must be a hash reference or a" 
+                        . " key/value list. You passed an odd number of arguments\n") 
+                    : {@_}
+                );
+            $self->{latitude} = $point->{latitude};
+            $self->{longitude} = $point->{longitude};
+        }
+    }
+    $old_value;
 }
 
 sub parse_template($$)
@@ -115,7 +342,7 @@ sub get_value
 %FIELD_MAP = (
     'type' => ['MIMEType'],
     'date' => ['DateTimeOriginal', 'CreateDate', 'ModifyDate', 'MediaModifyDate', 'CreationDate', 'MediaCreateDate', 'FileModifyDate'],
-    'title' => ['DisplayName', 'Title', 'Title2'],
+    'title' => ['Title', 'DisplayName', 'Title2'],
     'album' => ['Album', 'Album2'],
     'artist' => ['Artist', 'Artist2'],
 #    'track' => ['Track'], # audio track number
@@ -175,8 +402,11 @@ sub get_value
     #location
     'country' => \&_get_location,
     'state' => \&_get_location,
+#    'county' => \&_get_location,
     'city' => \&_get_location,
 #    'suburb' => \&_get_location,
+#    'road' => \&_get_location,
+#    'house' => \&_get_location,
 );
 
 sub _parse_float($)
@@ -221,8 +451,11 @@ sub _get_location
     return unless defined $self->{location};
     return $self->{location}->country if $name eq 'country';
     return $self->{location}->state if $name eq 'state';
-    return $self->{location}->suburb  if $name eq 'suburb';
+    return $self->{location}->county if $name eq 'county';
     return $self->{location}->city if $name eq 'city';
+#    return $self->{location}->suburb  if $name eq 'suburb';
+#    return $self->{location}->road  if $name eq 'road';
+#    return $self->{location}->house  if $name eq 'house';
     undef;
 }
 

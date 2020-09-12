@@ -1,5 +1,27 @@
 {
     "RoboCopy.js": {
+        "SYNO.SDS.RoboCopy.EditorApp": {
+            "type": "app",
+            "icon": "images\/icon_{0}.png",
+            "texts": "texts",
+            "allowMultiInstance": false,
+            "hidden": true,
+            "allUsers": true,
+            "depend": ["SYNO.SDS.RoboCopy.EditorWindow"],
+            "fb_extern": [{
+                "multiple": true,
+                "dir": false,
+                "file": ["jpg", "jpeg", "jpe", "bmp", "gif", "png", "tiff", "tif", "arw", "srf", "sr2", "dcr", "k25", "kdc", "cr2", "crw", "nef", "mrw", "ptx", "pef", "raf", "3fr", "erf", "mef", "mos", "orf", "rw2", "dng", "x3f", "raw"],
+                "icon": "images\/icon_16.png",
+                "text": "app:menu_edit"
+            }]
+        },
+        "SYNO.SDS.RoboCopy.EditorWindow": {
+            "type": "lib",
+            "title": "editor:title",
+            "icon": "images\/icon_{0}.png",
+            "texts": "texts"
+        },
         "SYNO.SDS.RoboCopy.Launcher": {
             "type": "app",
             "title": "app:app_name",

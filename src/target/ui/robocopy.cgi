@@ -12,6 +12,7 @@ use File::Path;
 #use open qw(:std :utf8);
 use POSIX qw(strftime);
 use List::Util qw(min max);
+use HTTP::Date;
 
 BEGIN {
     my $scriptDir = dirname($0);
@@ -31,15 +32,16 @@ use integration;
 use Geo::Coder;
 use Locator;
 use Settings;
+use FileInfo;
 
 use Data::Dumper;
 
 my $user;
-if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
-    $user=<IN>;
-    close(IN);
-    chop($user) if defined($user);
-}
+# if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
+    # $user=<IN>;
+    # close(IN);
+    # chop($user) if defined($user);
+# }
 
 my %query;
 my $method;
@@ -56,6 +58,12 @@ if (-t) { # see IO::Interactive
     %query = parse_query($ARGV[1]) if defined $ARGV[1];
 }
 else {
+    if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
+        $user=<IN>;
+        close(IN);
+        chop($user) if defined($user);
+    }
+
     $method = $ENV{'REQUEST_METHOD'} if defined $ENV{'REQUEST_METHOD'};
     if ($method eq "POST") {
         my $buffer;
@@ -179,6 +187,14 @@ sub ERROR_RUN_TASK($)
     my $reason = shift;
     PRINT_RESPONSE_HEADER_JSON;
     print '{"errinfo" : {"key" : "not_run", "sec" : "error", "value":"' . $reason . '"}, "success" : false}';
+    exit;
+}
+
+sub ERROR_PROCESS_FILE($)
+{
+    my $file = shift;
+    PRINT_RESPONSE_HEADER_JSON;
+    print '{"errinfo" : {"key" : "file", "sec" : "error", "value":"' . basename($file) . '"}, "success" : false}';
     exit;
 }
 
@@ -632,6 +648,100 @@ sub action_post_settings
     RESPONSE(\%params);
 }
 
+##############################################################################
+# Edit
+sub action_get_fileinfo
+{
+    my %params = @_;
+
+    # check files parameter
+    ERROR_INVALID_PARAMS('files') unless (exists $params{files});
+
+    my @files = split(/\|/, $params{files});
+    my $settings = load_settings;
+    my $locator = create_locator($settings);
+    
+    my $date;
+    my $location;
+    my $title;
+    foreach my $file (@files) {
+        my $info = FileInfo::load($file, $locator);
+        my $fl_date = $info->parse_template('{yyyy}-{MM}-{dd}');
+        my $fl_title = $info->get_value('title');
+        my $fl_location = ''; 
+        $fl_location = $info->parse_template('({city}, ){country}') unless defined $location && $location eq '';
+        
+#        print STDERR "$file\n\tfl_date:$fl_date\n\tfl_title:$fl_title\n";
+
+        if (defined $date) {
+            $date = '' if defined $fl_date && $fl_date ne $date;
+        }
+        else {
+            $date = $fl_date;
+        }
+        if (defined $title) {
+            $title = '' if defined $fl_title && $fl_title ne $title;
+        }
+        else {
+            $title = $fl_title;
+        }
+        if (defined $location) {
+            $location = '' if defined $fl_location && $fl_location ne $location;
+        }
+        else {
+            $location = $fl_location;
+        }
+    }
+    RESPONSE({
+        'date' => $date, 
+        'location' => $location,
+        'title' => $title
+    });
+}
+
+sub action_post_fileinfo
+{
+    my %params = @_;
+    # check files parameter
+    ERROR_INVALID_PARAMS('files') unless (exists $params{files});
+
+    my @files = split(/\|/, $params{files});
+    my $settings = load_settings;
+    my $locator = create_locator($settings);
+    
+    my %result = ();
+    my $fileInfo = FileInfo::new($locator);
+    
+    if (defined $params{date}) {
+        my $dt = str2time($params{date});
+        ERROR_INVALID_PARAMS('date') unless defined $dt;
+        $fileInfo->datetime($dt);
+        $result{date} = strftime('%Y-%m-%d %H:%M:%S', localtime($dt));
+    }
+    if (defined $params{location}) {
+        my ($address, $point) = $locator->search($params{location});
+        ERROR_INVALID_PARAMS('location') unless defined $address;
+#        print STDERR "Location:\n", $address->as_string(), "\nPoint:\n", Dumper($point), "\n\n";
+        $fileInfo->location($address, $point);
+        $result{location} = $address->as_string();
+    }
+    if (defined $params{title}) {
+        $fileInfo->title($params{title});
+        $result{title} = $params{title};
+    }
+    if (scalar keys %result) {
+        foreach my $file (@files) {
+#            print STDERR "Update [" . basename($file) . "]: \n";
+            my $res = $fileInfo->update($file);
+#            print STDERR "\t".(defined $res ? $res : '<UNDEF>')."\n";
+            if ($res != 1) {
+#                print STDERR "Update [" . basename($file) . "] error.\n";
+                ERROR_PROCESS_FILE($file) unless $res;
+            }
+        }
+    }
+    RESPONSE(\%result);
+}
 
 ##############################################################################
 # Tests

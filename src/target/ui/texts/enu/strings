@@ -5,6 +5,7 @@ menu_run           = "Run RoboCopy"
 menu_run_default   = "Run"
 menu_run_copy      = "Run - Copy"
 menu_run_move      = "Run - Move"
+menu_edit          = "RoboCopy edit metadata"
 
 [ui]
 priority           = "Priority"
@@ -49,6 +50,15 @@ conflict_policy    = "File conflict policy"
 rename             = "Rename"
 overwrite          = "Overwrite"
 skip               = "Skip"
+
+[editor]
+title              = "RoboCopy editor"
+set_date_desc      = "Change date"
+date_desc          = "Date"
+set_location_desc  = "Change location"
+location_desc      = "Location"
+set_title_desc     = "Change title"
+title_desc         = "Title"
 
 [task]
 #calculating       = "Calculating the file size"
