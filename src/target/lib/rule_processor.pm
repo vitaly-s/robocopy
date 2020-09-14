@@ -299,74 +299,76 @@ sub process_file($$;\$)
         $$error = "Cannot overwrite directory \"$dest_file\"";
         return 0;
     }
-    if (-f $dest_file) {
-        if (compare($file, $dest_file) == 1) {
-#            print STDERR "\t\tfile != dest_file (",$self->{conflict_policy},")\n";
+    if ($file ne $dest_file) {
+        if (-f $dest_file) {
+            if (compare($file, $dest_file) == 1) {
+    #            print STDERR "\t\tfile != dest_file (",$self->{conflict_policy},")\n";
 
-            if ($self->{conflict_policy} eq CONFLICT_POLICY_OVERWRITE) {
-                # nothing
-            }
-            elsif ($self->{conflict_policy} eq CONFLICT_POLICY_RENAME) {
-                # compare copies
-                my $copy_exists = 0;
-                my ($d_name,$d_path,$d_suffix) = fileparse($dest_file,qr/\.[^.]*/);
-                $d_name .= '_';
-                finddepth sub {
-                    return if $copy_exists;
-                    my $file_name = $_;
-                    utf8::decode($file_name) unless utf8::is_utf8($file_name);
-                    
-                    return unless -f "$file_name" && $file_name =~ /$d_name\d{3}$d_suffix/i;
-                    
-                    my $dest_file_copy = catfile($d_path, $file_name);
-                    if (compare($file, $dest_file_copy) == 0) {
-                        $copy_exists = 1;
-                        $File::Find::prune = $copy_exists;
-#                        print STDERR "\t\t\tfile == $file_name \n";
-                    }
-                }, $d_path;
-
-                if ($copy_exists) {
-                    if ($src_remove) {
-                        unless (unlink($file)) { 
-                            $$error = "Cannot delete file \"$file\"";
-                            return 0;
+                if ($self->{conflict_policy} eq CONFLICT_POLICY_OVERWRITE) {
+                    # nothing
+                }
+                elsif ($self->{conflict_policy} eq CONFLICT_POLICY_RENAME) {
+                    # compare copies
+                    my $copy_exists = 0;
+                    my ($d_name,$d_path,$d_suffix) = fileparse($dest_file,qr/\.[^.]*/);
+                    $d_name .= '_';
+                    finddepth sub {
+                        return if $copy_exists;
+                        my $file_name = $_;
+                        utf8::decode($file_name) unless utf8::is_utf8($file_name);
+                        
+                        return unless -f "$file_name" && $file_name =~ /$d_name\d{3}$d_suffix/i;
+                        
+                        my $dest_file_copy = catfile($d_path, $file_name);
+                        if (compare($file, $dest_file_copy) == 0) {
+                            $copy_exists = 1;
+                            $File::Find::prune = $copy_exists;
+    #                        print STDERR "\t\t\tfile == $file_name \n";
                         }
-                    }
-                    return 1;
-                }
-                # caclulate new copy name
-                foreach my $idx( 0 .. 999 ) {
-                    $dest_file = catfile($d_path, $d_name . sprintf("%03d", $idx) . $d_suffix);
-                    last unless -f "$dest_file";
-                }
-#                print STDERR "\t\t\tfile ==> $dest_file \n";
-            }
-            else {
-                $$error = "Cannot overwrite file \"$dest_file\", because it not identical to \"$file\"";
-                return 0;
-            }
-        }
-        elsif ($src_remove) {
-            unless (unlink($file)) { 
-                $$error = "Cannot delete file \"$file\"";
-                return 0;
-            }
-        }
-    }
-#            local $SIG{KILL} = \&cleanup;
-    $writed_file = $dest_file;
+                    }, $d_path;
 
-    if ($src_remove) {
-        unless (move($file, $dest_file)) {
-            $$error = "Cannot move file \"$file\" to \"$dest_file\": $!";
-            return 0;
+                    if ($copy_exists) {
+                        if ($src_remove) {
+                            unless (unlink($file)) { 
+                                $$error = "Cannot delete file \"$file\"";
+                                return 0;
+                            }
+                        }
+                        return 1;
+                    }
+                    # caclulate new copy name
+                    foreach my $idx( 0 .. 999 ) {
+                        $dest_file = catfile($d_path, $d_name . sprintf("%03d", $idx) . $d_suffix);
+                        last unless -f "$dest_file";
+                    }
+    #                print STDERR "\t\t\tfile ==> $dest_file \n";
+                }
+                else {
+                    $$error = "Cannot overwrite file \"$dest_file\", because it not identical to \"$file\"";
+                    return 0;
+                }
+            }
+            elsif ($src_remove) {
+                unless (unlink($file)) { 
+                    $$error = "Cannot delete file \"$file\"";
+                    return 0;
+                }
+            }
         }
-    }
-    else {
-        unless (copy($file, $dest_file)) {
-            $$error = "Cannot copy file \"$file\" to \"$dest_file\": $!";
-            return 0;
+#            local $SIG{KILL} = \&cleanup;
+        $writed_file = $dest_file;
+
+        if ($src_remove) {
+            unless (move($file, $dest_file)) {
+                $$error = "Cannot move file \"$file\" to \"$dest_file\": $!";
+                return 0;
+            }
+        }
+        else {
+            unless (copy($file, $dest_file)) {
+                $$error = "Cannot copy file \"$file\" to \"$dest_file\": $!";
+                return 0;
+            }
         }
     }
     # update file owner
