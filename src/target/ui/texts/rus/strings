@@ -5,7 +5,7 @@ menu_run           = "Запустить RoboCopy"
 menu_run_default   = "Запустить"
 menu_run_copy      = "Запустить - Копировать"
 menu_run_move      = "Запустить - Переместить"
-menu_edit          = "RoboCopy изменить metadata"
+menu_edit          = "RoboCopy изменить метаданные"
 
 
 [ui]
@@ -54,12 +54,12 @@ skip               = "Пропустить"
 
 [editor]
 title              = "RoboCopy редактор"
-set_date_desc      = "Change date"
-date_desc          = "Date"
-set_location_desc  = "Change location"
-location_desc      = "Location"
-set_title_desc     = "Change title"
-title_desc         = "Title"
+set_date_desc      = "Изменить дату"
+date_desc          = "Дата"
+set_location_desc  = "Изменить расположение"
+location_desc      = "Расположение"
+set_title_desc     = "Изменить заголовок"
+title_desc         = "Заголовок"
 
 [task]
 #calculating       = "Расчет размера фаилов"
