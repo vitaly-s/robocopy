@@ -1,13 +1,13 @@
 {
     "RoboCopy.js": {
-        "SYNO.SDS.RoboCopy.EditorApp": {
+        "SYNO.SDS.RoboCopy.MetadataEditorApp": {
             "type": "app",
             "icon": "images\/icon_{0}.png",
             "texts": "texts",
             "allowMultiInstance": false,
             "hidden": true,
             "allUsers": true,
-            "depend": ["SYNO.SDS.RoboCopy.EditorWindow"],
+            "depend": ["SYNO.SDS.RoboCopy.MetadataEditorWindow"],
             "fb_extern": [{
                 "multiple": true,
                 "dir": false,
@@ -16,7 +16,7 @@
                 "text": "app:menu_edit"
             }]
         },
-        "SYNO.SDS.RoboCopy.EditorWindow": {
+        "SYNO.SDS.RoboCopy.MetadataEditorWindow": {
             "type": "lib",
             "title": "editor:title",
             "icon": "images\/icon_{0}.png",
@@ -65,9 +65,9 @@
             "title": "app:app_name",
             "icon": "images/icon_{0}.png",
             "texts": "texts",
-            "depend": ["SYNO.SDS.RoboCopy.INFO", "SYNO.SDS.App.FileStation3.Instance"]
+            "depend": ["SYNO.SDS.RoboCopy.RuleEdit", "SYNO.SDS.App.FileStation3.Instance"]
         },
-        "SYNO.SDS.RoboCopy.INFO": {
+        "SYNO.SDS.RoboCopy.RuleEdit": {
             "type": "lib",
             "depend": []
         },

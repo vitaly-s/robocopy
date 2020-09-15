@@ -194,7 +194,7 @@ sub ERROR_PROCESS_FILE($)
 {
     my $file = shift;
     PRINT_RESPONSE_HEADER_JSON;
-    print '{"errinfo" : {"key" : "file", "sec" : "error", "value":"' . basename($file) . '"}, "success" : false}';
+    print '{"errinfo" : {"key" : "process_file", "sec" : "error", "name":"' . basename($file) . '"}, "success" : false}';
     exit;
 }
 

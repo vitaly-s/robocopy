@@ -178,61 +178,6 @@ Ext.apply(SYNO.SDS.RoboCopy.utils, {
 
 */
 
-Ext.ns("SYNO.SDS.RoboCopy");
-SYNO.SDS.RoboCopy.Request = Ext.extend(Ext.util.Observable, {
-    constructor: function (cfg) {
-        this.reqConfig = this.applyRequestConfig(cfg);
-        SYNO.SDS.RoboCopy.Request.superclass.constructor.call(this)
-    },
-    applyRequestConfig: function (cfg) {
-        this.cbHandler = Ext.copyTo({}, cfg, ["scope", "callback"]);
-        var result = Ext.apply(cfg, {
-            method: cfg.method || "POST",
-            callback: this.onSendDone,
-            scope: this
-        });
-        return result;
-    },
-    send: function () {
-        Ext.Ajax.request(this.reqConfig);
-    },
-    onSendDone: function (options, success, response) {
-        var scope = this.cbHandler.scope;
-        var callback = this.cbHandler.callback;
-        if (!success || !response.responseText) {
-            callback.call(scope, options , false, {
-                sec: "error",
-                key: "commfail"
-            });
-            return;
-        }
-        var obj;
-        try {
-           obj = Ext.decode(response.responseText);
-        }
-        catch(e) {}
-        if (!obj) {
-            callback.call(scope, options , false, {
-                sec: "error",
-                key: "commfail"
-            });
-            return;
-        }
-        if (!obj.success) {
-            if (obj.errinfo && obj.errinfo.sec && obj.errinfo.key) {
-                callback.call(scope, options, false, obj.errinfo);
-            }
-            else {
-                callback.call(scope, options , false, {
-                    sec: "error",
-                    key: "commfail"
-                });
-            }
-        } else {
-            callback.call(scope, options, true, obj);
-        }
-    }
-});
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
@@ -536,7 +481,8 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             resizable: false,
             layout: "fit",
             width: 500,
-            height: 300,
+//            height: 300,
+            autoHeight: true,
             padding: "10px",
             border: false,
             items: [{
@@ -578,6 +524,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             xtype: "form", //getXType("syno_formpanel" ,"form"),
             itemId: "general",
             border: false,
+            autoHeight: true,
             padding: 20,
             trackResetOnLoad: true,
             title: _RC_STR("config", "general"),
@@ -616,6 +563,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             xtype: "form", //getXType("syno_formpanel" ,"form"),
             itemId: "integration",
             border: false,
+            autoHeight: true,
             padding: 20,
             trackResetOnLoad: true,
             title: _RC_STR("config", "integration"),
@@ -641,6 +589,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             xtype: "form", //getXType("syno_formpanel" ,"form"),
             itemId: "location",
             border: false,
+            autoHeight: true,
             padding: 20,
             trackResetOnLoad: true,
             title: _RC_STR("config", "location"),
@@ -739,14 +688,18 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                 action: "settings"
             },
             callback: function(a, c, b) {
+                this.clearStatusBusy()
                 if (!b.success) {
-                    this.getMsgBox().alert(this.title, _T("error", "error_system_busy"));
+                    this.getMsgBox().alert(this.title, 
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo),
+                        function(){
+                            this.close();
+                        }, this);
                     return
                 }
                 Ext.each(this.getAllForms(), function(itm, idx, all) {
                     itm.setValues(b.data);
                 }, this);
-                this.clearStatusBusy()
             },
             scope: this
         }).start(true)
@@ -819,7 +772,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 
 
 Ext.ns("SYNO.SDS.RoboCopy");
-SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
+SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
     constructor: function (cfg) {
         this.owner = cfg.owner;
         this.action = (cfg.id) ? "rule_edit" : "rule_add";
@@ -841,7 +794,8 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             resizable: false,
             layout: "fit",
             width: 560,
-            height: 320,
+//            height: 320,
+            autoHeight: true,
             buttons: [{
                 text: _T("common", "ok"),
                 scope: this,
@@ -854,7 +808,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             items: [this.panel]
         }, cfg);
  
-        SYNO.SDS.RoboCopy.INFO.superclass.constructor.call(this, cfg);
+        SYNO.SDS.RoboCopy.RuleEdit.superclass.constructor.call(this, cfg);
         this.mon(this.panel, "afterlayout", function (c, d) {
             SYNO.SDS.Utils.AddTip(this.panel.getForm().findField('mai_info_dest_dir').getEl(), 
                                 _RC_STR("ui", "format_codes"));
@@ -885,21 +839,24 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
 //            dest_ext: Ext.getCmp("mai_info_dest_ext").getValue(),
             src_remove: Ext.getCmp("mai_info_src_remove").getValue().inputValue
         };
-        var rqst = new SYNO.SDS.RoboCopy.Request({
-                url: SYNO.SDS.RoboCopy.CGI,
-                params: request,
-                callback: function (options, success, response) {
-                    this.clearStatusBusy();
-                    if (!success) {
-                        this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
-                    }
-                    else {
-                        this.close();
-                    }
-                },
-                scope: this
-        });
-        rqst.send();
+        this.addAjaxTask({
+            single: true,
+            autoJsonDecode: true,
+            url: SYNO.SDS.RoboCopy.CGI,
+            method: 'POST',
+            params: request,
+            callback: function(a, c, b) {
+                this.clearStatusBusy()
+                if (!b.success) {
+                    this.getMsgBox().alert(this.title, 
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo));
+                }
+                else {
+                    this.close();
+                }
+            },
+            scope: this
+        }).start(true)
     },
     createPanel: function(params) {
         var storeShares = new Ext.data.JsonStore({
@@ -913,6 +870,7 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
             });
             
         var cfg = {
+            autoHeight: true,
             padding: 20,
             labelWidth: 150,
             border: false,
@@ -1015,39 +973,53 @@ SYNO.SDS.RoboCopy.INFO = Ext.extend(SYNO.SDS.ModalWindow, {
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Launcher = Ext.extend(SYNO.SDS.AppInstance, {
     constructor: function () {
+//        _DEBUG("SYNO.SDS.RoboCopy.Launcher.constructor");
         SYNO.SDS.RoboCopy.Launcher.superclass.constructor.apply(this, arguments);
     },
     onOpen: function (a) {
+//        _DEBUG("SYNO.SDS.RoboCopy.Launcher.onOpen");
         this.getBackgroundTasks();
         return SYNO.SDS.RoboCopy.Launcher.superclass.onOpen.apply(this, arguments);
     },
     onRequest: function(a) {
+//        _DEBUG("SYNO.SDS.RoboCopy.Launcher.onRequest");
         this.getBackgroundTasks();
         return SYNO.SDS.RoboCopy.Launcher.superclass.onRequest.apply(this, arguments);
     },
     getBackgroundTasks: function() {
-            var rqst = new SYNO.SDS.RoboCopy.Request({
-                    url: SYNO.SDS.RoboCopy.CGI,
-                    params: {
-                        action: "task_list",
-                    },
-                    callback: function (options, success, response) {
-                        _DEBUG("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
-                        if (success) {
-                            if (!response.data || !Ext.isArray(response.data) || !response.data[0]) {
+//        _DEBUG("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks");
+        Ext.Ajax.request({
+            url: SYNO.SDS.RoboCopy.CGI,
+            method: 'POST',
+            params: {
+                action: "task_list"
+            },
+            callback: function(options, success, response) {
+//                _DEBUG("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
+//                _DEBUG(response);
+                try {
+                    if (success) {
+                        var obj = Ext.decode(response.responseText);
+                        if (obj && obj.success) {
+//                _DEBUG("SYNO.SDS.RoboCopy.Launcher.getBackgroundTasks: " + success);
+                            _DEBUG(obj);
+                            if (!obj.data || !Ext.isArray(obj.data) || !obj.data[0]) {
                                 return;
                             }
-                            var task = response.data[0];
+                            var task = obj.data[0];
+//                            _DEBUG("SYNO.SDS.RoboCopy.Launcher: AppLaunch");
                             SYNO.SDS.AppLaunch("SYNO.SDS.RoboCopy.Instance", 
                                 {
                                     task_id: task.id
                                 }, 
                                 false);
                         }
-                    },
-                    scope: this
-            });
-            rqst.send();
+                    }
+                }
+                catch(e){}
+            },
+            scope: this
+        });
     }
 });
 
@@ -1278,22 +1250,25 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 return;
             }
             this.setStatusBusy();
-            var rqst = new SYNO.SDS.RoboCopy.Request({
-                    url: SYNO.SDS.RoboCopy.CGI,
-                    params: {
-                        action: "rule_remove",
-                        id: selected.get("id")
-                    },
-                    callback: function (options, success, response) {
-                        this.clearStatusBusy();
-                        if (!success) {
-                            this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
-                        }
-                        this.refresh();
-                    },
-                    scope: this
-            });
-            rqst.send();
+            this.addAjaxTask({
+                single: true,
+                autoJsonDecode: true,
+                url: SYNO.SDS.RoboCopy.CGI,
+                method: 'POST',
+                params: {
+                    action: "rule_remove",
+                    id: selected.get("id")
+                },
+                callback: function(a, c, response) {
+                    this.clearStatusBusy();
+                    if (!response || !response.success) {
+                        this.getMsgBox().alert(_T("error", "error_error"), 
+                            SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
+                    }
+                    this.refresh();
+                },
+                scope: this
+            }).start(true)
         };
         this.getMsgBox().confirm(this.title, _RC_STR("ui", "remove_confirm"), callback, this);
     },
@@ -1371,7 +1346,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
             owner: this
         };
         cfg = Ext.apply(cfg, item);
-        edt = new SYNO.SDS.RoboCopy.INFO(cfg);
+        edt = new SYNO.SDS.RoboCopy.RuleEdit(cfg);
         this.mon(edt, "close", this.refresh, this);
         edt.open();
     },
@@ -1392,20 +1367,23 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         if (Ext.isDefined(src_remove)) {
             params = Ext.apply(params, {src_remove: src_remove});
         }
-        var rqst = new SYNO.SDS.RoboCopy.Request({
-                url: SYNO.SDS.RoboCopy.CGI,
-                params: params,
-                callback: function (options, success, response) {
-                    this.clearStatusBusy();
-                    this.onRunDone(success, response, folders);
-                },
-                scope: this
-        });
-        rqst.send();
+        this.addAjaxTask({
+            single: true,
+            autoJsonDecode: true,
+            url: SYNO.SDS.RoboCopy.CGI,
+            method: 'POST',
+            params: params,
+            callback: function(a, success, response) {
+                this.clearStatusBusy();
+                this.onRunDone(success && response && response.success, response, folders);
+            },
+            scope: this
+        }).start(true)
     },
     onRunDone: function (success, response, folders) {
         if (!success) {
-            this.getMsgBox().alert(_T("error", "error_error"), SYNO.SDS.RoboCopy.ErrorMessageHandler(response));
+            this.getMsgBox().alert(_T("error", "error_error"), 
+                SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
         }
         else {
             this.addBkTask({
@@ -1495,6 +1473,11 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
                     return String.format(_RC_STR("error", "bad_field"), name);
                 }
                 return String.format(_RC_STR("error", "bad_field_value"), name, value);
+            case 'process_file':
+                if (result.name && result.name !== "") {
+                    return String.format(_RC_STR("error", "prosess_file_name"), result.name);
+                }
+                return _RC_STR("error", "prosess_file");
 //            default:
 //                return _T("error", "error_unknown");
         }
@@ -1509,21 +1492,19 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
 
 
 Ext.ns("SYNO.SDS.RoboCopy");
-// Ext.ns("SYNO.SDS.RoboCopy.Editor");
-SYNO.SDS.RoboCopy.EditorApp = Ext.extend(SYNO.SDS.AppInstance, {
-    appWindowName: "SYNO.SDS.RoboCopy.EditorWindow",
+SYNO.SDS.RoboCopy.MetadataEditorApp = Ext.extend(SYNO.SDS.AppInstance, {
+    appWindowName: "SYNO.SDS.RoboCopy.MetadataEditorWindow",
     constructor: function() {
-        SYNO.SDS.RoboCopy.EditorApp.superclass.constructor.call(this, arguments);
+        SYNO.SDS.RoboCopy.MetadataEditorApp.superclass.constructor.call(this, arguments);
     }
 });
 
 Ext.ns("SYNO.SDS.RoboCopy");
-// Ext.ns("SYNO.SDS.RoboCopy.Editor");
-SYNO.SDS.RoboCopy.EditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
+SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
     constructor: function(args) {
         var cfg = this.fillConfig();
         _DEBUG(args);
-        SYNO.SDS.RoboCopy.EditorWindow.superclass.constructor.call(this, Ext.apply(cfg, args));
+        SYNO.SDS.RoboCopy.MetadataEditorWindow.superclass.constructor.call(this, Ext.apply(cfg, args));
         // this.mon(this, "afterlayout", this.onLoadData, this, {
             // single: true
         // })
@@ -1647,7 +1628,7 @@ SYNO.SDS.RoboCopy.EditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
     },
     onOpen: function(a) {
         // _DEBUG("onOpen");
-        SYNO.SDS.RoboCopy.EditorWindow.superclass.onOpen.apply(this, arguments);
+        SYNO.SDS.RoboCopy.MetadataEditorWindow.superclass.onOpen.apply(this, arguments);
         return this.onRequest(a)
     },
     onRequest: function(d) {
