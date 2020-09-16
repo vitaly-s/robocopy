@@ -52,7 +52,7 @@ overwrite          = "Overwrite"
 skip               = "Skip"
 
 [editor]
-title              = "RoboCopy editor"
+title              = "RoboCopy matadata editor"
 set_date_desc      = "Change date"
 date_desc          = "Date"
 set_location_desc  = "Change location"

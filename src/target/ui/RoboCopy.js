@@ -1515,7 +1515,8 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
         Ext.apply(this);
         var a = {
             owner: this.owner,
-            width: 500,
+            padding: 10,
+            width: 530,
             autoHeight: true,
             collapsible: false,
             resizable: false,
@@ -1561,8 +1562,8 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 synotype: "indent",
                 indent: 1,
                 name: "date",
-                width: 300,
-                labelWidth: 50,
+                width: 150,
+                labelWidth: 150,
                 format: "Y-m-d",
                 allowBlank: false,
                 editable: false,
@@ -1588,7 +1589,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 name: "location",
                 width: 300,
 //                allowBlank: false,
-                labelWidth: 50,
+                labelWidth: 150,
                 disabled: true,
                 maxlength: 255
             },{
@@ -1610,7 +1611,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 name: "title",
                 width: 300,
 //                allowBlank: false,
-                labelWidth: 50,
+                labelWidth: 150,
                 disabled: true,
                 maxlength: 255
             }]

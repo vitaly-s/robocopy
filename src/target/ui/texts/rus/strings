@@ -53,7 +53,7 @@ overwrite          = "Переписать"
 skip               = "Пропустить"
 
 [editor]
-title              = "RoboCopy редактор"
+title              = "RoboCopy редактор метаданных"
 set_date_desc      = "Изменить дату"
 date_desc          = "Дата"
 set_location_desc  = "Изменить расположение"
