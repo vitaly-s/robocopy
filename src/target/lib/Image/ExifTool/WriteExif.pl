@@ -1832,6 +1832,7 @@ NoOverwrite:            next if $isNew > 0;
                                 warn "Internal error writing offsets for $$newInfo{Name}\n";
                                 return undef;
                             }
+                            $newValuePt = \$newValue;
                         }
                         $offsetInfo or $offsetInfo = $offsetInfo[$ifd] = { };
                         # save location of valuePtr in new directory
@@ -2297,8 +2298,8 @@ NoOverwrite:            next if $isNew > 0;
                     } elsif ($ifd < 0) {
                         # pad if necessary (but don't pad contiguous image blocks)
                         my $pad = 0;
-                        ++$pad if $size & 0x01 and ($n+1 >= $count or not $oldEnd or
-                                  $oldEnd != $$oldOffset[$n+1]);
+                        ++$pad if ($blockSize + $size) & 0x01 and ($n+1 >= $count or
+                                  not $oldEnd or $oldEnd != $$oldOffset[$n+1]);
                         # preserve original image padding if specified
                         if ($$origDirInfo{PreserveImagePadding} and $n+1 < $count and
                             $oldEnd and $$oldOffset[$n+1] > $oldEnd)

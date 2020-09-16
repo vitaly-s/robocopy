@@ -58,7 +58,7 @@ use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 use Image::ExifTool::HP;
 
-$VERSION = '3.30';
+$VERSION = '3.34';
 
 sub CryptShutterCount($$);
 sub PrintFilter($$$);
@@ -338,6 +338,7 @@ sub DecodeAFPoints($$$$;$);
     '8 63' => 'HD PENTAX-D FA 15-30mm F2.8 ED SDM WR', #PH
     '8 64' => 'HD PENTAX-D FA* 50mm F1.4 SDM AW', #27
     '8 65' => 'HD PENTAX-D FA 70-210mm F4 ED SDM WR', #PH
+    '8 66' => 'HD PENTAX-D FA 85mm F1.4 ED SDM AW', #James O'Neill
     '8 196' => 'HD PENTAX-DA* 11-18mm F2.8 ED DC AW', #29
     '8 197' => 'HD PENTAX-DA 55-300mm F4.5-6.3 ED PLM WR RE', #29
     '8 198' => 'smc PENTAX-DA L 18-50mm F4-5.6 DC WR RE', #29
@@ -546,6 +547,7 @@ my %pentaxModelID = (
     0x13222 => 'K-70', #29 (Ricoh)
     0x1322c => 'KP', #29 (Ricoh)
     0x13240 => 'K-1 Mark II', # (Ricoh)
+    0x13290 => 'WG-70', # (Ricoh)
 );
 
 # Pentax city codes - (PH, Optio WP)
@@ -2552,6 +2554,14 @@ my %binaryDataAttrs = (
     },
     # 0x0086 - int8u: 0, 111[Sport,Pet] (Q) - related to Tracking FocusMode?
     # 0x0087 - int8u: 0 (Q)
+    0x0087 => { #PH
+        Name => 'ShutterType',
+        Writable => 'int8u',
+        PrintConv => {
+            0 => 'Normal', # ('Mechanical' if the camera has a mechanical shutter)
+            1 => 'Electronic', # (KP)
+        },
+    },
     0x0088 => { #PH
         Name => 'NeutralDensityFilter',
         Writable => 'int8u',
