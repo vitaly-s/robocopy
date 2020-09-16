@@ -494,6 +494,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             }],
             buttons: [{
                 text: _T("common", "ok"),
+                btnStyle: "blue",
                 scope: this,
                 handler: this.saveHandler,
             }, {
@@ -798,6 +799,7 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
             autoHeight: true,
             buttons: [{
                 text: _T("common", "ok"),
+                btnStyle: "blue",
                 scope: this,
                 handler: this.apply
             }, {
@@ -1585,7 +1587,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 indent: 1,
                 name: "location",
                 width: 300,
-                allowBlank: false,
+//                allowBlank: false,
                 labelWidth: 50,
                 disabled: true,
                 maxlength: 255
@@ -1607,7 +1609,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 indent: 1,
                 name: "title",
                 width: 300,
-                allowBlank: false,
+//                allowBlank: false,
                 labelWidth: 50,
                 disabled: true,
                 maxlength: 255
@@ -1655,12 +1657,13 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 files: files.join("|"),
             },
             callback: function(a, c, b) {
+                this.clearStatusBusy()
                 if (!b.success) {
-                    this.getMsgBox().alert(this.title, _T("error", "error_system_busy"));
+                    this.getMsgBox().alert(this.title, 
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
                     return
                 }
                 this.panel.getForm().setValues(b.data);
-                this.clearStatusBusy()
             },
             scope: this
         }).start(true)
@@ -1708,11 +1711,12 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 files: this.files.join("|"),
             }),
             callback: function(a, c, b) {
+                this.clearStatusBusy();
                 if (!b.success) {
-                    this.getMsgBox().alert(this.title, _T("error", "error_system_busy"));
+                    this.getMsgBox().alert(this.title, 
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
                     return
                 }
-                this.clearStatusBusy();
                 this.close();
             },
             scope: this

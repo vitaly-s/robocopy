@@ -718,16 +718,21 @@ sub action_post_fileinfo
         $fileInfo->datetime($dt);
         $result{date} = strftime('%Y-%m-%d %H:%M:%S', localtime($dt));
     }
-    if (defined $params{location}) {
-        my ($address, $point) = $locator->search($params{location});
-        ERROR_INVALID_PARAMS('location') unless defined $address;
-#        print STDERR "Location:\n", $address->as_string(), "\nPoint:\n", Dumper($point), "\n\n";
-        $fileInfo->location($address, $point);
-        $result{location} = $address->as_string();
+    if (exists $params{location}) {
+#        my ($address, $point); 
+#        ($address, $point) = $locator->search($params{location});
+#        ERROR_INVALID_PARAMS('location') unless defined $address;
+        ERROR_INVALID_PARAMS('location') unless $fileInfo->search_location($params{location});
+##        print STDERR "Location:\n", $address->as_string(), "\nPoint:\n", Dumper($point), "\n\n";
+#        $fileInfo->location($address, $point);
+#        $result{location} = $address->as_string();
+        my $location = $fileInfo->location;
+        $result{location} = (defined $location ? $location->as_string() : undef);
     }
-    if (defined $params{title}) {
-        $fileInfo->title($params{title});
-        $result{title} = $params{title};
+    if (exists $params{title}) {
+        my $title = ($params{title} ne '' ? $params{title} : undef);
+        $fileInfo->title($title);
+        $result{title} = $title;
     }
     if (scalar keys %result) {
         foreach my $file (@files) {

@@ -172,22 +172,30 @@ sub update($$;$)
     my @writableTags = $exifTool->GetWritableTags();
     # print STDERR "Writable tags:\n", Dumper(\@writableTags), "\n";
     # Update DATE
-    if (defined $self->{date}) {
-        my $dt = strftime('%Y-%m-%d %H:%M:%S', localtime($self->{date}));
+    if (exists $self->{date}) {
+        my $dt;
+        $dt = strftime('%Y-%m-%d %H:%M:%S', localtime($self->{date})) if defined $self->{date};
         _update_tags($exifTool, $dt, @{$FIELD_MAP{date}});
     }
     # Update TITLE
-    if (defined $self->{title}) {
-        my $title;
-        $title = $self->{title} if $self->{title} ne '';
+    if (exists $self->{title}) {
+        my $title = $self->{title};
         _update_tags($exifTool, $title, @{$FIELD_MAP{title}});
     }
     # Update LOCATION
-    if (defined $self->{latitude} && defined $self->{longitude}) {
+    if (exists $self->{latitude} && exists $self->{longitude}) {
         _update_tags($exifTool, $self->{latitude}, @{$FIELD_MAP{latitude}});
-        _update_tags($exifTool, ($self->{latitude} < 0 ? 'S' : 'N'), 'EXIF:GPSLatitudeRef');
+        _update_tags($exifTool, 
+            (defined $self->{latitude} 
+                ? ($self->{latitude} < 0 ? 'S' : 'N')
+                : undef),
+            'EXIF:GPSLatitudeRef');
         _update_tags($exifTool, $self->{longitude}, @{$FIELD_MAP{longitude}});
-        _update_tags($exifTool, ($self->{longitude} < 0 ? 'W' : 'E'), 'EXIF:GPSLongitudeRef');
+        _update_tags($exifTool, 
+            (defined $self->{longitude}
+                ? ($self->{longitude} < 0 ? 'W' : 'E')
+                : undef),
+            'EXIF:GPSLongitudeRef');
     }
 
 #    $exifTool->SetNewValue('xmp:all');
@@ -244,8 +252,13 @@ sub _update_tags($$@)
     }
     else {
         foreach my $tag (@tags) {
-#            printf STDERR "\tTry delete '$tag'\n";
-            $exifTool->SetNewValue($tag => undef, DelValue => 1, Protected => 1);
+            my $old_value = $exifTool->GetValue($tag);
+#            printf STDERR "\t\t$tag == '$old_value'\n";
+            if (defined $old_value) {
+#                printf STDERR "\tTry delete '$tag'\n";
+                #(undef,undef)=
+                $exifTool->SetNewValue($tag => undef, Protected => 1);
+            }
         }
     }
 }
@@ -290,29 +303,64 @@ sub title
 
 sub location($)
 {
-    my $self = shift;
-    my $old_value = $self->{location};
-    if (@_) {
-        croak 'First parameter to location() must be a Geo::Address ref data' unless ref $_[0]
-                                                                && $_[0]->isa('Geo::Address');
+    shift->{location};
+#    my $self = shift;
+#    my $old_value = $self->{location};
+#    if (@_) {
+#        croak 'First parameter to location() must be a Geo::Address ref data' unless ref $_[0]
+#                                                                && $_[0]->isa('Geo::Address');
+#
+#        $self->{location} = shift;
+#        if (@_) {
+#            my $point = scalar @_ == 1
+#                ? (ref $_[0] eq 'HASH'
+#                    ? {%{$_[0];}}
+#                    : croak('Second parameter to location() must be a HASH')
+#                )
+#                : (@_ % 2 
+#                    ? croak("Second parameter to location() must be a hash reference or a" 
+#                        . " key/value list. You passed an odd number of arguments\n") 
+#                    : {@_}
+#                );
+#            $self->{latitude} = $point->{latitude};
+#            $self->{longitude} = $point->{longitude};
+#        }
+#    }
+#    $old_value;
+}
 
-        $self->{location} = shift;
-        if (@_) {
-            my $point = scalar @_ == 1
-                ? (ref $_[0] eq 'HASH'
-                    ? {%{$_[0];}}
-                    : croak('Second parameter to location() must be a HASH')
-                )
-                : (@_ % 2 
-                    ? croak("Second parameter to location() must be a hash reference or a" 
-                        . " key/value list. You passed an odd number of arguments\n") 
-                    : {@_}
-                );
-            $self->{latitude} = $point->{latitude};
-            $self->{longitude} = $point->{longitude};
+sub get_location
+{
+    my $self = shift;
+    unless (exists $self->{location}) {
+        if (defined $self->{locator} 
+            && defined $self->{latitude} 
+            && defined $self->{longitude}) {
+            $self->{location} = $self->{locator}->locate($self->{latitude}, $self->{longitude});
         }
     }
-    $old_value;
+    $self->{location};
+}
+
+
+sub search_location($$)
+{
+    my ($self, $query) = @_;
+    
+    if (defined $query && $query ne '') {
+        return undef unless defined $self->{locator};
+        my ($address, $point) = $self->{locator}->search($query);
+        return 0 unless defined $address;
+        $self->{location} = $address;
+        $self->{latitude} = $point->{latitude};
+        $self->{longitude} = $point->{longitude};
+    }
+    else {
+        $self->{location} = undef;
+        $self->{latitude} = undef;
+        $self->{longitude} = undef;
+    }
+    1;
 }
 
 sub parse_template($$)
@@ -400,13 +448,13 @@ sub get_value
     'file_dir' => \&_get_info_value,
     'file_name' => \&_get_info_value,
     #location
-    'country' => \&_get_location,
-    'state' => \&_get_location,
-#    'county' => \&_get_location,
-    'city' => \&_get_location,
-#    'suburb' => \&_get_location,
-#    'road' => \&_get_location,
-#    'house' => \&_get_location,
+    'country' => \&_get_location_value,
+    'state' => \&_get_location_value,
+#    'county' => \&_get_location_value,
+    'city' => \&_get_location_value,
+#    'suburb' => \&_get_location_value,
+#    'road' => \&_get_location_value,
+#    'house' => \&_get_location_value,
 );
 
 sub _parse_float($)
@@ -437,25 +485,21 @@ sub _get_info_value
     return $self->{$name};
 }
 
-sub _get_location
+sub _get_location_value
 {
     my ($self, $name) = @_;
 #    print STDERR __PACKAGE__, " _get_location($name)\n";
     return undef unless defined $name;
-    unless (exists $self->{location}) {
-        return unless defined $self->{latitude} && defined $self->{longitude};
-        $self->{location} = $self->{locator}->locate($self->{latitude}, $self->{longitude}) if defined $self->{locator};
-#        print STDERR __PACKAGE__, " find location:", Dumper($self->{location}),"\n";
-    }
+    my $location = $self->get_location();
 #    print STDERR __PACKAGE__, " location:", Dumper($self->{location}),"\n";
-    return unless defined $self->{location};
-    return $self->{location}->country if $name eq 'country';
-    return $self->{location}->state if $name eq 'state';
-    return $self->{location}->county if $name eq 'county';
-    return $self->{location}->city if $name eq 'city';
-#    return $self->{location}->suburb  if $name eq 'suburb';
-#    return $self->{location}->road  if $name eq 'road';
-#    return $self->{location}->house  if $name eq 'house';
+    return unless defined $location;
+    return $location->country if $name eq 'country';
+    return $location->state if $name eq 'state';
+    return $location->county if $name eq 'county';
+    return $location->city if $name eq 'city';
+#    return $location->suburb  if $name eq 'suburb';
+#    return $location->road  if $name eq 'road';
+#    return $location->house  if $name eq 'house';
     undef;
 }
 
