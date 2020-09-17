@@ -123,7 +123,10 @@ Language of returned information and threshold value You can change in settings.
 
 
 ## Build
-Download sources and exec make.sh
+
+Require linux machine with Perl (I use my NAS).
+
+Download sources and exec make.sh 
 ```
 $ sh ./make.sh
 ```

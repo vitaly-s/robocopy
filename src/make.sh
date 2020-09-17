@@ -4,6 +4,52 @@
 . `dirname "$0"`/INFO
 SPK_FILE="${package}_${version}.spk"
 
+
+pack_perl()
+{
+	# remove comments
+	sed -r -i '/^\s*#[^!].*?$|^\s*#$/d' "$1"
+
+}
+
+pack_javascript()
+{
+	# remove comments
+	#sed -r -i '/^\s*\/\/.*?$/d' "$1"
+	perl -i -0pe 's|//.*?\n|\n|g; s#/\*(.|\n)*?\*/##g;' "$1"
+	# remove empty strings
+	sed -r -i '/^\s*$/d' "$1"
+	#remove start space chars
+	sed -r -i 's/^\s*//' "$1"
+	# remove new line
+	perl -i -0pe 's/\R//g' "$1"
+}
+
+pack_json()
+{
+	# remove comments
+	#sed -r -i '/^\s*\/\/.*?$/d' "$1"
+	perl -i -0pe 's|//.*?\n|\n|g; s#/\*(.|\n)*?\*/##g;' "$1"
+	# remove empty strings
+	sed -r -i '/^\s*$/d' "$1"
+	#remove start space chars
+	sed -r -i 's/^\s*//' "$1"
+	# remove new line
+	perl -i -0pe 's/\R//g' "$1"
+}
+
+pack_php()
+{
+	php -l "$1" >/dev/null 2>&1 >/dev/null
+	if [ "$?" -eq 0 ]
+	then
+		echo "pack $1"
+		head -n 1 "$1" | grep -e '^#!.*' > "$1.new"
+		php -w "$1" >> "$1.new"
+		mv -f "$1.new" "$1"
+	fi
+}
+
 make()
 {
 	echo "Make ${SPK_FILE}..."
@@ -38,8 +84,9 @@ make()
 	for srcfile in `find ./_tmp/package/ -type f | grep -Ev 'lib/Image/|lib/File/' | grep -E '\.(pl|pm|cgi)'`
 	do
 		if [ "x${NEED_PACK}" == "xyes" ]; then
-			# remove comments
-			sed -r -i '/^\s*#[^!].*?$|^\s*#$/d' "$srcfile"
+			pack_perl "$srcfile"
+#			# remove comments
+#			sed -r -i '/^\s*#[^!].*?$|^\s*#$/d' "$srcfile"
 		fi
 		# validate file
 		perl -I./_tmp/package/lib -c "$srcfile" >/dev/null 2>&1
@@ -56,13 +103,17 @@ make()
 	if [ "x${NEED_PACK}" == "xyes" ]; then
 		for srcfile in `find ./_tmp/package/ -type f -name '*.js'| grep -Ev 'lib/Image/|lib/File/'`
 		do
-			# remove comments
-			#sed -r -i '/^\s*\/\/.*?$/d' "$srcfile"
-			perl -i -0pe 's|//.*?\n|\n|g; s#/\*(.|\n)*?\*/##g;' "$srcfile"
-			# remove empty strings
-			sed -r -i '/^\s*$/d' "$srcfile"
-			#remove start space chars
-			sed -r -i 's/^\s*//' "$srcfile"
+			pack_javascript "$srcfile"
+			# validate file
+			echo "    ${srcfile##*/} - PACKED"
+		done
+	fi
+
+	# pack config files
+	if [ "x${NEED_PACK}" == "xyes" ]; then
+		for srcfile in `find ./_tmp/package/ -type f -name 'config'| grep -Ev 'lib/Image/|lib/File/'`
+		do
+			pack_json "$srcfile"
 			# validate file
 			echo "    ${srcfile##*/} - PACKED"
 		done
@@ -71,14 +122,17 @@ make()
 	# pack php files
 	for phpfile in `grep -rl '<?php' ./_tmp/package/`
 	do
-		php -l "$phpfile" >/dev/null 2>&1 >/dev/null
-		if [ "$?" -eq 0 ]
-		then
-			echo "pack $phpfile"
-			head -n 1 "$phpfile" | grep -e '^#!.*' > "$phpfile.new"
-			php -w "$phpfile" >> "$phpfile.new"
-			mv -f "$phpfile.new" "$phpfile"
+		if [ "x${NEED_PACK}" == "xyes" ]; then
+			pack_php "$phpfile"
 		fi
+		# validate file
+		php -l "$phpfile" >/dev/null 2>&1 >/dev/null
+		if [ "$?" -ne 0 ]
+		then
+			echo "Error in \"${phpfile##*/}\""
+			exit
+		fi
+		echo "    ${phpfile##*/} - OK"
 	done
 
 	echo "== Compress to package.tgz"
@@ -86,8 +140,11 @@ make()
 	tar czf ../spk/package.tgz --owner='' --group='' --mode=0755 *
 	cd ../..
 
+	#echo "extractsize=\"`du -sb ./_tmp/package | cut -f 1`\"" >> _tmp/spk/INFO
+	#echo "checksum=\"` md5sum ./_tmp/spk/package.tgz | cut -f 1 -d ' '`\"" >> _tmp/spk/INFO
+	#sed -i '/^create_time\s*=/d' _tmp/spk/INFO
 	echo "create_time=\"`date +%Y%m%d-%H:%M:%S`\"" >> _tmp/spk/INFO
-
+	
 	echo "== Compress to $SPK_FILE"
 	cd _tmp/spk/
 	tar cf ../../"$SPK_FILE" --owner='' --group='' --mode=0755 *
