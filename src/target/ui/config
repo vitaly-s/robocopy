@@ -39,7 +39,10 @@
             "texts": "texts",
             "allowMultiInstance": false,
             "appWindow": "SYNO.SDS.RoboCopy.MainWindow",
-            "depend": ["SYNO.SDS.RoboCopy.MainWindow", "SYNO.SDS.RoboCopy.utils"],
+            "depend": [
+                "SYNO.SDS.RoboCopy.MainWindow", 
+                "SYNO.SDS.RoboCopy.utils"
+            ],
             "fb_extern": [{
                 "multiple": true,
                 "dir": true,

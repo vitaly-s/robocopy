@@ -52,13 +52,13 @@ overwrite          = "Overwrite"
 skip               = "Skip"
 
 [editor]
-title              = "RoboCopy matadata editor"
-set_date_desc      = "Change date"
-date_desc          = "Date"
-set_location_desc  = "Change location"
-location_desc      = "Location"
-set_title_desc     = "Change title"
-title_desc         = "Title"
+window_title       = "RoboCopy matadata editor"
+set_date           = "Change date"
+date               = "Date"
+set_location       = "Change location"
+location           = "Location"
+set_title          = "Change title"
+title              = "Title"
 
 [task]
 #calculating       = "Calculating the file size"

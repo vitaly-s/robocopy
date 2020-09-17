@@ -53,13 +53,13 @@ overwrite          = "Переписать"
 skip               = "Пропустить"
 
 [editor]
-title              = "RoboCopy редактор метаданных"
-set_date_desc      = "Изменить дату"
-date_desc          = "Дата"
-set_location_desc  = "Изменить расположение"
-location_desc      = "Расположение"
-set_title_desc     = "Изменить заголовок"
-title_desc         = "Заголовок"
+window_title       = "RoboCopy редактор метаданных"
+set_date           = "Изменить дату"
+date               = "Дата"
+set_location       = "Изменить расположение"
+location           = "Расположение"
+set_title          = "Изменить заголовок"
+title              = "Заголовок"
 
 [task]
 #calculating       = "Расчет размера фаилов"

@@ -689,7 +689,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                 action: "settings"
             },
             callback: function(a, c, b) {
-                this.clearStatusBusy()
+                this.clearStatusBusy();
                 if (!b.success) {
                     this.getMsgBox().alert(this.title, 
                         SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo),
@@ -758,13 +758,14 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
     },
     closeHandler: function() {
         if (this.isAnyFormDirty()) {
-            this.getMsgBox().confirm(this.title, _T("common", "confirm_lostchange"), function(a) {
-                if ("yes" == a) {
-                    this.close()
-                } else {
-                    return
-                }
-            }, this)
+            this.getMsgBox().confirm(this.title, _T("common", "confirm_lostchange"), 
+                function(a) {
+                    if ("yes" == a) {
+                        this.close()
+                    } else {
+                        return
+                    }
+                }, this)
         } else {
             this.close()
         }
@@ -848,7 +849,7 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
             method: 'POST',
             params: request,
             callback: function(a, c, b) {
-                this.clearStatusBusy()
+                this.clearStatusBusy();
                 if (!b.success) {
                     this.getMsgBox().alert(this.title, 
                         SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo));
@@ -1080,7 +1081,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
         SYNO.SDS.RoboCopy.MainWindow.superclass.constructor.call(this, cfg);
         this.mon(this.grid, "rowdblclick", this.handleEdit, this);
         this.mon(this.grid, "rowclick", this.checkButtonStat, this);
-        this.mon(this.grid.store, "load", this.checkButtonStat, this)
+        this.mon(this.grid.store, "load", this.checkButtonStat, this);
 
         this.checkButtonStat();
         
@@ -1429,7 +1430,7 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
     }
 });
 
-SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
+SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result, fldSection="ui") {
     if (result && result.key) {
         switch(result.key) {
 //            case 'config_write_error':
@@ -1444,7 +1445,7 @@ SYNO.SDS.RoboCopy.ErrorMessageHandler = function (result) {
                 var name = "",
                     value = "";
                 if (result.name && result.name !== "") {
-                    name = _RC_STR("ui", result.name);
+                    name = _RC_STR(fldSection, result.name);
                 }
                 if (name === "") {
                     return _T("error", "error_unknown");
@@ -1523,7 +1524,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
             showHelp: false,
             maximizable: false,
             minimizable: false,
-            title: _RC_STR("editor", "title"),
+            title: _RC_STR("editor", "window_title"),
             buttons: [{
                 btnStyle: "blue",
                 itemId: "submit_button",
@@ -1547,7 +1548,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
             border: false,
             items: [{
                 xtype: getXType("syne_checkbox", "checkbox"),
-                boxLabel: _RC_STR("editor", "set_date_desc"),
+                boxLabel: _RC_STR("editor", "set_date"),
                 name: "set_date",
                 hideLabel: true,
                 listeners: {
@@ -1558,7 +1559,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 }
             },{
                 xtype: getXType("syno_datefield", "datefield"),
-                fieldLabel: _RC_STR("editor", "date_desc"),
+                fieldLabel: _RC_STR("editor", "date"),
                 synotype: "indent",
                 indent: 1,
                 name: "date",
@@ -1572,7 +1573,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 minValue: "1900/1/1"
             },{
                 xtype: getXType("syne_checkbox", "checkbox"),
-                boxLabel: _RC_STR("editor", "set_location_desc"),
+                boxLabel: _RC_STR("editor", "set_location"),
                 name: "set_location",
                 hideLabel: true,
                 listeners: {
@@ -1583,7 +1584,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 }
             },{
                 xtype: getXType("syno_textfield", "textfield"),
-                fieldLabel: _RC_STR("editor", "location_desc"),
+                fieldLabel: _RC_STR("editor", "location"),
                 synotype: "indent",
                 indent: 1,
                 name: "location",
@@ -1594,7 +1595,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 maxlength: 255
             },{
                 xtype: getXType("syne_checkbox", "checkbox"),
-                boxLabel: _RC_STR("editor", "set_title_desc"),
+                boxLabel: _RC_STR("editor", "set_title"),
                 name: "set_title",
                 hideLabel: true,
                 listeners: {
@@ -1605,7 +1606,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 }
             },{
                 xtype: getXType("syno_textfield", "textfield"),
-                fieldLabel: _RC_STR("editor", "title_desc"),
+                fieldLabel: _RC_STR("editor", "title"),
                 synotype: "indent",
                 indent: 1,
                 name: "title",
@@ -1635,7 +1636,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
         return this.onRequest(a)
     },
     onRequest: function(d) {
-        var a, f, e, b, c
+        var a, f, e, b, c;
 //         , g = SYNO.SDS.Utils.GetLocalizedString(this.jsConfig.title);
 //         _DEBUG("onRequest");
         // _DEBUG(d);
@@ -1658,10 +1659,10 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 files: files.join("|"),
             },
             callback: function(a, c, b) {
-                this.clearStatusBusy()
+                this.clearStatusBusy();
                 if (!b.success) {
                     this.getMsgBox().alert(this.title, 
-                        SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo, "editor"));
                     return
                 }
                 this.panel.getForm().setValues(b.data);
@@ -1715,7 +1716,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 this.clearStatusBusy();
                 if (!b.success) {
                     this.getMsgBox().alert(this.title, 
-                        SYNO.SDS.RoboCopy.ErrorMessageHandler(response.errinfo));
+                        SYNO.SDS.RoboCopy.ErrorMessageHandler(b.errinfo, "editor"));
                     return
                 }
                 this.close();
