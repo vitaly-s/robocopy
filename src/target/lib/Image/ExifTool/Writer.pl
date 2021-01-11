@@ -1987,12 +1987,12 @@ sub SetFileName($$;$$$)
         local (*EXIFTOOL_SFN_IN, *EXIFTOOL_SFN_OUT);
         # renaming didn't work, so copy the file instead
         unless ($self->Open(\*EXIFTOOL_SFN_IN, $file)) {
-            $self->Warn("Error opening '${file}'");
+            $self->Error("Error opening '${file}'");
             return -1;
         }
         unless ($self->Open(\*EXIFTOOL_SFN_OUT, $newName, '>')) {
             close EXIFTOOL_SFN_IN;
-            $self->Warn("Error creating '${newName}'");
+            $self->Error("Error creating '${newName}'");
             return -1;
         }
         binmode EXIFTOOL_SFN_IN;
@@ -2005,7 +2005,7 @@ sub SetFileName($$;$$$)
         close EXIFTOOL_SFN_IN;
         if ($err) {
             $self->Unlink($newName);    # erase bad output file
-            $self->Warn("Error writing '${newName}'");
+            $self->Error("Error writing '${newName}'");
             return -1;
         }
         # preserve modification time
@@ -2133,20 +2133,24 @@ sub WriteInfo($$;$$)
         }
         if ($numNew == $numPseudo) {
             $rtnVal = 2;
+            if ((defined $newFileName or defined $newDir) and not ref $infile) {
+                my $result = $self->SetFileName($infile);
+                if ($result > 0) {
+                    $infile = $$self{NewName};  # file name changed
+                    $rtnVal = 1;
+                } elsif ($result < 0) {
+                    return 0;   # don't try to do anything else
+                }
+            }
             if (not ref $infile or UNIVERSAL::isa($infile,'GLOB')) {
                 $self->SetFileModifyDate($infile) > 0 and $rtnVal = 1 if $setModDate;
                 $self->SetFileModifyDate($infile, undef, 'FileCreateDate') > 0 and $rtnVal = 1 if $setCreateDate;
                 $self->SetSystemTags($infile) > 0 and $rtnVal = 1;
             }
-            if ((defined $newFileName or defined $newDir) and not ref $infile) {
-                $self->SetFileName($infile) > 0 and $rtnVal = 1;
-            }
             if (defined $hardLink or defined $symLink or defined $testName) {
-                my $src = $$self{NewName};
-                $src = $infile unless defined $src;
-                $hardLink and $self->SetFileName($src, $hardLink, 'HardLink') and $rtnVal = 1;
-                $symLink and $self->SetFileName($src, $symLink, 'SymLink') and $rtnVal = 1;
-                $testName and $self->SetFileName($src, $testName, 'Test') and $rtnVal = 1;
+                $hardLink and $self->SetFileName($infile, $hardLink, 'HardLink') and $rtnVal = 1;
+                $symLink and $self->SetFileName($infile, $symLink, 'SymLink') and $rtnVal = 1;
+                $testName and $self->SetFileName($infile, $testName, 'Test') and $rtnVal = 1;
             }
             return $rtnVal;
         } elsif (defined $newFileName and length $newFileName) {
@@ -4035,6 +4039,7 @@ sub WriteDirectory($$$;$)
                 if ($dataPt or $$dirInfo{RAF}) {
                     ++$$self{CHANGED};
                     $out and print $out "  Deleting $grp1\n";
+                    $self->Warn('ICC_Profile deleted. Image colors may be affected') if $grp1 eq 'ICC_Profile';
                     # can no longer validate TIFF_END if deleting an entire IFD
                     delete $$self{TIFF_END} if $dirName =~ /IFD/;
                 }
@@ -4706,17 +4711,17 @@ sub InverseDateTime($$;$$)
 {
     my ($self, $val, $tzFlag, $dateOnly) = @_;
     my ($rtnVal, $tz);
+    my $fmt = $$self{OPTIONS}{DateFormat};
     # strip off timezone first if it exists
-    if ($val =~ s/([+-])(\d{1,2}):?(\d{2})\s*(DST)?$//i) {
+    if (not $fmt and $val =~ s/([+-])(\d{1,2}):?(\d{2})\s*(DST)?$//i) {
         $tz = sprintf("$1%.2d:$3", $2);
-    } elsif ($val =~ s/Z$//i) {
+    } elsif (not $fmt and $val =~ s/Z$//i) {
         $tz = 'Z';
     } else {
         $tz = '';
         # allow special value of 'now'
         return $self->TimeNow($tzFlag) if lc($val) eq 'now';
     }
-    my $fmt = $$self{OPTIONS}{DateFormat};
     # only convert date if a format was specified and the date is recognizable
     if ($fmt) {
         unless (defined $strptimeLib) {
@@ -4806,9 +4811,17 @@ TryLib: for ($lib=$strptimeLib; ; $lib='') {
                 $ss = ':00';
             }
             # construct properly formatted date/time string
-            if ($a[0]<=12 and $a[1]<=31 and $a[2]<=24 and $a[3]<=59) {
-                $rtnVal = "$yr:$a[0]:$a[1] $a[2]:$a[3]$ss$fs$tz";
+            if ($a[0] < 1 or $a[0] > 12) {
+                warn "Month '$a[0]' out of range 1..12\n";
+                return undef;
             }
+            if ($a[1] < 1 or $a[1] > 31) {
+                warn "Day '$a[1]' out of range 1..31\n";
+                return undef;
+            }
+            $a[2] > 24 and warn("Hour '$a[2]' out of range 0..24\n"), return undef;
+            $a[3] > 59 and warn("Minutes '$a[3]' out of range 0..59\n"), return undef;
+            $rtnVal = "$yr:$a[0]:$a[1] $a[2]:$a[3]$ss$fs$tz";
         } elsif ($dateOnly) {
             $rtnVal = join ':', $yr, @a;
         }
@@ -5910,6 +5923,7 @@ sub WriteJPEG($$)
         # group delete of APP segments
         if ($$delGroup{$dirName}) {
             $verbose and print $out "  Deleting $dirName segment\n";
+            $self->Warn('ICC_Profile deleted. Image colors may be affected') if $dirName eq 'ICC_Profile';
             ++$$self{CHANGED};
             next Marker;
         }
@@ -6938,7 +6952,7 @@ used routines.
 
 =head1 AUTHOR
 
-Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
+Copyright 2003-2021, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

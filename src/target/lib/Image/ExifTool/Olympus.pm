@@ -40,7 +40,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::APP12;
 
-$VERSION = '2.68';
+$VERSION = '2.70';
 
 sub PrintLensInfo($$$);
 
@@ -109,6 +109,7 @@ my %olympusLensTypes = (
     '0 32 00' => 'Olympus Zuiko Digital ED 14-35mm F2.0 SWD', #PH
     '0 32 10' => 'Olympus M.Zuiko Digital ED 12-200mm F3.5-6.3', #IB
     '0 33 00' => 'Olympus Zuiko Digital 25mm F2.8', #PH
+    '0 33 10' => 'Olympus M.Zuiko Digital 150-400mm F4.5 TC1.25x IS Pro', #IB
     '0 34 00' => 'Olympus Zuiko Digital ED 9-18mm F4.0-5.6', #7
     '0 34 10' => 'Olympus M.Zuiko Digital ED 12-45mm F4.0 Pro', #IB
     '0 35 00' => 'Olympus Zuiko Digital 14-54mm F2.8-3.5 II', #PH
@@ -137,6 +138,7 @@ my %olympusLensTypes = (
     '1 15 00' => 'Sigma 10-20mm F4.0-5.6 EX DC HSM', #11
     '1 16 00' => 'Sigma APO 70-200mm F2.8 II EX DG Macro HSM', #11
     '1 17 00' => 'Sigma 50mm F1.4 EX DG HSM', #11
+    '1 18 60' => 'Test',
     # Panasonic/Leica lenses
     '2 01 00' => 'Leica D Vario Elmarit 14-50mm F2.8-3.5 Asph.', #11
     '2 01 10' => 'Lumix G Vario 14-45mm F3.5-5.6 Asph. Mega OIS', #16
@@ -2129,6 +2131,11 @@ my %indexInfo = (
             67 => 'Soft Background Shot', #11
             142 => 'Hand-held Starlight', #PH (SH-21)
             154 => 'HDR', #PH (XZ-2)
+            197 => 'Panning', #forum11631 (EM5iii)
+            203 => 'Light Trails', #forum11631 (EM5iii)
+            204 => 'Backlight HDR', #forum11631 (EM5iii)
+            205 => 'Silent', #forum11631 (EM5iii)
+            206 => 'Multi Focus Shot', #forum11631 (EM5iii)
         },
     },
     0x50a => { #PH/4/6
@@ -4057,7 +4064,7 @@ Olympus or Epson maker notes in EXIF information.
 
 =head1 AUTHOR
 
-Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
+Copyright 2003-2021, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

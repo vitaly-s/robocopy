@@ -15,7 +15,7 @@ use strict;
 use vars qw($VERSION);
 use Image::ExifTool::XMP;
 
-$VERSION = '1.04';
+$VERSION = '1.05';
 
 my %dateTimeInfo = (
     # NOTE: Do NOT put "Groups" here because Groups hash must not be common!
@@ -44,14 +44,20 @@ my %event = (
         Groups => { 2 => 'Time' },
         Writable => 'string', # (so we can format this ourself)
         Shift => 'Time',
-        # (pass straight through if this isn't a full date/time value)
+        # (allow date/time or just time value)
         ValueConv => 'Image::ExifTool::XMP::ConvertXMPDate($val)',
         PrintConv => '$self->ConvertDateTime($val)',
         ValueConvInv => 'Image::ExifTool::XMP::FormatXMPDate($val) or $val',
         PrintConvInv => q{
             my $v = $self->InverseDateTime($val,undef,1);
             undef $Image::ExifTool::evalWarning;
-            return $v || $val;
+            return $v if $v;
+            # allow time-only values by adding dummy date (thanks Herb)
+            my $v = $self->InverseDateTime("2000:01:01 $val",undef,1);
+            undef $Image::ExifTool::evalWarning;
+            return $v if $v and $v =~ s/.* //;  # strip off dummy date
+            $Image::ExifTool::evalWarning = 'Invalid date/time or time-only value (use HH:MM:SS[.ss][+/-HH:MM|Z])';
+            return undef;
         },
     },
     fieldNotes          => { },
@@ -354,7 +360,7 @@ This file contains tag definitions for the Darwin Core XMP namespace.
 
 =head1 AUTHOR
 
-Copyright 2003-2020, Phil Harvey (philharvey66 at gmail.com)
+Copyright 2003-2021, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

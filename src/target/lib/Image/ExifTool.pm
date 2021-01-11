@@ -8,7 +8,7 @@
 # Revisions:    Nov. 12/2003 - P. Harvey Created
 #               (See html/history.html for revision history)
 #
-# Legal:        Copyright (c) 2003-2020, Phil Harvey (philharvey66 at gmail.com)
+# Legal:        Copyright (c) 2003-2021, Phil Harvey (philharvey66 at gmail.com)
 #               This library is free software; you can redistribute it and/or
 #               modify it under the same terms as Perl itself.
 #------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ use vars qw($VERSION $RELEASE @ISA @EXPORT_OK %EXPORT_TAGS $AUTOLOAD @fileTypes
             %mimeType $swapBytes $swapWords $currentByteOrder %unpackStd
             %jpegMarker %specialTags %fileTypeLookup $testLen $exePath);
 
-$VERSION = '12.06';
+$VERSION = '12.14';
 $RELEASE = '';
 @ISA = qw(Exporter);
 %EXPORT_TAGS = (
@@ -147,7 +147,7 @@ sub ReadValue($$$;$$$);
     ASF WTV DICOM FITS MIE JSON HTML XMP::SVG Palm Palm::MOBI Palm::EXTH Torrent
     EXE EXE::PEVersion EXE::PEString EXE::MachO EXE::PEF EXE::ELF EXE::AR
     EXE::CHM LNK Font VCard Text VCard::VCalendar RSRC Rawzor ZIP ZIP::GZIP
-    ZIP::RAR RTF OOXML iWork ISO FLIR::AFF FLIR::FPF MacOS::MDItem MacOS::XAttr
+    ZIP::RAR RTF OOXML iWork ISO FLIR::AFF FLIR::FPF MacOS MacOS::MDItem
     FlashPix::DocTable
 );
 
@@ -188,8 +188,8 @@ $defaultLang = 'en';    # default language
                 FLAC APE MPC MKV MXF DV PMP IND PGF ICC ITC FLIR FLIF FPF LFP
                 HTML VRD RTF FITS XCF DSS QTIF FPX PICT ZIP GZIP PLIST RAR BZ2
                 CZI TAR  EXE EXR HDR CHM LNK WMF AVC DEX DPX RAW Font RSRC M2TS
-                PHP PCX DCX DWF DWG WTV Torrent VCard LRI R3D AA PDB MOI ISO
-                ALIAS JSON MP3 DICOM PCD TXT);
+                MacOS PHP PCX DCX DWF DWG WTV Torrent VCard LRI R3D AA PDB MOI
+                ISO ALIAS JSON MP3 DICOM PCD TXT);
 
 # file types that we can write (edit)
 my @writeTypes = qw(JPEG TIFF GIF CRW MRW ORF RAF RAW PNG MIE PSD XMP PPM EPS
@@ -208,10 +208,11 @@ my %writeTypes; # lookup for writable file types (hash filled if required)
 # - must update CanCreate() documentation if this list is changed!
 my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
 
-# file type lookup for all recognized file extensions
+# file type lookup for all recognized file extensions (upper case)
 # (if extension may be more than one type, the type is a list where
 #  the writable type should come first if it exists)
 %fileTypeLookup = (
+   '360' => ['MOV',  'GoPro 360 video'],
    '3FR' => ['TIFF', 'Hasselblad RAW format'],
    '3G2' => ['MOV',  '3rd Gen. Partnership Project 2 audio/video'],
    '3GP' => ['MOV',  '3rd Gen. Partnership Project audio/video'],
@@ -412,6 +413,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     OFR  => ['RIFF', 'OptimFROG audio'],
     OGG  => ['OGG',  'Ogg Vorbis audio file'],
     OGV  => ['OGG',  'Ogg Video file'],
+    ONP  => ['JSON', 'ON1 Presets'],
     OPUS => ['OGG',  'Ogg Opus audio file'],
     ORF  => ['ORF',  'Olympus RAW format'],
     OTF  => ['Font', 'Open Type Font'],
@@ -517,6 +519,7 @@ my %createTypes = map { $_ => 1 } qw(XMP ICC MIE VRD DR4 EXIF EXV);
     WMV  => ['ASF',  'Windows Media Video'],
     WV   => ['RIFF', 'WavePack lossless audio'],
     X3F  => ['X3F',  'Sigma RAW format'],
+    MACOS=> ['MacOS','MacOS ._ sidecar file'],
     XCF  => ['XCF',  'GIMP native image format'],
     XHTML=> ['HTML', 'Extensible HyperText Markup Language'],
     XLA  => ['FPX',  'Microsoft Excel Add-in'],
@@ -686,6 +689,7 @@ my %fileDescription = (
     ODT  => 'application/vnd.oasis.opendocument.text',
     OGG  => 'audio/ogg',
     OGV  => 'video/ogg',
+    ONP  => 'application/on1',
     ORF  => 'image/x-olympus-orf',
     OTF  => 'application/x-font-otf',
     PAGES=> 'application/x-iwork-pages-sffpages',
@@ -942,6 +946,7 @@ $testLen = 1024;    # number of bytes to read when testing for magic number
     WMF  => '(\xd7\xcd\xc6\x9a\0\0|\x01\0\x09\0\0\x03)',
     WTV  => '\xb7\xd8\x00\x20\x37\x49\xda\x11\xa6\x4e\x00\x07\xe9\x5e\xad\x8d',
     X3F  => 'FOVb',
+    MacOS=> '\0\x05\x16\x07\0.\0\0Mac OS X        ',
     XCF  => 'gimp xcf ',
     XMP  => '\0{0,3}(\xfe\xff|\xff\xfe|\xef\xbb\xbf)?\0{0,3}\s*<',
     ZIP  => 'PK\x03\x04',
@@ -2500,6 +2505,7 @@ sub ExtractInfo($;@)
             } else {
                 $self->Error('Unknown file type');
             }
+            $self->BuildCompositeTags() if $fast == 4 and $$options{Composite};
             last;   # don't read the file
         }
         if (@fileTypeList) {
@@ -3389,7 +3395,11 @@ sub GetGroup($$;$)
         my @grps;
         # create list of group names (without identical adjacent groups if simplifying)
         foreach (@families) {
-            my $grp = $groups[$_] or next;
+            my $grp = $groups[$_];
+            unless ($grp) {
+                next if $simplify;
+                $grp = '';
+            }
             push @grps, $grp unless $simplify and @grps and $grp eq $grps[-1];
         }
         # remove leading "Main:" if simplifying
@@ -3996,7 +4006,9 @@ sub Open($*$;$)
             }
             my $share = 0;
             eval {
-                $share = Win32API::File::FILE_SHARE_READ() unless $access & Win32API::File::GENERIC_WRITE();
+                unless ($access & Win32API::File::GENERIC_WRITE()) {
+                    $share = Win32API::File::FILE_SHARE_READ() | Win32API::File::FILE_SHARE_WRITE();
+                }
             };
             my $wh = eval { Win32API::File::CreateFileW($file, $access, $share, [], $create, 0, []) };
             return undef unless $wh;
@@ -5727,12 +5739,12 @@ sub ConvertFileSize($)
 {
     my $val = shift;
     $val < 2048 and return "$val bytes";
-    $val < 10240 and return sprintf('%.1f kB', $val / 1024);
-    $val < 2097152 and return sprintf('%.0f kB', $val / 1024);
-    $val < 10485760 and return sprintf('%.1f MB', $val / 1048576);
-    $val < 2147483648 and return sprintf('%.0f MB', $val / 1048576);
-    $val < 10737418240 and return sprintf('%.1f GB', $val / 1073741824);
-    return sprintf('%.0f GB', $val / 1073741824);
+    $val < 10240 and return sprintf('%.1f KiB', $val / 1024);
+    $val < 2097152 and return sprintf('%.0f KiB', $val / 1024);
+    $val < 10485760 and return sprintf('%.1f MiB', $val / 1048576);
+    $val < 2147483648 and return sprintf('%.0f MiB', $val / 1048576);
+    $val < 10737418240 and return sprintf('%.1f GiB', $val / 1073741824);
+    return sprintf('%.0f GiB', $val / 1073741824);
 }
 
 #------------------------------------------------------------------------------
@@ -7142,6 +7154,7 @@ sub DoProcessTIFF($$;$)
   # no longer do this because various files use different values
   # (TIFF=0x2a, RW2/RWL=0x55, HDP=0xbc, BTF=0x2b, ORF=0x4f52/0x5352/0x????)
   #  return 0 unless $identifier == 0x2a;
+    $self->Warn('Invalid magic number in EXIF TIFF header') if $fileType eq 'APP1' and $identifier != 0x2a;
 
     # get offset to IFD0
     return 0 if length $$dataPt < 8;
@@ -7793,7 +7806,7 @@ sub HandleTag($$$$;%)
     my ($subdir, $format, $noTagInfo, $rational);
 
     if ($tagInfo) {
-        $subdir = $$tagInfo{SubDirectory}
+        $subdir = $$tagInfo{SubDirectory};
     } else {
         return undef unless $verbose;
         $tagInfo = { Name => "tag $tag" };  # create temporary tagInfo hash
