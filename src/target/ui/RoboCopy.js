@@ -530,31 +530,58 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "general"),
             items: [{
-                synotype: "desc",
-                value: _RC_STR("config", "conflict_policy"),
-                indent: 1
+                xtype: getXType("syno_fieldset", "fieldset"),
+                title: _RC_STR("config", "compare_title"),
+                items: [{
+//                    synotype: "desc",
+//                    value: _RC_STR("config", "compare_desc"),
+//                    indent: 1
+//                }, {
+                    itemId: "full",
+                    synotype: "radio",
+                    name: "compare_mode",
+                    inputValue: "full",
+                    boxLabel: _RC_STR("config", "compare_binary"),
+                    checked: true,
+                    indent: 1
+                }, {
+                    itemId: "no_meta",
+                    synotype: "radio",
+                    name: "compare_mode",
+                    inputValue: "no_meta",
+                    boxLabel: _RC_STR("config", "compare_no_meta"),
+                    indent: 1
+                }]
             }, {
-                itemId: "skip",
-                synotype: "radio",
-                name: "conflict_policy",
-                inputValue: "skip",
-                boxLabel: _RC_STR("config", "skip"),
-                chacked: true,
-                indent: 2
-            }, {
-                itemId: "rename",
-                synotype: "radio",
-                name: "conflict_policy",
-                inputValue: "rename",
-                boxLabel: _RC_STR("config", "rename"),
-                indent: 2
-            }, {
-                itemId: "overwrite",
-                synotype: "radio",
-                name: "conflict_policy",
-                inputValue: "overwrite",
-                boxLabel: _RC_STR("config", "overwrite"),
-                indent: 2
+                xtype: getXType("syno_fieldset", "fieldset"),
+                title: _RC_STR("config", "conflict_policy"),
+                items: [{
+//                    synotype: "desc",
+//                    value: _RC_STR("config", "conflict_policy"),
+//                    indent: 1
+//                }, {
+                    itemId: "skip",
+                    synotype: "radio",
+                    name: "conflict_policy",
+                    inputValue: "skip",
+                    boxLabel: _RC_STR("config", "skip"),
+                    checked: true,
+                    indent: 1
+                }, {
+                    itemId: "rename",
+                    synotype: "radio",
+                    name: "conflict_policy",
+                    inputValue: "rename",
+                    boxLabel: _RC_STR("config", "rename"),
+                    indent: 1
+                }, {
+                    itemId: "overwrite",
+                    synotype: "radio",
+                    name: "conflict_policy",
+                    inputValue: "overwrite",
+                    boxLabel: _RC_STR("config", "overwrite"),
+                    indent: 1
+                }]
             }]
         };
         return a;
@@ -569,7 +596,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "integration"),
             items: [{
-                xtype: "fieldset",
+                xtype: getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "autorun"),
                 items: [{
                     synotype: "check",
@@ -595,7 +622,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "location"),
             items: [{
-                xtype: "fieldset",
+                xtype: getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "locator"),
                 items: [{
                     synotype: "number",
@@ -724,6 +751,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
         if (this.generalForm) {
             Ext.apply(params, {
                 conflict_policy: this.generalForm.getForm().findField("conflict_policy").getGroupValue(),
+                compare_mode: this.generalForm.getForm().findField("compare_mode").getGroupValue(),
             });
         }
         this.setStatusBusy({

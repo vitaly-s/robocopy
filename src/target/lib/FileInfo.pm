@@ -10,6 +10,8 @@ use utf8;
 use Encode;
 use File::Basename;
 use File::Spec::Functions;
+use File::Compare;
+use IO::File;
 use POSIX qw(strftime);
 use Time::Local;
 use HTTP::Date;
@@ -263,6 +265,60 @@ sub _update_tags($$@)
     }
 }
 
+sub cmp_files($$)
+{
+    my ($file1, $file2) = @_;
+
+#    printf STDERR "Try compare '$file1' and '$file2'\n";
+
+    my @st1 = stat($file1);
+    if (@st1) {
+        my @st2 = stat($file2);
+        if (@st2 && $st1[0] == $st2[0] && $st1[1] == $st2[1]) {
+#            printf STDERR "'$file1' and '$file2' are identical\n";
+            return 0;
+        }
+    }
+    if (Image::ExifTool::CanWrite($file1) 
+        && Image::ExifTool::CanWrite($file2)) {
+
+#        printf STDERR "\tTry create temporary files\n";
+        my $fh1 = IO::File->new_tmpfile;
+        my $fh2 = IO::File->new_tmpfile;
+        
+        if (defined $fh1 && defined $fh2) {
+            my $exifTool = new Image::ExifTool;
+
+#            printf STDERR "\tTry clear EXIF data '$file1'\n";
+            $exifTool->ExtractInfo($file1);
+            $exifTool->SetNewValue('*');
+            $fh1->autoflush(1);
+            $exifTool->WriteInfo($file1, $fh1);
+            seek($fh1, 0, 0);
+            
+#            printf STDERR "\tTry clear EXIF data '$file2'\n";
+            $exifTool->ExtractInfo($file2);
+            $exifTool->SetNewValue('*');
+            $fh2->autoflush(1);
+            $exifTool->WriteInfo($file2, $fh2);
+            seek($fh2, 0, 0);
+            
+#            exifCompare($fh1, $fh2);
+#            seek($fh1, 0, 0);
+#            seek($fh2, 0, 0);
+            
+            my $res = compare($fh1, $fh2);
+#            printf STDERR "\t\tCompare result: $res\n";
+            return $res;
+        }
+        else {
+#            printf STDERR "Cannot create temporary files.\n";
+            return 2;
+        }
+    }
+#    printf STDERR "\tUse full compare '$file1' and '$file2'\n";
+    return compare($file1, $file2); 
+}
 
 sub base_dir
 {

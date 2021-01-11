@@ -128,6 +128,7 @@ foreach my $dir (@dirs) {
 #        print "\tProcess \"$rule->{description}\" [$rule->{src_dir}/$rule->{src_mask}]\n\t\t$rule->{dest_path}\n" if $verbose;
         my $processor = new rule_processor($rule, $locator);
         $processor->conflict_policy($settings->conflict_policy);
+        $processor->compare_mode($settings->compare_mode);
         if ($processor->prepare($dir, \$error)) {
             print "\t" . $processor->src_dir() . "\n" if $verbose;
             my $files = $processor->find_files();

@@ -26,6 +26,7 @@ sub new
             locator_threshold => $args->{locator_threshold} || Locator::DEFAULT_THRESHOLD,
             locator_language => $args->{locator_language} || Locator::DEFAULT_LANGUAGE,
             conflict_policy => $args->{conflict_policy} || rule_processor::DEFAULT_CONFLICT_POLICY,
+            compare_mode => $args->{compare_mode} || rule_processor::DEFAULT_COMPARE_MODE,
         } , $class);
     return $new;
 }
@@ -56,6 +57,16 @@ sub conflict_policy
     my $old = $self->{conflict_policy};
     if (@_) {
         $self->{conflict_policy} = shift;
+    }
+    $old;
+}
+
+sub compare_mode
+{
+    my $self = shift;
+    my $old = $self->{compare_mode};
+    if (@_) {
+        $self->{compare_mode} = shift;
     }
     $old;
 }

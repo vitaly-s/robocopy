@@ -50,6 +50,10 @@ conflict_policy    = "File conflict policy"
 rename             = "Rename"
 overwrite          = "Overwrite"
 skip               = "Skip"
+compare_title      = "File comparison mode"
+compare_desc       = "???"
+compare_binary     = "Compares files byte by byte"
+compare_no_meta    = "Compares files without metadata (EXIF, XMP)"
 
 [editor]
 window_title       = "RoboCopy matadata editor"

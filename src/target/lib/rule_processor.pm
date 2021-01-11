@@ -60,8 +60,12 @@ sub CONFLICT_POLICY_SKIP { 'skip' }
 sub CONFLICT_POLICY_RENAME { 'rename' }
 sub CONFLICT_POLICY_OVERWRITE { 'overwrite' }
 
-sub DEFAULT_CONFLICT_POLICY { CONFLICT_POLICY_SKIP }
+sub COMPARE_MODE_RAW_DATA { 'full' }
+sub COMPARE_MODE_NO_METADATA { 'no_meta' }
 
+
+sub DEFAULT_CONFLICT_POLICY { CONFLICT_POLICY_SKIP }
+sub DEFAULT_COMPARE_MODE { COMPARE_MODE_RAW_DATA }
 sub new {
     my($class, $rule, $locator) = @_;
     
@@ -76,6 +80,7 @@ sub new {
     }
     $self->{locator} = $locator if defined $locator && ref($locator) eq 'Locator';
     $self->{conflict_policy} = DEFAULT_CONFLICT_POLICY;
+    $self->{compare_mode} = DEFAULT_COMPARE_MODE;
     
     bless $self, $class;
    
@@ -88,9 +93,22 @@ sub conflict_policy
     my $old = $self->{conflict_policy};
     if (@_) {
         my $value = shift;
-        croak "Invalid value" unless defined $value 
+        croak "Invalid conflict policy value" unless defined $value 
             || grep { $value eq $_ } CONFLICT_POLICY_SKIP CONFLICT_POLICY_RENAME CONFLICT_POLICY_OVERWRITE;
         $self->{conflict_policy} = $value;
+    }
+    $old;
+}
+
+sub compare_mode
+{
+    my $self = shift;
+    my $old = $self->{compare_mode};
+    if (@_) {
+        my $value = shift;
+        croak "Invalid compare mode value" unless defined $value 
+            || grep { $value eq $_ } COMPARE_MODE_RAW_DATA COMPARE_MODE_NO_METADATA;
+        $self->{compare_mode} = $value;
     }
     $old;
 }
@@ -301,8 +319,10 @@ sub process_file($$;\$)
     }
     if ($file ne $dest_file) {
         if (-f $dest_file) {
-            if (compare($file, $dest_file) == 1) {
-    #            print STDERR "\t\tfile != dest_file (",$self->{conflict_policy},")\n";
+            my $cmp_files = \&File::Compare::compare;
+            $cmp_files = \&FileInfo::cmp_files if $self->{compare_mode} eq COMPARE_MODE_NO_METADATA;
+            if (&$cmp_files($file, $dest_file) == 1) {
+#                print STDERR "\t\tfile != dest_file (",$self->{conflict_policy},', ',$self->{compare_mode}")\n";
 
                 if ($self->{conflict_policy} eq CONFLICT_POLICY_OVERWRITE) {
                     # nothing
@@ -320,7 +340,7 @@ sub process_file($$;\$)
                         return unless -f "$file_name" && $file_name =~ /$d_name\d{3}$d_suffix/i;
                         
                         my $dest_file_copy = catfile($d_path, $file_name);
-                        if (compare($file, $dest_file_copy) == 0) {
+                        if (&$cmp_files($file, $dest_file_copy) == 0) {
                             $copy_exists = 1;
                             $File::Find::prune = $copy_exists;
     #                        print STDERR "\t\t\tfile == $file_name \n";

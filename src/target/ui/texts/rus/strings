@@ -51,6 +51,10 @@ conflict_policy    = "Политика разрешения конфликтов
 rename             = "Переименовать"
 overwrite          = "Переписать"
 skip               = "Пропустить"
+compare_title      = "Режим сравнения файлов"
+compare_desc       = "???"
+compare_binary     = "Сравнивает файлы побайтно"
+compare_no_meta    = "Сравнивает файлы без метаданных (EXIF, XMP)"
 
 [editor]
 window_title       = "RoboCopy редактор метаданных"

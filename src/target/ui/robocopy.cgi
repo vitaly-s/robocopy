@@ -459,6 +459,7 @@ sub action_post_task_run
             # Create processor
             my $processor = new rule_processor($rule, $locator);
             $processor->conflict_policy($settings->conflict_policy);
+            $processor->compare_mode($settings->compare_mode);
             $processor->user($user) if defined $user;
             if ($processor->prepare($dir, \$error)) {
                 my $size;
@@ -598,6 +599,7 @@ sub action_get_settings
         'locator_threshold' => $setting->locator_threshold,
         'locator_language' => $setting->locator_language,
         'conflict_policy' => $setting->conflict_policy,
+        'compare_mode' => $setting->compare_mode,
     });
 }
 
@@ -642,7 +644,8 @@ sub action_post_settings
     $setting->locator_threshold($params{locator_threshold}) if exists $params{locator_threshold};
     $setting->locator_language($params{locator_language}) if exists $params{locator_language};
     $setting->conflict_policy($params{conflict_policy}) if exists $params{conflict_policy};
-
+    $setting->compare_mode($params{compare_mode}) if exists $params{compare_mode};
+    
     $setting->save;
     
     RESPONSE(\%params);
@@ -897,8 +900,9 @@ sub _action_test
         my @dirs = split(/\|/, $params{folders});
         my $dir_count = scalar(@dirs);
         my $error;
-#        my $setting
-        my $locator = create_locator;
+
+        my $settings = load_settings;
+        my $locator = create_locator($settings);
 
         my $task;
 #        $task = new task_info($user);
@@ -910,7 +914,12 @@ sub _action_test
         foreach my $rule (@$cfg) {
             # Create processor
             print_str $rule->priority() . ": [" . $rule->src_ext() . "] - ", $rule->description(), "\n";
+            
             my $processor = new rule_processor($rule, $locator);
+            $processor->conflict_policy($settings->conflict_policy);
+            $processor->compare_mode($settings->compare_mode);
+            $processor->user($user) if defined $user;
+
             my $dir_idx = 0;
             foreach my $dir(@dirs) {
                 print_str "  path: ", $dir, "\n";
@@ -939,6 +948,15 @@ sub _action_test
                         my $dest_file = $processor->make_dest_file($file);
                         print_str "      -> ", $dest_file, "\n" if defined $dest_file;
                         ++$file_idx;
+                        if ($params{run}) {
+                            my $error;
+                            unless ($processor->process_file($file, \$error)) {
+                                print_str "      error: ", $error, "\n";
+                            }
+                            else {
+                                print "        Processed\n";
+                            }
+                        }
                     }
                 }
                 else {
