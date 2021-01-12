@@ -467,6 +467,8 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //        this.integrationForm = this.get("tab").get("integration");
 //        this.locationForm = this.get("tab").get("location");
         this.generalForm = this.get("tab").get("general");
+//        SYNO.SDS.Utils.AddTip(this.generalForm.getForm().findField('compare_mode_no_meta').getEl(), 
+//                                _RC_STR("ui", "format_codes"));
     },
     fillConfig: function(params) {
         var tabs = [];
@@ -537,7 +539,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //                    value: _RC_STR("config", "compare_desc"),
 //                    indent: 1
 //                }, {
-                    itemId: "full",
+                    itemId: "compare_mode_full",
                     synotype: "radio",
                     name: "compare_mode",
                     inputValue: "full",
@@ -545,12 +547,20 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                     checked: true,
                     indent: 1
                 }, {
-                    itemId: "no_meta",
+                    itemId: "compare_mode_no_meta",
                     synotype: "radio",
                     name: "compare_mode",
                     inputValue: "no_meta",
                     boxLabel: _RC_STR("config", "compare_no_meta"),
                     indent: 1
+                }, {
+                    synotype: "desc",
+                    itemId: "compare_mode_no_meta_note",
+                    fieldLabel: "Note",
+                    hideLabel: true,
+                    indent: 2,
+                    htmlEncode: false,
+                    value: _RC_STR("config", "compare_no_meta_note")
                 }]
             }, {
                 xtype: getXType("syno_fieldset", "fieldset"),
@@ -560,7 +570,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //                    value: _RC_STR("config", "conflict_policy"),
 //                    indent: 1
 //                }, {
-                    itemId: "skip",
+                    itemId: "conflict_policy_skip",
                     synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "skip",
@@ -568,14 +578,14 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                     checked: true,
                     indent: 1
                 }, {
-                    itemId: "rename",
+                    itemId: "conflict_policy_rename",
                     synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "rename",
                     boxLabel: _RC_STR("config", "rename"),
                     indent: 1
                 }, {
-                    itemId: "overwrite",
+                    itemId: "conflict_policy_overwrite",
                     synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "overwrite",

@@ -54,6 +54,7 @@ compare_title      = "File comparison mode"
 compare_desc       = "???"
 compare_binary     = "Compares files byte by byte"
 compare_no_meta    = "Compares files without metadata (EXIF, XMP)"
+compare_no_meta_note = "<font class="note-font">Note: </font>This mode is only supported for file types that support writing mode by <a target="_blank" href="https://exiftool.org/#supported">ExifTool</a>."
 
 [editor]
 window_title       = "RoboCopy matadata editor"
