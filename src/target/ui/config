@@ -1,13 +1,17 @@
 {
-    "RoboCopy.js": {
+    "MetaEditor.js": {
         "SYNO.SDS.RoboCopy.MetadataEditorApp": {
             "type": "app",
-            "icon": "images\/icon_{0}.png",
-            "texts": "texts",
             "allowMultiInstance": false,
             "hidden": true,
-            "allUsers": true,
-            "depend": ["SYNO.SDS.RoboCopy.MetadataEditorWindow"],
+            "appWindow": "SYNO.SDS.RoboCopy.MetadataEditorWindow",
+            "icon": "images\/icon_{0}.png",
+            "title": "editor:window_title",
+            "texts": "texts",
+            "depend": [
+                "SYNO.SDS.RoboCopy.MetadataEditorWindow", 
+                "SYNO.SDS.RoboCopy.utils"
+            ],
             "fb_extern": [{
                 "multiple": true,
                 "dir": false,
@@ -18,10 +22,15 @@
         },
         "SYNO.SDS.RoboCopy.MetadataEditorWindow": {
             "type": "lib",
-            "title": "editor:title",
+            "title": "editor:window_title",
             "icon": "images\/icon_{0}.png",
-            "texts": "texts"
-        },
+            "texts": "texts",
+            "depend": [
+                "SYNO.SDS.RoboCopy.utils"
+            ]
+        }
+    },
+    "RoboCopy.js": {
         "SYNO.SDS.RoboCopy.Launcher": {
             "type": "app",
             "title": "app:app_name",
@@ -29,8 +38,7 @@
             "texts": "texts",
             "allowMultiInstance": false,
             "autoLaunch": true,
-            "hidden": true,
-            "allUsers": true
+            "hidden": true
         },
         "SYNO.SDS.RoboCopy.Instance": {
             "type": "app",
@@ -68,19 +76,22 @@
             "title": "app:app_name",
             "icon": "images/icon_{0}.png",
             "texts": "texts",
-            "depend": ["SYNO.SDS.RoboCopy.RuleEdit", "SYNO.SDS.App.FileStation3.Instance"]
+            "depend": [
+                "SYNO.SDS.RoboCopy.RuleEdit", 
+                "SYNO.SDS.App.FileStation3.Instance", 
+                "SYNO.SDS.RoboCopy.utils"
+            ]
         },
         "SYNO.SDS.RoboCopy.RuleEdit": {
             "type": "lib",
-            "depend": []
-        },
-        "SYNO.SDS.RoboCopy.ErrorMessageHandler": {
-            "type": "lib",
-            "depend": []
+            "depend": ["SYNO.SDS.RoboCopy.utils"]
         },
         "SYNO.SDS.RoboCopy.Action": {
-            "depend": [] 
-        },
+            "depend": ["SYNO.SDS.RoboCopy.utils"]
+        }
+    },
+    "Utils.js": {
+        "SYNO.SDS.RoboCopy.GetErrorMessage": [],
         "SYNO.SDS.RoboCopy.utils": [],
         "SYNO.SDS.RoboCopy.utils.launchFn": [],
         "SYNO.SDS.RoboCopy.utils.launchFnCopy": [],

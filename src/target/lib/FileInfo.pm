@@ -64,6 +64,39 @@ sub load($;$)
     $info->{file_name} = $file_name if defined $file_name;
     
     $info->{locator} = $locator if defined $locator && ref $locator eq 'Locator';
+    
+    $info->{width} = $exifTool->GetValue('ImageWidth', 'ValueConv');
+    $info->{height} = $exifTool->GetValue('ImageHeight', 'ValueConv');
+    
+    $info->{areas} = [];
+    my @arType = $exifTool->GetValue('RegionType', 'ValueConv');
+#    print STDERR "RegionType: (", scalar(@arType), "): [", join(', ', @arType),"]\n";
+    my $regDimH = $exifTool->GetValue('RegionAppliedToDimensionsH')
+        || $info->{height};
+    my $regDimW = $exifTool->GetValue('RegionAppliedToDimensionsW') 
+        || $info->{width};
+    my $regDimUnit = $exifTool->GetValue('RegionAppliedToDimensionsUnit') 
+        || 'pixel';
+
+#    print STDERR "Image: $regDimW x $regDimH $regDimUnit\n";
+
+    my @arX = $exifTool->GetValue('RegionAreaX', 'ValueConv');
+    my @arY = $exifTool->GetValue('RegionAreaY', 'ValueConv');
+    my @arH = $exifTool->GetValue('RegionAreaH', 'ValueConv');
+    my @arW = $exifTool->GetValue('RegionAreaW', 'ValueConv');
+    my @arName = $exifTool->GetValue('RegionName', 'ValueConv');
+    while (defined ($_ = shift @arType)) {
+        my $area = FileInfo::Area->new({
+            'type' => _parse_str($_),
+            'name' => _parse_str(shift(@arName)),
+            'posX' => _parse_float(shift(@arX)),
+            'posY' => _parse_float(shift(@arY)),
+            'height' => _parse_float(shift(@arH)),
+            'width' => shift(@arW)
+            });
+        push @{$info->{areas}}, $area;
+    }
+
 
     return bless($info, $class);
 }
@@ -104,7 +137,7 @@ sub tagValue($)
 {
     my $val = shift;
     if (ref $val eq 'ARRAY') {
-        $val = '[' . join(', ', @$val) ;
+        $val = '[' . join(', ', @$val) . ']';
     } elsif (ref $val eq 'SCALAR') {
 #        $val = '(Binary data)';
         if ($$val =~ /^Binary data/) {
@@ -199,6 +232,35 @@ sub update($$;$)
                 : undef),
             'EXIF:GPSLongitudeRef');
     }
+    # Update AREAS
+    if ( exists $self->{areas}) {
+        if (scalar(@{$self->{areas}}) > 0) {
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsH' => $exifTool->GetValue('ImageHeight'), Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsUnit' => 'pixel', Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsW' => $exifTool->GetValue('ImageWidth'), Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaH' => [ map { $_->height } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaW' => [ map { $_->width } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaX' => [ map { $_->posX } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaY' => [ map { $_->posY } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionName' => [ map { $_->name } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionRotation' => [ map { 0 } @{$self->areas} ], Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionType' => [ map { $_->type } @{$self->areas} ], Protected => 1);
+#RegionAreaUnit                  : normalized
+        }
+        else {
+            # Remove areas properties
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsH' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsUnit' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAppliedToDimensionsW' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaH' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaW' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaX' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionAreaY' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionName' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionRotation' => undef, Protected => 1);
+            $exifTool->SetNewValue('XMP-mwg-rs:RegionType' => undef, Protected => 1);
+        }
+    }
 
 #    $exifTool->SetNewValue('xmp:all');
 #    printf STDERR "\tRemove XMP properties\n";
@@ -269,34 +331,34 @@ sub cmp_files($$)
 {
     my ($file1, $file2) = @_;
 
-#    printf STDERR "Try compare '$file1' and '$file2'\n";
+    printf STDERR "Try compare '$file1' and '$file2'\n";
 
     my @st1 = stat($file1);
     if (@st1) {
         my @st2 = stat($file2);
         if (@st2 && $st1[0] == $st2[0] && $st1[1] == $st2[1]) {
-#            printf STDERR "'$file1' and '$file2' are identical\n";
+            printf STDERR "'$file1' and '$file2' are identical\n";
             return 0;
         }
     }
     if (Image::ExifTool::CanWrite($file1) 
         && Image::ExifTool::CanWrite($file2)) {
 
-#        printf STDERR "\tTry create temporary files\n";
+        printf STDERR "\tTry create temporary files\n";
         my $fh1 = IO::File->new_tmpfile;
         my $fh2 = IO::File->new_tmpfile;
         
         if (defined $fh1 && defined $fh2) {
             my $exifTool = new Image::ExifTool;
 
-#            printf STDERR "\tTry clear EXIF data '$file1'\n";
+            printf STDERR "\tTry clear EXIF data '$file1'\n";
             $exifTool->ExtractInfo($file1);
             $exifTool->SetNewValue('*');
             $fh1->autoflush(1);
             $exifTool->WriteInfo($file1, $fh1);
             seek($fh1, 0, 0);
             
-#            printf STDERR "\tTry clear EXIF data '$file2'\n";
+            printf STDERR "\tTry clear EXIF data '$file2'\n";
             $exifTool->ExtractInfo($file2);
             $exifTool->SetNewValue('*');
             $fh2->autoflush(1);
@@ -306,17 +368,15 @@ sub cmp_files($$)
 #            exifCompare($fh1, $fh2);
 #            seek($fh1, 0, 0);
 #            seek($fh2, 0, 0);
-            
-            my $res = compare($fh1, $fh2);
-#            printf STDERR "\t\tCompare result: $res\n";
-            return $res;
+
+            return compare($fh1, $fh2);
         }
         else {
-#            printf STDERR "Cannot create temporary files.\n";
+            printf STDERR "Cannot create temporary files.\n";
             return 2;
         }
     }
-#    printf STDERR "\tUse full compare '$file1' and '$file2'\n";
+    printf STDERR "\tUse full compare '$file1' and '$file2'\n";
     return compare($file1, $file2); 
 }
 
@@ -355,6 +415,37 @@ sub title
         $self->{title} = shift;
     }
     $old_value;
+}
+
+sub areas
+{
+    my $self = shift;
+    my $old_value = $self->{areas};
+    if (@_) {
+        my @args = (scalar @_ == 1 
+            ? (ref $_[0] eq 'ARRAY' 
+                ? @{$_[0]}
+                : @_
+            )
+            : @_
+        );
+        foreach (@args) {
+            croak 'All elements must be a FileInfo::Area ref data' 
+                unless ref $_ && $_->isa('FileInfo::Area');
+        }
+        $self->{areas} = \@args;
+    }
+    $old_value;
+}
+
+sub width
+{
+    shift->{width};
+}
+
+sub height
+{
+    shift->{height};
 }
 
 sub location($)
@@ -559,6 +650,87 @@ sub _get_location_value
     undef;
 }
 
+{
+    package FileInfo::Area;
+    
+    sub new(;$)
+    {
+        my $class = ref $_[0] ? ref shift() : shift();
+        my $args = scalar @_ == 1 
+            ? (ref $_[0] eq 'HASH' 
+                ? {%{$_[0];}}
+                : croak('Single parameters to '.$class.':new() must be a HASH ref data => ' . $_[0] . "\n")
+            )
+            : (@_ % 2 
+                ? croak("The new() method for $class expects a hash reference or a" 
+                    . " key/value list. You passed an odd number of arguments\n") 
+                : {@_}
+            );
 
+        my $new = bless({}, $class);
+        foreach my $key (qw(posX posY height width name type)) {
+            next unless defined $args->{$key};
+            $new->$key($args->{$key});
+        }
+        return $new;
+    }
+    
+    sub posX
+    {
+        my $self = shift;
+        my $old_value = $self->{posX};
+        if (@_) {
+            $self->{posX} = shift;
+        }
+        $old_value;
+    }
+    
+    sub posY
+    {
+        my $self = shift;
+        my $old_value = $self->{posY};
+        if (@_) {
+            $self->{posY} = shift;
+        }
+        $old_value;
+    }
+    sub height
+    {
+        my $self = shift;
+        my $old_value = $self->{height};
+        if (@_) {
+            $self->{height} = shift;
+        }
+        $old_value;
+    }
+    sub width
+    {
+        my $self = shift;
+        my $old_value = $self->{width};
+        if (@_) {
+            $self->{width} = shift;
+        }
+        $old_value;
+    }
+    sub name
+    {
+        my $self = shift;
+        my $old_value = $self->{name};
+        if (@_) {
+            $self->{name} = shift;
+        }
+        $old_value;
+    }
+    sub type
+    {
+        my $self = shift;
+        my $old_value = $self->{type};
+        if (@_) {
+            $self->{type} = shift;
+        }
+        $old_value;
+    }
+
+}
 
 1;
