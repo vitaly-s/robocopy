@@ -105,9 +105,9 @@ sub new(;$)
 {
     my $class = __PACKAGE__; #ref $_[0] ? ref shift() : shift();
     my $locator = shift;
-    croak "Invalid locator" if defined $locator && ref $locator ne 'Locator';
+    croak "Invalid locator" if defined $locator && ref $locator && !$locator->isa('Locator');
     my $info = {};
-    $info->{locator} = $locator if defined $locator && ref $locator eq 'Locator';
+    $info->{locator} = $locator if defined $locator && ref $locator && $locator->isa('Locator');
     return bless($info, $class);
 }
 

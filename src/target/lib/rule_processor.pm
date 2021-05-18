@@ -78,7 +78,7 @@ sub new {
     foreach my $key (keys %{$rule}) {
         $self->{$key} = $rule->{$key};
     }
-    $self->{locator} = $locator if defined $locator && ref($locator) eq 'Locator';
+    $self->{locator} = $locator if defined $locator && ref $locator && $locator->isa('Locator');
     $self->{conflict_policy} = DEFAULT_CONFLICT_POLICY;
     $self->{compare_mode} = DEFAULT_COMPARE_MODE;
     
