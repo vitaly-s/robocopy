@@ -32,7 +32,7 @@ use rule_processor;
 use Syno;
 use integration;
 use Geo::Coder;
-use Locator;
+use CityLocator;
 use Settings;
 
 
@@ -115,7 +115,7 @@ my $settings = Settings->new;
 eval { $settings = Settings::load };
 Syno::log("Read setting error: $@", 'warn') if $@;
 
-my $locator = Locator->new();
+my $locator = CityLocator->new();
 $locator->threshold($settings->locator_threshold);
 $locator->language($settings->locator_language);
 

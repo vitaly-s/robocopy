@@ -63,7 +63,7 @@ sub load($;$)
     $info->{file_dir} = $file_dir if defined $file_dir;
     $info->{file_name} = $file_name if defined $file_name;
     
-    $info->{locator} = $locator if defined $locator && ref $locator eq 'Locator';
+    $info->{locator} = $locator if defined $locator && ref $locator && $locator->isa('Locator');
     
     $info->{width} = $exifTool->GetValue('ImageWidth', 'ValueConv');
     $info->{height} = $exifTool->GetValue('ImageHeight', 'ValueConv');

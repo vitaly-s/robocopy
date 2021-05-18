@@ -6,33 +6,39 @@ use Geo::Place;
 use Geo::Coder;
 use Geo::JSON::Utils;
 
+use base Exporter; 
 
 #use Geo::JSON::Types;
 #use TypeDefs;
 
-sub DEFAULT_THRESHOLD { 1000 }
+sub DEFAULT_THRESHOLD { 1000 }  # 1 km
 sub DEFAULT_LANGUAGE { Geo::Coder::DEFAULT_LANGUAGE }
-
 
 sub new
 {
     my $class = ref $_[0] ? ref shift() : shift();
 
-    my $coder = $_[0] || create_geocoder();
+    my $new = bless({}, $class);
+
+    $new->_init(@_);
+    
+    return $new;
+}
+
+sub _init
+{
+    my $self = $_[0];
+
+    my $coder = $_[1] || create_geocoder();
     
     croak 'The new() method reqiare coder value' unless defined $coder
         && ref $coder
         && UNIVERSAL::isa($coder, 'Geo::Coder::Base');
 
-    my $new = bless({
-        coder => $coder,
-        language => DEFAULT_LANGUAGE,
-        threshold => DEFAULT_THRESHOLD, # 1 km
-        cache => [],
-        invalid_cache => [],
-    }, $class);
-
-    return $new;
+    $self->{coder} = $coder;
+    $self->{language} = DEFAULT_LANGUAGE;
+    $self->{threshold} = DEFAULT_THRESHOLD;
+    $self->{point_cache} = [];
 }
 
 sub language
@@ -59,22 +65,32 @@ sub search($$)
 {
     my ($self, $query) = @_;
     return unless defined $query;
-    my $place;
-    eval { $place = $self->{coder}->search($query, $self->{language}) };
-#    print STDERR __PACKAGE__, " coder->search '", $@, "'\n" if $@;
     my $address;
     my $point;
-    if (defined $place) {
-#        print STDERR __PACKAGE__, " coder->search 'address': ", ref($place->address), "\n";
-#        print STDERR __PACKAGE__, " coder->search 'geometry': ", ref($place->geometry), "\n";
-        $address = $place->address;
-        if (defined($place->geometry) && ref($place->geometry) eq 'Geo::JSON::Point') {
-            $point = {
-                latitude => $place->geometry->coordinates->[1],
-                longitude => $place->geometry->coordinates->[0],
-            };
+    if ($query =~ m/([-+]?\d{1,2}\.\d+)\s*,\s*([-+]?\d{1,2}\.\d+)/) {
+        $point = {
+            latitude => 0.0 + $1,
+            longitude => 0.0 + $2,
+        };
+        eval { $address = $self->{coder}->reverse($point->{latitude}, $point->{longitude}, $self->{language}) };
+#       print STDERR __PACKAGE__, " coder->reverse '", $@, "'\n" if $@;
+    }
+    else {
+        my $place;
+        eval { $place = $self->{coder}->search($query, $self->{language}) };
+#       print STDERR __PACKAGE__, " coder->search '", $@, "'\n" if $@;
+        if (defined $place) {
+#            print STDERR __PACKAGE__, " coder->search 'address': ", ref($place->address), "\n";
+#           print STDERR __PACKAGE__, " coder->search 'geometry': ", ref($place->geometry), "\n";
+            $address = $place->address;
+            if (defined($place->geometry) && ref($place->geometry) eq 'Geo::JSON::Point') {
+                $point = {
+                    latitude => $place->geometry->coordinates->[1],
+                    longitude => $place->geometry->coordinates->[0],
+                };
+            }
+#            print STDERR __PACKAGE__, " address ", join(',', keys %{$adress}), "\n";
         }
-#        print STDERR __PACKAGE__, " address ", join(',', keys %{$adress}), "\n";
     }
     if (wantarray) {
         return ($address, $point);
@@ -86,55 +102,43 @@ sub locate($$$)
 {
     my ($self, $latitude, $longitude) = @_;
     return unless defined $latitude and defined $longitude;
+
     # find in cache
-    foreach my $item (@{$self->{cache}}) {
-        next unless $item->in_bbox($longitude, $latitude);
-        my $geometry = $item->geometry;
-        if (defined($geometry) && $geometry->is_region) {
-            next unless $geometry->inside([$longitude, $latitude]);
-#            print STDERR __PACKAGE__, " HIGH accuracy (cache)\n";
-            return $item->address;
-        }
-    }
-    # find in invalid cache
-    foreach my $item (@{$self->{invalid_cache}}) {
-        my $dist = distance($item->{point}->[0], $item->{point}->[1], $latitude, $longitude);
-        if ($dist <= $self->{threshold}) {
-#            print STDERR __PACKAGE__, " VERY LOW accuracy (invalid_cache): $dist \n";
-            return $item->{address};
-        }
-    }
+    my $address = $self->_from_cache($latitude, $longitude);
+    return $address if defined $address;
 
 #    print STDERR __PACKAGE__, " try geocode\n";
-    my $address;
     eval { $address = $self->{coder}->reverse($latitude, $longitude, $self->{language}) };
     
     return unless defined $address;
     
-    my $city_adr = $address->clone;
-    $city_adr->suburb(undef);
-    $city_adr->road(undef);
-    $city_adr->house(undef);
-    $city_adr->postCode(undef);
-    
-#    print STDERR __PACKAGE__, " try CITY geocode\n";
-    my $place;
-    eval { $place = $self->{coder}->lookup($city_adr) } if defined $city_adr->city;
-#    print STDERR __PACKAGE__, " coder->reverse '", $@, "'\n" if $@;
-    if (defined($place && defined($place->geometry) && $place->geometry->is_region)) {
-#        print STDERR __PACKAGE__, " add to CHACHE ", $place->address->city, "\n";
-        push @{$self->{cache}}, $place;
+    # put to cache
+    return $self->_to_cache($latitude, $longitude, $address);
+}
+
+sub _from_cache
+{
+    my ($self, $latitude, $longitude) = @_;
+    foreach my $item (@{$self->{point_cache}}) {
+        my $dist = distance($item->{point}->[0], $item->{point}->[1], $latitude, $longitude);
+        if ($dist <= $self->{threshold}) {
+#            print STDERR __PACKAGE__, " VERY LOW accuracy (POINT_CACHE): $dist \n";
+            return $item->{address};
+        }
     }
-    else {
-#        print STDERR __PACKAGE__, " add to INVALID_CHACHE\n";
-        # fill invalid_cache
-        my $invalid_item = {
-            point => [$latitude, $longitude],
-            address => $city_adr,
-        };
-        push @{$self->{invalid_cache}}, $invalid_item;
-    }
-    $city_adr;
+    undef;
+}
+
+sub _to_cache
+{
+    my ($self, $latitude, $longitude, $address) = @_;
+    my $item = {
+        point => [$latitude, $longitude],
+        address => $address,
+    };
+#    print STDERR __PACKAGE__, " add to POINT_CACHE\n";
+    push @{$self->{point_cache}}, $item;
+    $address;
 }
 
 # See:

@@ -6,6 +6,7 @@ use Carp;
 
 use base qw(Geo::JSON::Geometry);
 use TypeDefs;
+use Geo::JSON::Polygon;
 
 sub _init {
     my ($self, $args) = @_;

@@ -31,7 +31,7 @@ use Syno;
 use task_info;
 use integration;
 use Geo::Coder;
-use Locator;
+use CityLocator;
 use Settings;
 use FileInfo;
 
@@ -138,11 +138,10 @@ sub load_settings
     $setting;
 }
 
-sub create_locator
+sub configure_locator
 {
+    my $locator = shift || CityLocator->new();
     my $setting = shift || load_settings;
-#    my $coder = create_geocoder(); #agent => "XXX");
-    my $locator = Locator->new();
 
     $locator->threshold($setting->locator_threshold);
     $locator->language($setting->locator_language);
@@ -150,6 +149,23 @@ sub create_locator
     return $locator;
 }
 
+sub address_format
+{
+    my %formats = (
+        'en' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
+        'fr' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
+        'de' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
+        'it' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
+        'es' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
+        'ru' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
+    );
+    my $address = shift;
+    return undef unless defined $address;
+    
+    my $setting = shift || load_settings;
+    my $fmt = $formats{$setting->locator_language} || $formats{en};
+    return Template::parse { $address->{$_} } $fmt;
+}
 #sub print_error
 #{
 #    my ($error) = @_;
@@ -452,7 +468,7 @@ sub action_post_task_run
     my $start_time = time;
     
     my $settings = load_settings;
-    my $locator = create_locator($settings);
+    my $locator = configure_locator(CityLocator->new(), $settings);
 
 
     foreach my $rule (@cfg) {
@@ -663,19 +679,22 @@ sub action_get_fileinfo
 
     my @files = split(/\|/, $params{files});
     my $settings = load_settings;
-    my $locator = create_locator($settings);
-    
+    my $locator = configure_locator(Locator->new(), $settings);
+#    print STDERR "Locator\n", Dumper($locator), "\n", $locator->locate($self->{latitude}, $self->{longitude});
+
     my $date;
     my $location;
     my $title;
+    my @address_fields = qw/ house road suburb city state country /;
     foreach my $file (@files) {
         my $info = FileInfo::load($file, $locator);
         my $fl_date = $info->parse_template('{yyyy}-{MM}-{dd}');
         my $fl_title = $info->get_value('title');
-        my $fl_location = ''; 
-        $fl_location = $info->parse_template('({city}, ){country}') unless defined $location && $location eq '';
-        
-#        print STDERR "$file\n\tfl_date:$fl_date\n\tfl_title:$fl_title\n";
+#        my $fl_location = ''; 
+#        $fl_location = $info->parse_template('({city}, ){country}') unless defined $location && $location eq '';
+#        print STDERR $info->parse_template('({city}, ){country}'), "\n\n";
+        my $fl_location = $info->get_location();
+#        print STDERR "$file\n\tfl_date:$fl_date\n\tfl_title:$fl_title\n\tfl_location:$fl_location\n";
 
         if (defined $date) {
             $date = '' if defined $fl_date && $fl_date ne $date;
@@ -689,16 +708,34 @@ sub action_get_fileinfo
         else {
             $title = $fl_title;
         }
+#        if (defined $location) {
+#            $location = '' if defined $fl_location && $fl_location ne $location;
+#        }
+#        else {
+#            $location = $fl_location;
+#        }
         if (defined $location) {
-            $location = '' if defined $fl_location && $fl_location ne $location;
+            if (defined $fl_location) {
+                foreach my $fld (@address_fields) {
+                    $location->{$fld} = undef unless defined $location->{$fld} 
+                        && $fl_location->{$fld} 
+                        && $location->{$fld} eq $fl_location->{$fld};
+                }
+            }
         }
         else {
             $location = $fl_location;
         }
     }
+    
+    my $location_str = "";
+    if (defined $location) {
+        $location_str = address_format($location, $settings);
+    }
     RESPONSE({
         'date' => $date, 
-        'location' => $location,
+#        'location' => $location,
+        'location' => $location_str,
         'title' => $title
     });
 }
@@ -711,7 +748,7 @@ sub action_post_fileinfo
 
     my @files = split(/\|/, $params{files});
     my $settings = load_settings;
-    my $locator = create_locator($settings);
+    my $locator = configure_locator(CityLocator->new(), $settings);
     
     my %result = ();
     my $fileInfo = FileInfo::new($locator);
@@ -904,7 +941,7 @@ sub _action_test
         my $error;
 
         my $settings = load_settings;
-        my $locator = create_locator($settings);
+        my $locator = configure_locator(CityLocator->new(), $settings);
 
         my $task;
 #        $task = new task_info($user);

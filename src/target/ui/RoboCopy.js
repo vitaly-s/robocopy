@@ -526,7 +526,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                         ["fr", _T("common", "language_fre")],
                         ["de", _T("common", "language_ger")],
                         ["it", _T("common", "language_ita")],
-                        ["ås", _T("common", "language_spn")],
+                        ["es", _T("common", "language_spn")],
 //                        ["cht", _T("common", "language_cht")],
 //                        ["chs", _T("common", "language_chs")],
 //                        ["jpn", _T("common", "language_jpn")],
