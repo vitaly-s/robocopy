@@ -50,13 +50,13 @@ use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 require Exporter;
 
-$VERSION = '3.37';
+$VERSION = '3.41';
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(EscapeXML UnescapeXML);
 
 sub ProcessXMP($$;$);
 sub WriteXMP($$;$);
-sub CheckXMP($$$);
+sub CheckXMP($$$;$);
 sub ParseXMPElement($$$;$$$$);
 sub DecodeBase64($);
 sub EncodeBase64($;$);
@@ -70,6 +70,13 @@ sub FormatXMPDate($);
 sub ConvertRational($);
 sub ConvertRationalList($);
 sub WriteGSpherical($$$);
+
+# standard path locations for XMP in major file types
+my %stdPath = (
+    JPEG => 'JPEG-APP1-XMP',
+    TIFF => 'TIFF-IFD0-XMP',
+    PSD => 'PSD-XMP',
+);
 
 # lookup for translating to ExifTool namespaces (and family 1 group names)
 %stdXlatNS = (
@@ -201,13 +208,13 @@ my %uri2ns = ( 'http://ns.exiftool.org/1.0/' => 'et' ); # (allow exiftool.org as
     ValueConv    => 'Image::ExifTool::GPS::ToDegrees($val, 1)',
     ValueConvInv => 'Image::ExifTool::GPS::ToDMS($self, $val, 2, "N")',
     PrintConv    => 'Image::ExifTool::GPS::ToDMS($self, $val, 1, "N")',
-    PrintConvInv => 'Image::ExifTool::GPS::ToDegrees($val, 1)',
+    PrintConvInv => 'Image::ExifTool::GPS::ToDegrees($val, 1, "lat")',
 );
 %longConv = (
     ValueConv    => 'Image::ExifTool::GPS::ToDegrees($val, 1)',
     ValueConvInv => 'Image::ExifTool::GPS::ToDMS($self, $val, 2, "E")',
     PrintConv    => 'Image::ExifTool::GPS::ToDMS($self, $val, 1, "E")',
-    PrintConvInv => 'Image::ExifTool::GPS::ToDegrees($val, 1)',
+    PrintConvInv => 'Image::ExifTool::GPS::ToDegrees($val, 1, "lon")',
 );
 %dateTimeInfo = (
     # NOTE: Do NOT put "Groups" here because Groups hash must not be common!
@@ -467,6 +474,19 @@ my %sCorrectionMask = (
     CenterValue  => { Writable => 'real', List => 0 },
     PerimeterValue=>{ Writable => 'real', List => 0 },
 );
+my %sCorrectionRangeMask = (
+    STRUCT_NAME => 'CorrectionRangeMask',
+    NAMESPACE   => 'crs',
+    Version     => { },
+    Type        => { },
+    ColorAmount => { Writable => 'real' },
+    LumMin      => { Writable => 'real' },
+    LumMax      => { Writable => 'real' },
+    LumFeather  => { Writable => 'real' },
+    DepthMin    => { Writable => 'real' },
+    DepthMax    => { Writable => 'real' },
+    DepthFeather=> { Writable => 'real' },
+);
 my %sCorrection = (
     STRUCT_NAME => 'Correction',
     NAMESPACE   => 'crs',
@@ -491,6 +511,15 @@ my %sCorrection = (
     LocalDefringe    => { FlatName => 'Defringe',   Writable => 'real', List => 0 },
     LocalTemperature => { FlatName => 'Temperature',Writable => 'real', List => 0 },
     LocalTint        => { FlatName => 'Tint',       Writable => 'real', List => 0 },
+    LocalHue         => { FlatName => 'Hue',        Writable => 'real', List => 0 },
+    LocalWhites2012  => { FlatName => 'Whites2012', Writable => 'real', List => 0 },
+    LocalBlacks2012  => { FlatName => 'Blacks2012', Writable => 'real', List => 0 },
+    LocalDehaze      => { FlatName => 'Dehaze', Writable => 'real', List => 0 },
+    LocalTexture     => { FlatName => 'Texture', Writable => 'real', List => 0 },
+    CorrectionRangeMask => {
+        FlatName => 'RangeMask',
+        Struct => \%sCorrectionRangeMask,
+    },
     CorrectionMasks  => {
         FlatName => 'Mask',
         Struct => \%sCorrectionMask,
@@ -2258,7 +2287,7 @@ my %sPantryItem = (
         Priority => 0,
         # prevent this from getting set from a LensID that has been converted
         ValueConvInv => q{
-            warn "Expected one or more integer values" if $val =~ /[^\d ]/;
+            warn "Expected one or more integer values" if $val =~ /[^-\d ]/;
             return $val;
         },
     },
@@ -2311,6 +2340,7 @@ my %sPantryItem = (
     Location            => { Groups => { 2 => 'Location' } },
     Scene               => { Groups => { 2 => 'Other' }, List => 'Bag' },
     SubjectCode         => { Groups => { 2 => 'Other' }, List => 'Bag' },
+    # Copyright - have seen this in a sample (Jan 2021), but I think it is non-standard
 );
 
 # Adobe Lightroom namespace properties (lr) (ref PH)
@@ -3306,6 +3336,9 @@ NoLoop:
         } else {
             $val = ConvertXMPDate($val, $new) if $new or $fmt eq 'date';
         }
+        if ($$et{XmpValidate} and $fmt and $fmt eq 'boolean') {
+            $et->WarnOnce("Boolean value for XMP-$ns:$$tagInfo{Name} should be capitalized",1);
+        }
         # protect against large binary data in unknown tags
         $$tagInfo{Binary} = 1 if $new and length($val) > 65536;
     }
@@ -3818,6 +3851,7 @@ sub ProcessXMP($$;$)
     my ($buff, $fmt, $hasXMP, $isXML, $isRDF, $isSVG);
     my $rtnVal = 0;
     my $bom = 0;
+    my $path = $et->MetadataPath();
 
     # namespaces and prefixes currently in effect while parsing the file,
     # and lookup to translate brain-dead-Microsoft-Photo-software prefixes
@@ -3835,11 +3869,7 @@ sub ProcessXMP($$;$)
         (($$dirInfo{DirName} || '') eq 'XMP' or $$et{FILE_TYPE} eq 'XMP'))
     {
         $$et{XmpValidate} = { } if $$et{OPTIONS}{Validate};
-        my $path = $et->MetadataPath();
-        my $nonStd;
-        if ($$et{FILE_TYPE} =~ /^(JPEG|TIFF|PSD)$/ and $path !~ /^(JPEG-APP1-XMP|TIFF-IFD0-XMP|PSD-XMP)$/) {
-            $nonStd = 1;
-        }
+        my $nonStd = ($stdPath{$$et{FILE_TYPE}} and $path ne $stdPath{$$et{FILE_TYPE}});
         if ($nonStd and $Image::ExifTool::MWG::strict) {
             $et->Warn("Ignored non-standard XMP at $path");
             return 1;
@@ -4037,12 +4067,14 @@ sub ProcessXMP($$;$)
 
     # extract XMP/XML as a block if specified
     my $blockName = $$dirInfo{BlockInfo} ? $$dirInfo{BlockInfo}{Name} : 'XMP';
+    my $blockExtract = $et->Options('BlockExtract');
     if (($$et{REQ_TAG_LOOKUP}{lc $blockName} or ($$et{TAGS_FROM_FILE} and
-        not $$et{EXCL_TAG_LOOKUP}{lc $blockName})) and
+        not $$et{EXCL_TAG_LOOKUP}{lc $blockName}) or $blockExtract) and
         (($$et{FileType} eq 'XMP' and $blockName eq 'XMP') or
         ($$dirInfo{DirName} and $$dirInfo{DirName} eq $blockName)))
     {
         $et->FoundTag($$dirInfo{BlockInfo} || 'XMP', substr($$dataPt, $dirStart, $dirLen));
+        return 1 if $blockExtract and $blockExtract > 1;
     }
 
     $tagTablePtr or $tagTablePtr = GetTagTable('Image::ExifTool::XMP::Main');
@@ -4096,6 +4128,13 @@ sub ProcessXMP($$;$)
             }
         }
         defined $fmt or $et->Warn('XMP character encoding error');
+    }
+    # warn if standard XMP is missing xpacket wrapper
+    if ($$et{XMP_NO_XPACKET} and $$et{OPTIONS}{Validate} and
+        $stdPath{$$et{FILE_TYPE}} and $path eq $stdPath{$$et{FILE_TYPE}} and
+        not $$dirInfo{IsExtended} and not $$et{DOC_NUM})
+    {
+        $et->Warn('XMP is missing xpacket wrapper', 1);
     }
     if ($fmt) {
         # trim if necessary to avoid converting non-UTF data

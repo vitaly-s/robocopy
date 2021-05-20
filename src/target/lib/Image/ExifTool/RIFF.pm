@@ -21,6 +21,7 @@
 #              13) http://tech.ebu.ch/docs/tech/tech3285.pdf
 #              14) https://developers.google.com/speed/webp/docs/riff_container
 #              15) https://tech.ebu.ch/docs/tech/tech3306-2009.pdf
+#              16) https://sites.google.com/site/musicgapi/technical-documents/wav-file-format
 #------------------------------------------------------------------------------
 
 package Image::ExifTool::RIFF;
@@ -29,7 +30,7 @@ use strict;
 use vars qw($VERSION);
 use Image::ExifTool qw(:DataAccess :Utils);
 
-$VERSION = '1.56';
+$VERSION = '1.58';
 
 sub ConvertTimecode($);
 sub ProcessSGLT($$$);
@@ -354,9 +355,35 @@ my %code2charset = (
         SubDirectory => { TagTable => 'Image::ExifTool::RIFF::DS64' },
     },
     list => 'ListType',  #15
-    labl => { #15
-        Name => 'Label',
-        SubDirectory => { TagTable => 'Image::ExifTool::RIFF::Label' },
+    labl => { #16 (in 'adtl' chunk)
+        Name => 'CuePointLabel',
+        Priority => 0, # (so they are stored in sequence)
+        ValueConv => 'my $str=substr($val,4); $str=~s/\0+$//; unpack("V",$val) . " " . $str',
+    },
+    note => { #16 (in 'adtl' chunk)
+        Name => 'CuePointNote',
+        Priority => 0, # (so they are stored in sequence)
+        ValueConv => 'my $str=substr($val,4); $str=~s/\0+$//; unpack("V",$val) . " " . $str',
+    },
+    ltxt => { #16 (in 'adtl' chunk)
+        Name => 'LabeledText',
+        Notes => 'CuePointID Length Purpose Country Language Dialect Codepage Text',
+        Priority => 0, # (so they are stored in sequence)
+        ValueConv => q{
+            my @a = unpack('VVa4vvvv', $val);
+            $a[2] = "'$a[2]'";
+            my $txt = substr($val, 18);
+            $txt =~ s/\0+$//;   # remove null terminator
+            return join(' ', @a, $txt);
+        },
+    },
+    smpl => { #16
+        Name => 'Sampler',
+        SubDirectory => { TagTable => 'Image::ExifTool::RIFF::Sampler' },
+    },        
+    inst => { #16
+        Name => 'Instrument',
+        SubDirectory => { TagTable => 'Image::ExifTool::RIFF::Instrument' },
     },
     LIST_INFO => {
         Name => 'Info',
@@ -395,6 +422,10 @@ my %code2charset = (
             TagTable => 'Image::ExifTool::Pentax::AVI',
             ProcessProc => \&Image::ExifTool::RIFF::ProcessChunks,
         },
+    },
+    LIST_adtl => { #PH (ref 16, forum12387)
+        Name => 'AssociatedDataList',
+        SubDirectory => { TagTable => 'Image::ExifTool::RIFF::Main' },
     },
     # seen LIST_JUNK
     JUNK => [
@@ -466,10 +497,15 @@ my %code2charset = (
         Name => 'NumberOfSamples',
         RawConv => 'Get32u(\$val, 0)',
     },
-   'cue ' => {
+   'cue '=> {
         Name => 'CuePoints',
         Binary => 1,
+        Notes => q{
+            config_files/cutepointlist.config from full distribution will decode this
+            and generate a list of cue points with labels
+        },
     },
+    plst => { Name => 'Playlist',  Binary => 1 }, #16
     afsp => { },
     IDIT => {
         Name => 'DateTimeOriginal',
@@ -704,16 +740,52 @@ my %code2charset = (
     #  very unlikely, support for these is not yet implemented)
 );
 
-# cue point labels (ref 15)
-%Image::ExifTool::RIFF::Label = (
+# Sampler chunk (ref 16)
+%Image::ExifTool::RIFF::Sampler = (
     PROCESS_PROC => \&Image::ExifTool::ProcessBinaryData,
     GROUPS => { 2 => 'Audio' },
     FORMAT => 'int32u',
-    0 => 'LabelID',
-    1 => {
-        Name => 'LabelText',
-        Format => 'string[$size-4]',
+    0 => 'Manufacturer',
+    1 => 'Product',
+    2 => 'SamplePeriod',
+    3 => 'MIDIUnityNote',
+    4 => 'MIDIPitchFraction',
+    5 => {
+        Name => 'SMPTEFormat',
+        PrintConv => {
+            0 => 'none',
+            24 => '24 fps',
+            25 => '25 fps',
+            29 => '29 fps',
+            30 => '30 fps',
+        },
     },
+    6 => {
+        Name => 'SMPTEOffset',
+        Notes => 'HH:MM:SS:FF',
+        ValueConv => q{
+            my $str = sprintf('%.8x', $val);
+            $str =~ s/(..)(..)(..)(..)/$1:$2:$3:$4/;
+            return $str;
+        },
+    },
+    7 => 'NumSampleLoops',
+    8 => 'SamplerDataLen',
+    9 => { Name => 'SamplerData', Format => 'undef[$size-40]', Binary => 1 },
+);
+
+# Instrument chunk (ref 16)
+%Image::ExifTool::RIFF::Instrument = (
+    PROCESS_PROC => \&Image::ExifTool::ProcessBinaryData,
+    GROUPS => { 2 => 'Audio' },
+    FORMAT => 'int8s',
+    0 => 'UnshiftedNote',
+    1 => 'FineTune',
+    2 => 'Gain',
+    3 => 'LowNote',
+    4 => 'HighNote',
+    5 => 'LowVelocity',
+    6 => 'HighVelocity',
 );
 
 # Sub chunks of INFO LIST chunk
@@ -1261,24 +1333,25 @@ my %code2charset = (
     },
 );
 
-# streamed USER txts written by some dashcam (ref PH)
+# streamed USER txts written by Momento M6 dashcam (ref PH)
 %Image::ExifTool::RIFF::UserText = (
     PROCESS_PROC => \&Image::ExifTool::ProcessBinaryData,
     GROUPS => { 2 => 'Location' },
     NOTES => q{
-        Tags decoded from the USER-format txts stream written by an unknown dashcam.
+        Tags decoded from the USER-format txts stream written by Momento M6 dashcam.
         Extracted only if the ExtractEmbedded option is used.
     },
-  #  0 - int32u: 0
+    # (little-endian)
+  #  0 - int32u: 32
   #  4 - int32u: sample number (starting from unknown offset)
-  #  8 - int8u[4]: "0 x y z" ? (z mostly 5-8)
+  #  8 - int8u[4]: "w x y z" ? (w 0=front cam, 1=rear cam, z mostly 5-8)
   # 12 - int8u[4]: "0 x 1 0" ? (x incrementing once per second)
   # 16 - int8u[4]: "0 32 0 x" ?
   # 20 - int32u: 100-150(mostly), 250-300(once per second)
   # 24 - int8u[4]: "0 x y 0" ?
     28 => { Name => 'GPSAltitude', Format => 'int32u', ValueConv => '$val / 10' }, # (NC)
   # 32 - int32u: 0(mostly), 23(once per second)
-  # 36 - int32u: 1
+  # 36 - int32u: 0
     40 => { Name => 'Accelerometer', Format => 'float[3]' },
   # 52 - int32u: 1
     56 => { Name => 'GPSSpeed',      Format => 'float' }, # km/h
@@ -1891,7 +1964,7 @@ sub ProcessRIFF($$)
             $$et{DOC_NUM} = ++$$et{DOC_COUNT};
         }
         my $tagInfo = $$tagTbl{$tag};
-        if ($tagInfo or (($verbose or $unknown) and $tag !~ /^(data|idx1|LIST_movi|RIFF)$/)) {
+        if ($tagInfo or (($verbose or $unknown) and $tag !~ /^(data|idx1|LIST_movi|RIFF|\d{2}(db|dc|wb))$/)) {
             $raf->Read($buff, $len2) == $len2 or $err=1, last;
             my $setGroups;
             if ($tagInfo and ref $tagInfo eq 'HASH' and $$tagInfo{SetGroups}) {

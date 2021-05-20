@@ -56,7 +56,7 @@ use vars qw($VERSION $AUTOLOAD @formatSize @formatName %formatNumber %intFormat
 use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::MakerNotes;
 
-$VERSION = '4.31';
+$VERSION = '4.34';
 
 sub ProcessExif($$$);
 sub WriteExif($$$);
@@ -321,6 +321,7 @@ my %utf8StringConv = (
 my %longBin = (
     ValueConv => 'length($val) > 64 ? \$val : $val',
     ValueConvInv => '$val',
+    LongBinary => 1,        # flag to avoid decoding values of a large array
 );
 
 # PrintConv for SampleFormat (0x153)
@@ -1452,6 +1453,7 @@ my %opcodeInfo = (
             1 => 'Sony Uncompressed 12-bit RAW', #IB
             2 => 'Sony Compressed RAW', # (lossy, ref IB)
             3 => 'Sony Lossless Compressed RAW', #IB
+            4 => 'Sony Lossless Compressed RAW 2', #JR (ILCE-1)
         },
     },
     # 0x7001 - int16u[1] (in SubIFD of Sony ARW images) - values: 0,1
@@ -1472,6 +1474,7 @@ my %opcodeInfo = (
         PrintConv => {
             256 => 'Off',
             257 => 'Auto',
+            272 => 'Auto (ILCE-1)', #JR
             511 => 'No correction params available',
         },
     },
@@ -2560,6 +2563,7 @@ my %opcodeInfo = (
             5 => 'Color sequential area',
             7 => 'Trilinear',
             8 => 'Color sequential linear',
+            # 15 - used by DJI XT2
         },
     },
     0xa300 => {
@@ -3615,11 +3619,11 @@ my %opcodeInfo = (
     },
     0xc6fc => {
         Name => 'ProfileToneCurve',
+        %longBin,
         Writable => 'float',
         WriteGroup => 'IFD0',
         Count => -1,
         Protected => 1,
-        Binary => 1,
     },
     0xc6fd => {
         Name => 'ProfileEmbedPolicy',
@@ -3744,11 +3748,11 @@ my %opcodeInfo = (
     },
     0xc726 => {
         Name => 'ProfileLookTableData',
+        %longBin,
         Writable => 'float',
         WriteGroup => 'IFD0',
         Count => -1,
         Protected => 1,
-        Binary => 1,
     },
     0xc740 => { Name => 'OpcodeList1', %opcodeInfo }, # DNG 1.3
     0xc741 => { Name => 'OpcodeList2', %opcodeInfo }, # DNG 1.3
@@ -4728,8 +4732,8 @@ my %subSecConv = (
     },
     LensID => {
         Groups => { 2 => 'Camera' },
+        Require => 'LensType',
         Desire => {
-            0 => 'LensType',
             1 => 'FocalLength',
             2 => 'MaxAperture',
             3 => 'MaxApertureValue',
@@ -4748,25 +4752,16 @@ my %subSecConv = (
             Applies only to LensType values with a lookup table.  May be configured
             by adding user-defined lenses
         },
-        # this LensID is only valid if the LensType has a PrintConv,
-        # or LensType or LensModel are the model name
+        # this LensID is only valid if the LensType has a PrintConv or is a model name
         RawConv => q{
             my $printConv = $$self{TAG_INFO}{LensType}{PrintConv};
-            return $val if ref $printConv eq 'HASH' or
-                (ref $printConv eq 'ARRAY' and ref $$printConv[0] eq 'HASH') or
-                (defined $val[0] and $val[0] =~ /(mm|\d\/F)/) or
-                (defined $val[6] and $val[6] =~ /(mm|\d\/F)/);
+            return $val if ref $printConv eq 'HASH' or (ref $printConv eq 'ARRAY' and
+                ref $$printConv[0] eq 'HASH') or $val[0] =~ /(mm|\d\/F)/;
             return undef;
         },
-        ValueConv => '$val[0] || $val[6]',
+        ValueConv => '$val',
         PrintConv => q{
             my $pcv;
-            # use LensModel ([6]) if LensType ([0]) is not populated
-            # (iPhone populates LensModel but not LensType)
-            if (not defined $val[0] and defined $val[6]) {
-                $val[0] = $val[6];
-                $prt[0] = $prt[6];
-            }
             # use LensType2 instead of LensType if available and valid (Sony E-mount lenses)
             # (0x8000 or greater; 0 for several older/3rd-party E-mount lenses)
             if (defined $val[9] and ($val[9] & 0x8000 or $val[9] == 0)) {
@@ -4793,6 +4788,30 @@ my %subSecConv = (
             }
             return $lens;
         },
+    },
+    'LensID-2' => {
+        Name => 'LensID',
+        Groups => { 2 => 'Camera' },
+        Desire => {
+            0 => 'LensModel',
+            1 => 'Lens',
+            2 => 'XMP-aux:LensID',
+            3 => 'Make',
+        },
+        Inhibit => {
+            4 => 'Composite:LensID',
+        },
+        RawConv => q{
+            return undef if defined $val[2] and defined $val[3];
+            return $val if defined $val[0] and $val[0] =~ /(mm|\d\/F)/;
+            return $val if defined $val[1] and $val[1] =~ /(mm|\d\/F)/;
+            return undef;
+        },
+        ValueConv => q{
+            return $val[0] if defined $val[0] and $val[0] =~ /(mm|\d\/F)/;
+            return $val[1];
+        },
+        PrintConv => '$_=$val; s/(\d)\/F/$1mm F/; s/mmF/mm F/; s/(\d) mm/${1}mm/; s/ - /-/; $_',
     },
 );
 
@@ -5780,7 +5799,8 @@ sub ProcessExif($$$)
             $numEntries = Get16u($dataPt, $dirStart);
         } else {
             $et->Warn("Bad $dir directory", $inMakerNotes);
-            return 0 unless $inMakerNotes and $dirLen >= 14;
+            return 0 unless $inMakerNotes and $dirLen >= 14 and $dirStart >= 0 and
+                            $dirStart + $dirLen <= length($$dataPt);
             $dirSize = $dirLen;
             $numEntries = int(($dirSize - 2) / 12); # read what we can
             Set16u($numEntries, $dataPt, $dirStart);
@@ -6153,15 +6173,23 @@ sub ProcessExif($$$)
             # (avoids long delays when processing some corrupted files)
             if ($count > 100000 and $formatStr !~ /^(undef|string|binary)$/) {
                 my $tagName = $tagInfo ? $$tagInfo{Name} : sprintf('tag 0x%.4x', $tagID);
+                # (count of 196608 is typical for ColorMap)
                 if ($tagName ne 'TransferFunction' or $count != 196608) {
                     my $minor = $count > 2000000 ? 0 : 2;
                     next if $et->Warn("Ignoring $dirName $tagName with excessive count", $minor);
                 }
             }
-            # convert according to specified format
-            $val = ReadValue($valueDataPt,$valuePtr,$formatStr,$count,$readSize,\$rational);
-            # re-code if necessary
-            $val = $et->Decode($val, $strEnc) if $strEnc and $formatStr eq 'string' and defined $val;
+            if ($count > 500 and $formatStr !~ /^(undef|string|binary)$/ and
+                (not $tagInfo or $$tagInfo{LongBinary}) and not $$et{OPTIONS}{IgnoreMinorErrors})
+            {
+                $et->WarnOnce('Not decoding some large array(s). Ignore minor errors to decode', 2);
+                $val = "(large array of $count $formatStr values)";
+            } else {
+                # convert according to specified format
+                $val = ReadValue($valueDataPt,$valuePtr,$formatStr,$count,$readSize,\$rational);
+                # re-code if necessary
+                $val = $et->Decode($val, $strEnc) if $strEnc and $formatStr eq 'string' and defined $val;
+            }
         }
 
         if ($verbose) {

@@ -88,7 +88,7 @@ sub ProcessCTMD($$$);
 sub ProcessExifInfo($$$);
 sub SwapWords($);
 
-$VERSION = '4.42';
+$VERSION = '4.47';
 
 # Note: Removed 'USM' from 'L' lenses since it is redundant - PH
 # (or is it?  Ref 32 shows 5 non-USM L-type lenses)
@@ -473,7 +473,8 @@ $VERSION = '4.42';
     253 => 'Canon EF 70-200mm f/2.8L IS II USM + 2x', #PH (NC)
     253.1 => 'Canon EF 70-200mm f/2.8L IS III USM + 2x', #PH (NC)
     # 253.2 => 'Tamron SP 70-200mm f/2.8 Di VC USD G2 (A025) + 2x', #forum9367
-    254 => 'Canon EF 100mm f/2.8L Macro IS USM', #42
+    254 => 'Canon EF 100mm f/2.8L Macro IS USM or Tamron Lens', #42
+    254.1 => 'Tamron SP 90mm f/2.8 Di VC USD 1:1 Macro (F017)', #PH
     255 => 'Sigma 24-105mm f/4 DG OS HSM | A or Other Lens', #50
     255.1 => 'Sigma 180mm f/2.8 EX DG OS HSM APO Macro', #50
     255.2 => 'Tamron SP 70-200mm f/2.8 Di VC USD', #exiv issue 1202 (A009)
@@ -589,6 +590,8 @@ $VERSION = '4.42';
     61182.18 => 'Canon RF 100-500mm F4.5-7.1L IS USM',
     61182.19 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF1.4x',
     61182.20 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF2x',
+    61182.21 => 'Canon RF 70-200mm F4L IS USM', #42
+    61182.22 => 'Canon RF 50mm F1.8 STM', #42
     65535 => 'n/a',
 );
 
@@ -945,6 +948,7 @@ $VERSION = '4.42';
     0x80000437 => 'EOS 90D', #IB
     0x80000453 => 'EOS R6', #PH
     0x80000467 => 'PowerShot ZOOM',
+    0x80000468 => 'EOS M50 Mark II / Kiss M2', #IB
     0x80000520 => 'EOS D2000C', #IB
     0x80000560 => 'EOS D6000C', #PH (guess)
 );
@@ -2128,6 +2132,7 @@ my %offOn = ( 0 => 'Off', 1 => 'On' );
            16 => 'Pan Focus', #PH
            # 137 - Single?
            256 => 'AF + MF', #PH (NC, EOS M)
+           257 => 'Live View', #forum12082
            512 => 'Movie Snap Focus', #48
            519 => 'Movie Servo AF', #PH (NC, EOS M)
         },
@@ -4538,6 +4543,16 @@ my %ciMaxFocal = (
             2 => 'Rotate 270 CW',
         },
     },
+    0x3a => { #IB
+        Name => 'CameraOrientation',
+        Condition => '$$self{Model} =~ /\b(1200D|REBEL T5|Kiss X70)\b/',
+        Notes => '1200D only',
+        PrintConv => {
+            0 => 'Horizontal (normal)',
+            1 => 'Rotate 90 CW',
+            2 => 'Rotate 270 CW',
+        },
+    },
     0x55 => {
         Name => 'FocusDistanceUpper',
         Condition => '$$self{Model} =~ /EOS 60D$/',
@@ -4678,7 +4693,7 @@ my %ciMaxFocal = (
     FIRST_ENTRY => 0,
     PRIORITY => 0,
     GROUPS => { 0 => 'MakerNotes', 2 => 'Camera' },
-    NOTES => 'CameraInfo tags for the EOS 70D.',
+    NOTES => 'CameraInfo tags for the EOS 80D.',
     0x03 => { %ciFNumber },
     0x04 => { %ciExposureTime },
     0x06 => { %ciISO },
@@ -5254,6 +5269,14 @@ my %ciMaxFocal = (
     0x06 => { %ciISO },
     0x1b => { %ciCameraTemperature }, # (700D + 0)
     0x23 => { %ciFocalLength }, # (700D + 0)
+    0x96 => { #IB (700D + 0x19)
+        Name => 'CameraOrientation',
+        PrintConv => {
+            0 => 'Horizontal (normal)',
+            1 => 'Rotate 90 CW',
+            2 => 'Rotate 270 CW',
+        },
+    },
     0xa5 => { # (700D + 0x19)
         Name => 'FocusDistanceUpper',
         %focusDistanceByteSwap,
@@ -6735,6 +6758,8 @@ my %ciMaxFocal = (
             275 => 'Canon RF 100-500mm F4.5-7.1L IS USM',
             276 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF1.4x',
             277 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF2x',
+            278 => 'Canon RF 70-200mm F4L IS USM', #42
+            280 => 'Canon RF 50mm F1.8 STM', #42
             # Note: add new RF lenses to %canonLensTypes with ID 61182
         },
     },
