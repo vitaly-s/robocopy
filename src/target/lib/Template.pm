@@ -50,13 +50,11 @@ sub validate(&$;\@)
 my $OR_GROUP;
 $OR_GROUP = qr{
     \(
-    (
     (?:
-        (?>[^()]+)
-        |
+        ([^()]+)
+            |
         (??{$OR_GROUP})
     )*
-    )
     \)
 }xo;
 
@@ -100,19 +98,22 @@ sub _find_or_group($\$\@\$)
 #    print "var_ref ", ref($var_ref), "\n";
 #    print "a_ref ", ref($a_ref), "\n";
 
-    if ($str =~ m/([^\(\)]*)$OR_GROUP(.*)/) {
-        my $before = $1; #$`;
-        my $after = $3; #$';
-        my $substr = $2; #$&;
+    if ($str =~ m/$OR_GROUP/g) {
+        my $before = $`;
+        my $after = $';
+        my $substr = substr($&, 1, -1); #$&;
+#        print STDERR __PACKAGE__, " Find or: '$str'\n\t'$before'\n\t'$substr'\n\t'$after'\n";
+        
 #        $substr = $1 if defined $1;
         @$var_ref = () if ref($var_ref) eq 'ARRAY';
-        while ($substr =~ m/([^|]*$OR_GROUP+[^|]*|[^|]*)/og) {
-            my $var = $1; #$&;
+        while ($substr =~ m/([^|]*?$OR_GROUP)*[^|]*/g) {
+            my $var = $&;
+#            print STDERR __PACKAGE__, "  '$var'\n";
 #            $var = $1 if defined $1;
             next if $var eq '';
             push @$var_ref, $var if ref($var_ref) eq 'ARRAY';
         }
-#        print STDERR __PACKAGE__, " [".join(",", @$var_ref) . "]\n";
+#        print STDERR __PACKAGE__, " [\n\t".join("\n\t", @$var_ref) . "\n]\n";
 
         $$b_ref = $before if ref($b_ref) eq 'SCALAR';
         $$a_ref = $after if ref($a_ref) eq 'SCALAR';
@@ -156,7 +157,7 @@ sub _replase_or
     my $b;
     my $a;
     my @vars;
-    
+
     return $str unless (_find_or_group($str, $b, @vars, $a));
 
     my $result = '';
