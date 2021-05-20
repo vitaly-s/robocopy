@@ -38,7 +38,7 @@ sub _init
     $self->{coder} = $coder;
     $self->{language} = DEFAULT_LANGUAGE;
     $self->{threshold} = DEFAULT_THRESHOLD;
-    $self->{point_cache} = [];
+#    $self->{point_cache} = [];
 }
 
 sub language
@@ -118,26 +118,26 @@ sub locate($$$)
 
 sub _from_cache
 {
-    my ($self, $latitude, $longitude) = @_;
-    foreach my $item (@{$self->{point_cache}}) {
-        my $dist = distance($item->{point}->[0], $item->{point}->[1], $latitude, $longitude);
-        if ($dist <= $self->{threshold}) {
-#            print STDERR __PACKAGE__, " VERY LOW accuracy (POINT_CACHE): $dist \n";
-            return $item->{address};
-        }
-    }
+#    my ($self, $latitude, $longitude) = @_;
+#    foreach my $item (@{$self->{point_cache}}) {
+#        my $dist = distance($item->{point}->[0], $item->{point}->[1], $latitude, $longitude);
+#        if ($dist <= $self->{threshold}) {
+##            print STDERR __PACKAGE__, " VERY LOW accuracy (POINT_CACHE): $dist \n";
+#            return $item->{address};
+#        }
+#    }
     undef;
 }
 
 sub _to_cache
 {
     my ($self, $latitude, $longitude, $address) = @_;
-    my $item = {
-        point => [$latitude, $longitude],
-        address => $address,
-    };
-#    print STDERR __PACKAGE__, " add to POINT_CACHE\n";
-    push @{$self->{point_cache}}, $item;
+#    my $item = {
+#        point => [$latitude, $longitude],
+#        address => $address,
+#    };
+##    print STDERR __PACKAGE__, " add to POINT_CACHE\n";
+#    push @{$self->{point_cache}}, $item;
     $address;
 }
 

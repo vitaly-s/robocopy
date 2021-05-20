@@ -152,18 +152,19 @@ sub configure_locator
 sub address_format
 {
     my %formats = (
-        'en' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
-        'fr' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
+        'en' => '(({house} ){road}, )({suburb}, )({city}, )({county}, )({state}, ){country}',
+        'fr' => '(({house}, ){road}, )({suburb}, )({city}, )({state}, ){country}',
         'de' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
         'it' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
-        'es' => '(({house} ){road}, )({suburb}, )({city}, )({state}, ){country}',
-        'ru' => '({road}( {house}), )({suburb}, )({city}, )({state}, ){country}',
+        'es' => '({road}(, {house}), )({suburb}, )({city}, )({state}, ){country}',
+        'ru' => '({road}( {house}), )({suburb}, )({city}, |{county}, )({state}, ){country}',
     );
     my $address = shift;
     return undef unless defined $address;
     
     my $setting = shift || load_settings;
-    my $fmt = $formats{$setting->locator_language} || $formats{en};
+    my $language = $address->{countryCode} || $setting->locator_language;
+    my $fmt = $formats{$language} || $formats{en};
     return Template::parse { $address->{$_} } $fmt;
 }
 #sub print_error
