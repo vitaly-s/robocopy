@@ -152,14 +152,15 @@ postupgrade() {
 preuninst() {
 #	if [ ! -e ${UPGRADE_FILE} ]; then
 	if [ "$SYNOPKG_PKG_STATUS" != "UPGRADE" ]; then
-		#remove user config file
-		rm -f "${PACKAGE_USERCONF_DIR}/rules.conf"
-		rm -f "${PACKAGE_USERCONF_DIR}/settings.conf"
-		rm -f "${PACKAGE_USERCONF_DIR}/integration.conf"
-		# remove LOG file
-		rm -f "${LOGFILE}"
+		if [ "$PKGWIZARD_REMOVE_CONFIG" == "true" ]; then 
+			#remove user config file
+			rm -f "${PACKAGE_USERCONF_DIR}/rules.conf"
+			rm -f "${PACKAGE_USERCONF_DIR}/settings.conf"
+			rm -f "${PACKAGE_USERCONF_DIR}/integration.conf"
+			# remove LOG file
+			rm -f "${LOGFILE}"
+		fi
 	fi
-	
 	exit 0
 }
 

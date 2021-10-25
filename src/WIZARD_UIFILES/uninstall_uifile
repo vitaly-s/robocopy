@@ -1,0 +1,11 @@
+[{
+	"step_title": "Uninstall RoboCopy",
+	"items": [{
+		"type": "multiselect",
+		"desc": "If you uninstall RoboCopy, all the settings in the package will be deleted. Are you sure you want to continue?",
+		"subitems": [{
+			"key": "PKGWIZARD_REMOVE_CONFIG",
+			"desc": "Permanently delete all settings"
+		}]
+	}]
+}] 
