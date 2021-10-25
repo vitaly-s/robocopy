@@ -63,21 +63,53 @@ sub notify
     system('/usr/syno/bin/synodsmnotify', $to, $title, $msg);
 }
 
-sub share_path
+sub _parse_smb_conf
 {
-    my $share = shift;
-    if (defined $share) {
-        my @out = `/usr/syno/sbin/synoshare --get "$share"`; 
-        foreach  (@out) {
-            if (/Path.*\[(.*)\]/) {
-                return decode("UTF-8", $1);
-            }
+    my($file) = @_;
+    return undef if (! defined $file || ($file eq '') );
+    
+    local $/ = undef;
+    open( CFG, '<:utf8', $file ) or return undef;
+    my $contents = <CFG>;
+    close( CFG );
+
+    my @share_list = ();
+    my $share;
+    foreach ( split /(?:\015{1,2}\012|\015|\012)/, $contents) {
+        # Skip comments and empty lines.
+        next if /^\s*(?:\#|\;|$)/;
+
+        # Remove inline comments.
+        s/\s\#\s.+$//g;
+
+        # Handle section headers.
+        if ( /^\s*\[\s*(.+?)\s*\]\s*$/ )
+        {
+            my $name = $1;
+            utf8::decode($name) unless utf8::is_utf8($name);
+            $share = {'name' => $name};
+            next;
         }
+        if ( /^\s*([^=]+?)\s*=\s*(.*?)\s*$/ )
+        {
+            my ($name, $value) = ($1, $2);
+            utf8::decode($value) unless utf8::is_utf8($value);
+            if ($name eq "path") {
+                $share->{'real_path'} = $value;
+                push @share_list, $share;
+            }
+            elsif ($name eq "comment") {
+                $value =~ s/"(.*)"$/$1/g;
+                $share->{'comment'} = $value;
+            }
+            next;
+        }
+
     }
-    return undef;
+    return \@share_list;
 }
 
-sub share_list
+sub _run_synoshare
 {
     my @share_list = ();
     foreach my $name (`/usr/syno/sbin/synoshare --enum local | tail -n+3`) {
@@ -95,7 +127,37 @@ sub share_list
         }
         push @share_list, {'name' => $name, 'comment' => $comment, 'real_path' => $real_path};
     }
-    return (wantarray ? @share_list : \@share_list);
+    return \@share_list;
+}
+
+
+sub share_path
+{
+    my $share = shift;
+    if (defined $share) {
+#        my @out = `/usr/syno/sbin/synoshare --get "$share"`; 
+#        foreach  (@out) {
+#            if (/Path.*\[(.*)\]/) {
+#                return decode("UTF-8", $1);
+#            }
+#        }
+        my @list = share_list();
+        foreach my $item (@list) {
+            if ($share eq $item->{'name'}) {
+                return $item->{'real_path'};
+            }
+        }
+    }
+    return undef;
+}
+
+
+sub share_list
+{
+    my $share_list = _parse_smb_conf("/etc/samba/smb.share.conf") 
+        || _parse_smb_conf("/usr/syno/etc/smb.conf")
+        || _run_synoshare;
+    return (wantarray ? @$share_list : $share_list);
 }
 
 sub serial_number

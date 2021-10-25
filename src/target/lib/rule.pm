@@ -225,6 +225,7 @@ package rule;
     sub demo_list
     {
         my ($share) = @_;
+        utf8::decode($share) unless utf8::is_utf8($share);
         $share = 'photo' unless defined $share;
         my @demo = 
         (

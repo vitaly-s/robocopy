@@ -361,7 +361,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             padding: "10px",
             border: false,
             items: [{
-                xtype: getXType("syno_tabpanel", "tabpanel"),
+                xtype: _XType_TabPanel, //getXType("syno_tabpanel", "tabpanel"),
                 plain: true,
                 itemId: "tab",
                 activeTab: 0,
@@ -397,7 +397,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
     },
     fillGeneralTab: function() {
         var a = {
-            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            xtype: _XType_FormPanel, //getXType("syno_formpanel" ,"form"),
             itemId: "general",
             border: false,
             autoHeight: true,
@@ -405,7 +405,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "general"),
             items: [{
-                xtype: getXType("syno_fieldset", "fieldset"),
+                xtype: _XType_FieldSet, //getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "compare_title"),
                 items: [{
 //                    synotype: "desc",
@@ -413,21 +413,26 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //                    indent: 1
 //                }, {
                     itemId: "compare_mode_full",
-                    synotype: "radio",
+                    xtype: _XType_Radio, //getXType("syno_radio", "radio"),
+//                    synotype: "radio",
                     name: "compare_mode",
                     inputValue: "full",
                     boxLabel: _RC_STR("config", "compare_binary"),
+                    hideLabel: true,
                     checked: true,
                     indent: 1
                 }, {
                     itemId: "compare_mode_no_meta",
-                    synotype: "radio",
+                    xtype: _XType_Radio, //getXType("syno_radio", "radio"),
+//                    synotype: "radio",
                     name: "compare_mode",
                     inputValue: "no_meta",
                     boxLabel: _RC_STR("config", "compare_no_meta"),
+                    hideLabel: true,
                     indent: 1
                 }, {
-                    synotype: "desc",
+//                    synotype: "desc",
+                    xtype: _XType_DisplayField, //getXType("syno_displayfield", "displayfield"),
                     itemId: "compare_mode_no_meta_note",
                     fieldLabel: "Note",
                     hideLabel: true,
@@ -436,7 +441,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
                     value: _RC_STR("config", "compare_no_meta_note")
                 }]
             }, {
-                xtype: getXType("syno_fieldset", "fieldset"),
+                xtype: _XType_FieldSet, //getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "conflict_policy"),
                 items: [{
 //                    synotype: "desc",
@@ -444,25 +449,31 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //                    indent: 1
 //                }, {
                     itemId: "conflict_policy_skip",
-                    synotype: "radio",
+                    xtype: _XType_Radio, //getXType("syno_radio", "radio"),
+//                    synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "skip",
                     boxLabel: _RC_STR("config", "skip"),
+                    hideLabel: true,
                     checked: true,
                     indent: 1
                 }, {
                     itemId: "conflict_policy_rename",
-                    synotype: "radio",
+                    xtype: _XType_Radio, //getXType("syno_radio", "radio"),
+//                    synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "rename",
                     boxLabel: _RC_STR("config", "rename"),
+                    hideLabel: true,
                     indent: 1
                 }, {
                     itemId: "conflict_policy_overwrite",
-                    synotype: "radio",
+                    xtype: _XType_Radio, //getXType("syno_radio", "radio"),
+//                    synotype: "radio",
                     name: "conflict_policy",
                     inputValue: "overwrite",
                     boxLabel: _RC_STR("config", "overwrite"),
+                    hideLabel: true,
                     indent: 1
                 }]
             }]
@@ -471,7 +482,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
     },
     fillIngerationTab: function() {
         var a = {
-            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            xtype: _XType_FormPanel, //getXType("syno_formpanel" ,"form"),
             itemId: "integration",
             border: false,
             autoHeight: true,
@@ -479,17 +490,21 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "integration"),
             items: [{
-                xtype: getXType("syno_fieldset", "fieldset"),
+                xtype: _XType_FieldSet, //getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "autorun"),
                 items: [{
-                    synotype: "check",
+                    xtype: _XType_CheckBox, //getXType("syno_checkbox", "checkbox"),
+//                    synotype: "check",
                     name: "run_after_usbcopy",
                     disabled: ((_D("usbcopy", "no") === "no") && (_D("sdcopy", "no") === "no")),
-                    boxLabel: _RC_STR("config", "run_after_usbcopy")
+                    boxLabel: _RC_STR("config", "run_after_usbcopy"),
+                    hideLabel: true
                 }, {
-                    synotype: "check",
+                    xtype: _XType_CheckBox, //getXType("syno_checkbox", "checkbox"),
+//                    synotype: "check",
                     name: "run_on_attach_disk",
-                    boxLabel: _RC_STR("config", "run_on_attach_disk")
+                    boxLabel: _RC_STR("config", "run_on_attach_disk"),
+                    hideLabel: true
                 }]
             }]
         };
@@ -497,7 +512,7 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
     },
     fillLocationTab: function () {
         var a = {
-            xtype: "form", //getXType("syno_formpanel" ,"form"),
+            xtype: _XType_FormPanel, //getXType("syno_formpanel" ,"form"),
             itemId: "location",
             border: false,
             autoHeight: true,
@@ -505,10 +520,11 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
             trackResetOnLoad: true,
             title: _RC_STR("config", "location"),
             items: [{
-                xtype: getXType("syno_fieldset", "fieldset"),
+                xtype: _XType_FieldSet, //getXType("syno_fieldset", "fieldset"),
                 title: _RC_STR("config", "locator"),
                 items: [{
-                    synotype: "number",
+                    xtype: _XType_NumberField, //getXType("syno_numberfield", "numberfield"),
+//                    synotype: "number",
                     fieldLabel: _RC_STR("config", "threshold"),
                     width: 200,
                     minValue: 100,
@@ -517,7 +533,8 @@ SYNO.SDS.RoboCopy.ConfigWindow = Ext.extend(SYNO.SDS.ModalWindow, {
 //                    blankText: "Trashold may be not empty",
                     name: "locator_threshold"
                 },{
-                    synotype: "combo",
+                    xtype: _XType_ComboBox, //getXType("syno_combobox", "combobox"),
+//                    synotype: "combo",
                     name: "locator_language",
                     width: 200,
                     fieldLabel: _RC_STR("config", "language"),
@@ -779,7 +796,7 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
                     action: "share_list",
                 },
                 url: SYNO.SDS.RoboCopy.CGI,
-                fields: [ "name", "comment" ],
+                fields: [ "name" ],
                 root: "data"
             });
             
@@ -789,17 +806,18 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
             labelWidth: 150,
             border: false,
             items: [{
-                synotype: "number",
+                xtype: _XType_NumberField, //getXType("syno_numberfield", "numberfield"),
+//                synotype: "number",
                 fieldLabel: _RC_STR("ui", "priority"),
                 minValue: 1,
                 maxlength: 4,
                 allowBlank: false,
-                blankText: "Priority may be not empty",
                 id: "mai_info_priority",
                 name: "priority",
                 value: params.priority
             },{
-                synotype: "text",
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
+//                synotype: "text",
                 fieldLabel: _RC_STR("ui", "description"),
                 maxlength: 255,
                 id: "mai_info_description",
@@ -807,7 +825,8 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
                 width: 300,
                 value: params.description
             },{
-                synotype: "text",
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
+//                synotype: "text",
                 fieldLabel: _RC_STR("ui", "src_ext"),
                 id: "mai_info_src_ext",
                 name: "src_ext",
@@ -819,7 +838,8 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
 //                width: 300,
 //                value: params.src_dir
 //            },{
-                xtype: "radiogroup",
+//                xtype: "radiogroup",
+                xtype: _XType_RadioGroup, //getXType("syno_radiogroup", "radiogroup"),
                 id: "mai_info_src_remove",
                 itemId: "src_remove",
                 fieldLabel: _RC_STR("ui", "src_remove"),
@@ -838,7 +858,8 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
                     checked: params.src_remove
                 }]
              },{
-                synotype: "combo",
+                xtype: _XType_ComboBox, //getXType("syno_combobox", "combobox"),
+//                synotype: "combo",
                 fieldLabel: _RC_STR("ui", "dest_folder"),
                 id: "mai_info_dest_folder",
                 name: "dest_folder",
@@ -853,15 +874,18 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
                 value: params.dest_folder,
                 queryMode: 'remote'
             },{
-                synotype: "text",
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
+//                synotype: "text",
                 fieldLabel: _RC_STR("ui", "dest_dir"),
                 id: "mai_info_dest_dir",
                 name: "dest_dir",
                 width: 300,
                 value: params.dest_dir,
-                boxLabel: ""
+                boxLabel: "",
+                allowBlank: false
             },{
-                synotype: "text",
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
+//                synotype: "text",
                 fieldLabel: _RC_STR("ui", "dest_file"),
                 id: "mai_info_dest_file",
                 name: "dest_file",
@@ -880,7 +904,7 @@ SYNO.SDS.RoboCopy.RuleEdit = Ext.extend(SYNO.SDS.ModalWindow, {
             }]
         };
         SYNO.LayoutConfig.fill(cfg);
-        return new Ext.form.FormPanel(cfg);
+        return new Ext.create(cfg, _XType_FormPanel); //SYNO.ux.FormPanel(cfg);
     }
 });
 
@@ -1132,13 +1156,14 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                     scope: this
                 }]
             },
-            bbar: new Ext.PagingToolbar({
+            bbar: Ext.create({
+                //new SYNO.ux.PagingToolbar({
                 store: store,
                 displayInfo: true,
                 pageSize: this.pageSize
-            })
+            }, _XType_Paging)
         };
-        result = new Ext.grid.GridPanel(cfg);
+        result = Ext.create(cfg, _XType_GridPanel); //new SYNO.ux.GridPanel(cfg);
         return result;
     },
     handleAdd: function () {
@@ -1256,7 +1281,8 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
     openInfo: function (item) {
         var edt = null;
         var cfg = {
-            owner: this
+            owner: this,
+            src_remove: 0
         };
         cfg = Ext.apply(cfg, item);
         edt = new SYNO.SDS.RoboCopy.RuleEdit(cfg);

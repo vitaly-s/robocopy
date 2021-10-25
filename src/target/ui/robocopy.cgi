@@ -885,11 +885,7 @@ sub _action_test
     
 
 #    my $task = new task_info($user);
-#    my $rus_text = decode("UTF-8", "пример Русского текста");
-    
-#    print "$rus_text\n";
-#    print "UTF-8 flag set!\n" if utf8::is_utf8($rus_text);
-#    print "--\n";
+
 #    my $data = { 'text' => $rus_text };
 #    $task->data($data);
 #    print Dumper \$task;

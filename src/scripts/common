@@ -53,9 +53,18 @@ lib/Template.pm
 SUPPORT_USBCOPY=`get_key_value "${SYNO_DEF_INFO}" "usbcopy"`
 SUPPORT_SDCOPY=`get_key_value "${SYNO_DEF_INFO}" "sdcopy"`
 
+log() {
+	MSG=$1
+	LEVEL=$2
+	if [ -z "$LEVEL" ]; then
+		LEVEL="info"
+	fi
+    /usr/syno/bin/synologset1 sys "$LEVEL" '0x11800000' "RoboCopy: $MSG"
+}
+
 
 start() {
-	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
+#	echo "Start ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 #	echo "SYNOPKG_PKGDEST: ${SYNOPKG_PKGDEST}" 1>>$LOGFILE
 
 #	for file in $SYNO_BIN_FILES
@@ -103,13 +112,13 @@ start() {
 
 
 	if [ "$SYNOPKG_DSM_VERSION_MAJOR" == "4" ]; then
-		echo "   Restore integration setting" 1>>$LOGFILE
+#		echo "   Restore integration setting" 1>>$LOGFILE
 		perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::restore_state();"
 	fi
 }
 
 stop() {
-	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
+#	echo "Stop ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 ##	if [ -h ${SYNO_USBCOPY} -a -f ${SYNO_USBCOPY}_bin ]; then
 ##		echo "Restore synousbcopy" 1>>$LOGFILE
 ##		mv -f ${SYNO_USBCOPY}_bin ${SYNO_USBCOPY}
@@ -120,7 +129,7 @@ stop() {
 ##	fi
 ##	rm -f /usr/syno/bin/robocopy
 	if [ "$SYNOPKG_DSM_VERSION_MAJOR" == "4" ]; then
-		echo "   Save integration settingd" 1>>$LOGFILE
+#		echo "   Save integration settingd" 1>>$LOGFILE
 		perl -e "require qw(${PRIVATE_LOCATION}/lib/integration.pm) ; integration::save_state(1);"
 	fi
 }
@@ -167,7 +176,7 @@ preinst() {
 }
 
 postinst() {
-	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
+#	echo "PostInst ${PACKAGE_NAME} ${PACKAGE_VER} on DSM ${DSM_VERSION}" 1>>$LOGFILE
 	chmod 0755 $PRIVATE_LOCATION/bin/robocopy.pl
 	chmod 0755 $PRIVATE_LOCATION/bin/hotplug.sh
 	chmod 0755 $PRIVATE_LOCATION/ui/robocopy.cgi
@@ -182,20 +191,22 @@ postinst() {
 			[ -z "$PKGWIZARD_SHARE" ] && PKGWIZARD_SHARE=`/usr/syno/sbin/synoshare --enum local | tail -n+3 | head -n 1`
 		fi
 		if [ -n "$PKGWIZARD_SHARE" ]; then
-			echo "    Create demo configuration [${PKGWIZARD_SHARE}]." 1>>$LOGFILE
+#			echo "    Create demo configuration [${PKGWIZARD_SHARE}]." 1>>$LOGFILE
 #			echo "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${PKGWIZARD_SHARE}');" 1>>$LOGFILE
 			perl -e "require qw(${PRIVATE_LOCATION}/lib/rule.pm) ; rule::create_demo('${PKGWIZARD_SHARE}');"
 		else
-			echo "    Cannot create demo configuration." 1>>$LOGFILE
+#			echo "    Cannot create demo configuration." 1>>$LOGFILE
+			log "Cannot create demo configuration." warn
 		fi
 	fi
-	
+	#perl -e "require qw(../target/lib/Syno.pm); @list=Syno::share_list(); \$item=shift(@list) || {}; print \$item->{name};"
+
 #	set >> /tmp/robocopy.postinst
 
-	# fix error status on DS 4.2
-	if [ -e ${PRIVATE_LOCATION}/conf_pkgcenter ]; then
-		cp -a ${PRIVATE_LOCATION}/conf_pkgcenter ${PACKAGE_DIR}/conf
-	fi
+#	# fix error status on DS 4.2
+#	if [ -e ${PRIVATE_LOCATION}/conf_pkgcenter ]; then
+#		cp -a ${PRIVATE_LOCATION}/conf_pkgcenter ${PACKAGE_DIR}/conf
+#	fi
 
 	exit 0
 }

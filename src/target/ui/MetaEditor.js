@@ -24,7 +24,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
             owner: this.owner,
             pinable: false,
             padding: 10,
-            width: 530,
+            width: 550,
             autoHeight: true,
             collapsible: false,
             resizable: false,
@@ -54,7 +54,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
             autoHeight: true,
             border: false,
             items: [{
-                xtype: getXType("syne_checkbox", "checkbox"),
+                xtype: _XType_CheckBox, //getXType("syne_checkbox", "checkbox"),
                 boxLabel: _RC_STR("editor", "set_date"),
                 name: "set_date",
                 hideLabel: true,
@@ -65,7 +65,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                     }
                 }
             },{
-                xtype: getXType("syno_datefield", "datefield"),
+                xtype: _XType_DateField, //getXType("syno_datefield", "datefield"),
                 fieldLabel: _RC_STR("editor", "date"),
                 synotype: "indent",
                 indent: 1,
@@ -79,7 +79,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 maxValue: "2037/12/31",
                 minValue: "1900/1/1"
             },{
-                xtype: getXType("syne_checkbox", "checkbox"),
+                xtype: _XType_CheckBox, //getXType("syne_checkbox", "checkbox"),
                 boxLabel: _RC_STR("editor", "set_location"),
                 name: "set_location",
                 hideLabel: true,
@@ -90,7 +90,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                     }
                 }
             },{
-                xtype: getXType("syno_textfield", "textfield"),
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
                 fieldLabel: _RC_STR("editor", "location"),
                 synotype: "indent",
                 indent: 1,
@@ -101,7 +101,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 disabled: true,
                 maxlength: 255
             },{
-                xtype: getXType("syne_checkbox", "checkbox"),
+                xtype: _XType_CheckBox, //getXType("syne_checkbox", "checkbox"),
                 boxLabel: _RC_STR("editor", "set_title"),
                 name: "set_title",
                 hideLabel: true,
@@ -112,7 +112,7 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
                     }
                 }
             },{
-                xtype: getXType("syno_textfield", "textfield"),
+                xtype: _XType_TextField, //getXType("syno_textfield", "textfield"),
                 fieldLabel: _RC_STR("editor", "title"),
                 synotype: "indent",
                 indent: 1,
@@ -125,7 +125,8 @@ SYNO.SDS.RoboCopy.MetadataEditorWindow = Ext.extend(SYNO.SDS.AppWindow, {
             }]
         };
         SYNO.LayoutConfig.fill(cfg);
-        var pnl = new Ext.form.FormPanel(cfg);
+//        var pnl = new Ext.form.FormPanel(cfg);
+        var pnl = Ext.create(cfg, _XType_FormPanel);
         this.panel = pnl;
         return pnl;
     },

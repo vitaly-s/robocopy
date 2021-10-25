@@ -35,6 +35,20 @@ var getXType = function() {
     return undefined;
 };
 
+_XType_TabPanel = getXType("syno_tabpanel", "tabpanel");
+_XType_FormPanel = getXType("syno_formpanel" ,"form");
+_XType_FieldSet = getXType("syno_fieldset", "fieldset");
+_XType_Radio = getXType("syno_radio", "radio");
+_XType_RadioGroup = getXType("syno_radiogroup", "radiogroup");
+_XType_DisplayField = getXType("syno_displayfield", "displayfield");
+_XType_CheckBox = getXType("syno_checkbox", "checkbox");
+_XType_NumberField = getXType("syno_numberfield", "numberfield");
+_XType_ComboBox = getXType("syno_combobox", "combo");
+_XType_TextField = getXType("syno_textfield", "textfield");
+_XType_Paging = getXType("syno_paging", "paging");
+_XType_GridPanel = getXType("syno_gridpanel", "grid");
+_XType_DateField = getXType("syno_datefield", "datefield");
+
 isDsmV4 = function() {
     var version = parseInt(_S("version"), 10);
     if ((2198 <= version) && (version <= 4244)) {
