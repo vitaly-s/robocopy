@@ -13,30 +13,45 @@ use Encode;
 
 1;
 
-#see http://oinkzwurgl.org/?action=browse;oldid=ds106series;id=diskstation_ds106series
+#see https://oinkzwurgl.org/attic/diskstation/diskstation_ds106series/
+sub _led_control($)
+{
+    my $cmd = shift;
+    open my $fh, ">/dev/ttyS1" or return undef;
+    print $fh $cmd;
+    close $fh;
+    1;
+}
+
 sub beep 
 {
-    `echo 2 > /dev/ttyS1`;
+    # echo 2 | tee -p /dev/ttys1 &>/dev/null
+    #`echo 2 > /dev/ttyS1`;
+    _led_control '2';
 }
 
 sub longbeep
 {
-    `echo 3 > /dev/ttyS1`;
+#    `echo 3 > /dev/ttyS1`;
+    _led_control '3';
 }
 
 sub copyled_off
 {
-    `echo B > /dev/ttyS1`;
+#    `echo B > /dev/ttyS1`;
+    _led_control 'B';
 }
 
 sub copyled_on
 {
-    `echo @ > /dev/ttyS1`;
+#    `echo @ > /dev/ttyS1`;
+    _led_control '@';
 }
 
 sub copyled_blink
 {
-    `echo A > /dev/ttyS1`;
+#    `echo A > /dev/ttyS1`;
+    _led_control 'A';
 }
 
 #USAGE : synologset1 [sys | man | conn](copy netbkp)   [info | warn | err] eventID(%X) [substitution strings...]
@@ -53,6 +68,9 @@ sub log
 }
 
 #http://forum.synology.com/enu/viewtopic.php?f=27&t=55627
+# Old /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance @administrators app:app_name error:bad_field XXX
+# DSM 7 /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance -t robocopy @administrators robocopy:app:app_name robocopy:error:bad_field XXX
+
 sub notify 
 {
     my ($msg, $title, $to) = @_;
@@ -66,12 +84,14 @@ sub notify
 sub _parse_smb_conf
 {
     my($file) = @_;
-    return undef if (! defined $file || ($file eq '') );
+    return undef if (!defined $file || ($file eq '') );
+    return undef unless ( -f $file );
     
-    local $/ = undef;
-    open( CFG, '<:utf8', $file ) or return undef;
-    my $contents = <CFG>;
-    close( CFG );
+    my $contents = do {
+        local $/ = undef;
+        open my $fh, "<:utf8", $file or return undef;
+        <$fh>;
+    };
 
     my @share_list = ();
     my $share;
