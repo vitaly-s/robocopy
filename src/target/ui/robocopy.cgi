@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
+require 5.004;
 use warnings;
 use utf8;
 use Encode;
@@ -37,6 +38,7 @@ use FileInfo;
 
 use Data::Dumper;
 
+my $verbose = 0;
 my $user;
 # if (open (IN,"/usr/syno/synoman/webman/modules/authenticate.cgi|")) {
     # $user=<IN>;
@@ -46,6 +48,7 @@ my $user;
 
 my %query;
 my $method;
+
 
 if (-t) { # see IO::Interactive
     # is terminal mode
@@ -83,12 +86,18 @@ if ($user eq '') {
     exit;
 }
 
+open(STDERR, '>>', '/tmp/robocopy.cgi.log') if $verbose;
 
 my $func_name = 'action';
 $func_name .= '_' . lc($method) if defined $method;
 $func_name .= '_' . lc($query{action}) if exists $query{action};
 if (defined &$func_name) {
-    &{\&{$func_name}}(%query);
+    eval { &{\&{$func_name}}(%query); }; 
+    if ($@) {
+        print STDERR "Func '$func_name' raised an exception: $@" if $verbose;
+        print "Content-type: application/json; charset=UTF-8\n\n"; 
+        print '{"errinfo" : {"key" : "system", "sec" : "error"}, "success" : false}';
+    }
     exit;
 }
 
@@ -216,6 +225,22 @@ sub ERROR_PROCESS_FILE($)
     exit;
 }
 
+sub ERROR_PERMISSION_READ($)
+{
+    my $path = shift;
+    PRINT_RESPONSE_HEADER_JSON;
+    print '{"errinfo" : {"key" : "permission_read", "sec" : "error", "path":"' . $path . '"}, "success" : false}';
+    exit;
+}
+
+sub ERROR_PERMISSION_WRITE($)
+{
+    my $path = shift;
+    PRINT_RESPONSE_HEADER_JSON;
+    print '{"errinfo" : {"key" : "permission_write", "sec" : "error", "path":"' . $path . '"}, "success" : false}';
+    exit;
+}
+
 sub RESPONSE_LIST(\@;$)
 {
     my ($list, $total) = @_;
@@ -313,11 +338,14 @@ sub _action_rule_list
 sub _validate_rule($)
 {
     my $rule = shift;
-    # TODO: Check share folder
+    # Check share folder
     my $syno_folder = Syno::share_path($rule->dest_folder());
     ERROR_INVALID_PARAMS('dest_folder', $rule->dest_folder()) unless defined $syno_folder;
+    # Check shared folder pervission
+    ERROR_PERMISSION_WRITE('/'.$rule->dest_folder()) unless -w $syno_folder;
+    # TODO sCheck dest_dir permissions
     
-    # TODO Validate templates
+    # Validate templates
     my @errors;
     ERROR_INVALID_PARAMS('dest_dir', $rule->dest_dir(), @errors) if rule_processor::validate_template($rule->dest_dir(), @errors);
     ERROR_INVALID_PARAMS('dest_file', $rule->dest_file(), @errors) if rule_processor::validate_template($rule->dest_file(), @errors);
@@ -387,6 +415,20 @@ sub action_post_rule_remove
     ERROR_NOT_FOUND('rule');
 }
 
+sub abs2share($)
+{
+#    my ($path, $share_list) = @_;
+#    $share_list = Syno::share_list() unless defined $share_list;
+#    foreach my $share (@$share_list) {
+#        my $share_name = $share->{name};
+#        my $share_path = $share->{real_path};
+#        last if $path =~ s/^$share_path/\/$share_name/;
+#    }
+    my $path = shift;
+    $path =~ s/^\/[^\/]+//o;
+    $path;
+}
+
 ##############################################################################
 # Execution
 sub action_post_task_run
@@ -411,19 +453,25 @@ sub action_post_task_run
     
     if (exists $params{src_remove}) {
         foreach my $rule (@cfg) {
-            $rule->set({
-                'src_remove' => $params{src_remove}
-            })
+#            $rule->set({
+#                'src_remove' => $params{src_remove}
+#            })
+            $rule->src_remove($params{src_remove});
         }
     }
     
     # TODO: Check share folder
-    # TODO Validate template
     foreach my $rule (@cfg) {
+        # Validate template
         _validate_rule($rule);
+        # Check source permissons
+        foreach my $dir (@dirs) {
+            ERROR_PERMISSION_READ(abs2share($dir)) unless -r $dir;
+            if ($rule->src_remove()) {
+                ERROR_PERMISSION_WRITE(abs2share($dir)) unless -w $dir;
+            }
+        }
     }
-#print Dumper \$cfg;
-#exit; 
     
     my $task = new task_info($user);
     my $data = {};
@@ -445,10 +493,20 @@ sub action_post_task_run
     }
     
     # TODO create PID file /val/run/robocopy.pid
-    
-    close(STDOUT);
-    close(STDERR);
-    close(STDIN);
+        
+
+    if ($verbose) {
+        my $info = `whoami`;
+        chop($info);
+        print STDERR 'Start process directories: ' . join(', ', map {basename($_)} @dirs). "\n";
+        print STDERR "Current user: $info\n";
+        print STDERR "Authenticated user: $user\n" if defined $user;
+    }
+    else {
+        close(STDOUT);
+        close(STDERR);
+        close(STDIN);
+    }
 
     $SIG{TERM} = sub {
         rule_processor::cleanup();
@@ -473,15 +531,21 @@ sub action_post_task_run
 
 
     foreach my $rule (@cfg) {
+        print STDERR "Prepare \"$rule->{description}\" [$rule->{src_ext} => $rule->{dest_dir}]\n"
+            if $verbose;
         foreach my $dir (@dirs) {
+            print STDERR "  $dir\n" if $verbose;
             # Create processor
             my $processor = new rule_processor($rule, $locator);
             $processor->conflict_policy($settings->conflict_policy);
             $processor->compare_mode($settings->compare_mode);
             $processor->user($user) if defined $user;
             if ($processor->prepare($dir, \$error)) {
+                print STDERR "    Prepared: ",$processor->prepared_path(),"[",$processor->src_path(),"]\n"
+                    if $verbose;
                 my $size;
                 my $files = $processor->find_files(\$size);
+                print STDERR "    Find files ",scalar(@$files), " [$size]\n" if $verbose;
                 if (@$files > 0) {
                     $total_size += $size;
                     $total_count += @$files;
@@ -492,6 +556,7 @@ sub action_post_task_run
                 }
             }
             else {
+                print STDERR "    ERROR: $error\n" if $verbose;
                 Syno::log($error, 'warn');
             }
         }
@@ -506,9 +571,11 @@ sub action_post_task_run
         my $processor = $worker->{'processor'};
         my $files_size = $worker->{'size'};
         my $files_count = 0 + @{$worker->{'files'}};
+        print STDERR "Process: ".$processor->prepared_path()."\n" if $verbose;
         foreach my $file (@{$worker->{'files'}}) {
             my $current_time = time;
             # Update task info
+            print STDERR "  $file\n" if $verbose;
             $data->{prule} = $processor->description();
             $data->{pfile} = $file;
             $data->{pdir} = $processor->prepared_path();
@@ -532,6 +599,7 @@ sub action_post_task_run
             # process file
 #            sleep 3;
             unless ($processor->process_file($file, \$error)) {
+                print STDERR "    ERROR: $error" if $verbose;
                 Syno::log($error, 'warn');
                 ++$error_count;
                 #TODO finish task if many error
@@ -546,6 +614,8 @@ sub action_post_task_run
     # Update task info (FINISHED) 
     $task->set_finished();
 
+    print STDERR 'Finished process directories: ' . join(', ', map {basename($_)} @dirs). "\n" if $verbose;
+
 #    Syno::notify('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy') if $total_size;
     Syno::log('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".");
 }
@@ -553,7 +623,6 @@ sub action_post_task_run
 sub action_get_task_progress
 {
     my %params = @_;
-#    print "Content-type: application/json; charset=UTF-8\n\n";
 
     ERROR_INVALID_PARAMS('taskid') unless exists $params{taskid};
     my $taskid = $params{taskid};
@@ -567,7 +636,6 @@ sub action_get_task_progress
 sub action_get_task_cancel
 {
     my %params = @_;
-#    print "Content-type: application/json; charset=UTF-8\n\n";
 
     ERROR_INVALID_PARAMS('taskid') unless exists $params{taskid};
 
@@ -592,8 +660,6 @@ sub action_post_task_list
     my %params = @_;
     my @list = task_info::load_list($user);
     my @result;
-
-#    print "Content-type: application/json; charset=UTF-8\n\n";
 
     foreach my $task (@list) {
         if ($task->finished()) {
@@ -688,6 +754,8 @@ sub action_get_fileinfo
     my $title;
     my @address_fields = qw/ house road suburb city state country /;
     foreach my $file (@files) {
+        ERROR_PROCESS_FILE($file) unless -f $file && -r $file;
+        print STDERR "Get fileinfo: $file\n" if $verbose;
         my $info = FileInfo::load($file, $locator);
         my $fl_date = $info->parse_template('{yyyy}-{MM}-{dd}');
         my $fl_title = $info->get_value('title');
@@ -778,11 +846,12 @@ sub action_post_fileinfo
     }
     if (scalar keys %result) {
         foreach my $file (@files) {
-#            print STDERR "Update [" . basename($file) . "]: \n";
+            ERROR_PROCESS_FILE($file) unless -f $file && -w $file;
+            print STDERR "Update [" . $file . "]: \n" if $verbose;
             my $res = $fileInfo->update($file);
 #            print STDERR "\t".(defined $res ? $res : '<UNDEF>')."\n";
             if ($res != 1) {
-#                print STDERR "Update [" . basename($file) . "] error.\n";
+                print STDERR "Update [" . $file . "] error.\n" if $verbose;
                 ERROR_PROCESS_FILE($file) unless $res;
             }
         }
@@ -849,6 +918,32 @@ sub action_get_test {
     _action_test(@_);
 }
 
+sub __test_task()
+{
+    printf "umask: %o\n", umask();
+    my $mask = umask(0);
+    printf "umask: %o\n", umask();
+    mkdir('/tmp/TEST');
+    umask($mask);
+    
+    my $task = new task_info($user);
+
+    my $data = { 'text' => 'demo text' };
+    $task->data($data);
+    print Dumper \$task;
+    $task->write();
+    
+#    exit;
+    
+    my @task_list = task_info::load_list($user);
+    print Dumper \@task_list;
+    
+    $task->remove();
+
+    @task_list = task_info::load_list($user);
+    print Dumper \@task_list;
+}
+
 sub _action_test
 {
     my %params = @_;
@@ -882,25 +977,7 @@ sub _action_test
         print "\n\n";
     }
 
-    
-
-#    my $task = new task_info($user);
-
-#    my $data = { 'text' => $rus_text };
-#    $task->data($data);
-#    print Dumper \$task;
-#    $task->write();
-    
-#    exit;
-    
-    
-#    my @task_list = task_info::load_list($user);
-#    print Dumper \@task_list;
-    
-#    $task->remove();
-
-#    @task_list = task_info::load_list($user);
-#    print Dumper \@task_list;
+    __test_task();
 
     my $cfg;
     $cfg = rule::load_list(undef, 'priority');
@@ -959,6 +1036,7 @@ sub _action_test
             my $dir_idx = 0;
             foreach my $dir(@dirs) {
                 print_str "  path: ", $dir, "\n";
+                print "    ", abs2share($dir), "\n";
                 if ($processor->prepare($dir, \$error)) {
                     print_str "  Prepared: ", $processor->prepared_path(), "\n";
                     my $size = 0;

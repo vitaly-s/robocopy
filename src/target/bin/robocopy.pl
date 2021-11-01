@@ -12,6 +12,7 @@ eval 'exec /usr/bin/perl -w -S $0 ${1+"$@"}'
 # References:   
 #------------------------------------------------------------------------------
 use strict;
+require 5.004;
 use File::Basename;
 
 # add our 'lib' directory to the include list BEFORE 'use Image::ExifTool'
@@ -34,6 +35,7 @@ use integration;
 use Geo::Coder;
 use CityLocator;
 use Settings;
+use FileInfo;
 
 
 use Image::ExifTool qw(:Public);
@@ -113,6 +115,7 @@ my $cfg = rule::load_list(undef, 'priority');
 
 my $settings = Settings->new;
 eval { $settings = Settings::load };
+print "WARN: Read setting error: $@\n" if $@;
 Syno::log("Read setting error: $@", 'warn') if $@;
 
 my $locator = CityLocator->new();
@@ -122,34 +125,41 @@ $locator->language($settings->locator_language);
 # Main cycle
 my $error;
 foreach my $dir (@dirs) {
+    print "Start process \"$dir\"\n";
     Syno::log("Start process \"$dir\"");
 #    print "Process \"$dir\"\n";
     foreach my $rule (@$cfg) {
-#        print "\tProcess \"$rule->{description}\" [$rule->{src_dir}/$rule->{src_mask}]\n\t\t$rule->{dest_path}\n" if $verbose;
+        print "  Process \"$rule->{description}\" [$rule->{src_ext}]\n    $rule->{dest_dir}\n" if $verbose;
         my $processor = new rule_processor($rule, $locator);
         $processor->conflict_policy($settings->conflict_policy);
         $processor->compare_mode($settings->compare_mode);
         if ($processor->prepare($dir, \$error)) {
-            print "\t" . $processor->src_dir() . "\n" if $verbose;
+#            print "\t" . $processor->src_path() . "\n" if $verbose;
             my $files = $processor->find_files();
             foreach my $file (@$files) {
+                print "      $file\n" if $verbose;
                 unless ($processor->process_file($file, \$error)) {
+                    print "WARN: $error\n";
                     Syno::log($error, 'warn');
                 }
             }
         }
         else {
+            print "WARN: $error\n";
             Syno::log($error, 'warn');
         }
     }
+    print "Finished process \"$dir\"\n" if $verbose;
     Syno::log("Finished process \"$dir\"");
 }
 
 
 if ($#dirs > 0) {
+    print 'Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
     Syno::notify('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
 }
 else {
+    print 'Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
     Syno::notify('Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
 }
 

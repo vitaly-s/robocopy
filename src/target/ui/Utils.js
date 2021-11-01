@@ -114,13 +114,18 @@ SYNO.SDS.RoboCopy.GetErrorMessage = function (result, fldSection="ui") {
                     return String.format(_RC_STR("error", "prosess_file_name"), result.name);
                 }
                 return _RC_STR("error", "prosess_file");
+            case 'permission_read':
+                return String.format(_RC_STR("error", "permission_read"), result.path);
+            case 'permission_write':
+                return String.format(_RC_STR("error", "permission_write"), result.path);
 //            default:
 //                return _T("error", "error_unknown");
         }
 //        var msg = _RC_STR(result.sec, result.key);
 //        if (!msg || msg === "")
 //            return result.sec + ":" + result.key; 
-            return _T("error", "error_unknown");
+        return _RC_STR("error", "system_error");
+//        return _T("error", "error_unknown");
 //        return msg;
     }
     return "";

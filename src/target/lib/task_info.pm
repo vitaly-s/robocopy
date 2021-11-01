@@ -118,7 +118,7 @@ package task_info; {
 #        return 1;
     }
     
-    sub load_list($)
+    sub load_list(;$)
     {
         my ($user) = @_;
         
