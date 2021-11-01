@@ -1,0 +1,13 @@
+[{
+	"step_title": "Демо конфигурация",
+	"items": [{
+		"type": "multiselect",
+		"_desc": "Демо конфигурация",
+		"subitems": [{
+			"key": "PKGWIZARD_CREATE_DEMO",
+			"desc": "Создать демо конфигурацию"
+		}]
+	}, {
+		"desc": "* В демо правилах бедет использованна общая папка <strong>'photo'</strong> или другая, если папка <strong>'photo'</strong> не существует."
+	}]
+}]
