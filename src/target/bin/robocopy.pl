@@ -64,7 +64,7 @@ if (basename($0) eq 'synousbcopy') {
     my %copy_dirs;
     foreach my $name (keys(%copy_hash)) {
         my $copy_dir = Syno::share_path(`get_key_value /etc/synoinfo.conf $name`);
-        Syno::log("Can not get \"$name\" path."), delete $copy_hash{$name}, next unless defined $copy_dir;
+        Syno::log("RoboCopy: Can not get \"$name\" path."), delete $copy_hash{$name}, next unless defined $copy_dir;
         $copy_hash{$name} = $copy_dir . '/' . $copy_hash{$name};
         foreach (glob($copy_hash{$name})) {
             $copy_dirs{$_} = 0;
@@ -73,7 +73,6 @@ if (basename($0) eq 'synousbcopy') {
 
     #RUN synousbcopy
     system(ORIGINAL_SYNOUSBCOPY, @ARGV);
-
 
     foreach my $name (keys(%copy_hash)) {
         foreach (glob($copy_hash{$name})) {
@@ -116,7 +115,7 @@ my $cfg = rule::load_list(undef, 'priority');
 my $settings = Settings->new;
 eval { $settings = Settings::load };
 print "WARN: Read setting error: $@\n" if $@;
-Syno::log("Read setting error: $@", 'warn') if $@;
+Syno::log("RoboCopy: Read setting error: $@", 'warn') if $@;
 
 my $locator = CityLocator->new();
 $locator->threshold($settings->locator_threshold);
@@ -126,7 +125,7 @@ $locator->language($settings->locator_language);
 my $error;
 foreach my $dir (@dirs) {
     print "Start process \"$dir\"\n";
-    Syno::log("Start process \"$dir\"");
+    Syno::log("RoboCopy: Start process \"$dir\"");
 #    print "Process \"$dir\"\n";
     foreach my $rule (@$cfg) {
         print "  Process \"$rule->{description}\" [$rule->{src_ext}]\n    $rule->{dest_dir}\n" if $verbose;
@@ -150,32 +149,34 @@ foreach my $dir (@dirs) {
         }
     }
     print "Finished process \"$dir\"\n" if $verbose;
-    Syno::log("Finished process \"$dir\"");
+    Syno::log("RoboCopy: Finished process \"$dir\"");
 }
 
 
-if ($#dirs > 0) {
-    print 'Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
-    Syno::notify('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
-}
-else {
-    print 'Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
-    Syno::notify('Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
-}
+#if ($#dirs > 0) {
+#    print 'Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
+#    Syno::log('RoboCopy: Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".");
+##    Syno::notify('Finished process directories "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
+#}
+#else {
+#    print 'Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".\n" if $verbose;
+#    Syno::log('RoboCopy: Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".");
+##    Syno::notify('Finished process directory "' . join(', ', map {basename($_)} @dirs). "\".", 'RoboCopy');
+#}
 
 
 #############################
 
 sub handle_user_abort
 {
-    Syno::log("Was interrupted by user", 'warn');
+    Syno::log("RoboCopy: Was interrupted by user", 'warn');
     rule_processor::cleanup();
     exit 255;
 }
 
 sub handle_system_abort
 {
-    Syno::log("Was terminated", 'warn');
+    Syno::log("RoboCopy: Was terminated", 'warn');
     rule_processor::cleanup();
     exit 255;
 }

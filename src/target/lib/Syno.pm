@@ -67,18 +67,52 @@ sub log
     system('/usr/syno/bin/synologset1', $log, $type, '0x11800000', 'RoboCopy: ' . $msg);
 }
 
-#http://forum.synology.com/enu/viewtopic.php?f=27&t=55627
-# Old /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance @administrators app:app_name error:bad_field XXX
-# DSM 7 /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance -t robocopy @administrators robocopy:app:app_name robocopy:error:bad_field XXX
-
+# Not work on DSM 7
 sub notify 
 {
     my ($msg, $title, $to) = @_;
     return unless defined $msg;
     $title = '' unless defined $title;
     $to = '@administrators' unless defined $to;
-#	print "NOTIFY: $title - $msg\n";
     system('/usr/syno/bin/synodsmnotify', $to, $title, $msg);
+}
+
+# Old /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance @administrators app:app_name error:bad_field XXX
+# DSM 7 /usr/syno/bin/synodsmnotify -c SYNO.SDS.RoboCopy.Instance -e false @administrators robocopy:app:app_name robocopy:error:bad_field XXX
+sub notify_i18n($$$$;@)
+{
+    my ($to, $pkg, $title, $msg, @params) = @_;
+    $to = '@administrators' unless defined $to;
+    $to = '@administrators' if $to eq 'root';
+    
+    my @args;
+    if (defined $pkg && $pkg ne '') {
+        return undef unless -r "/var/packages/$pkg/INFO";
+        # Parse class name for package
+        my $class = `get_key_value /var/packages/$pkg/INFO dsmappname`;
+        chop $class;
+        $class =~ s/^\s*//o;
+        $class =~ s/\s*$//o;
+        if ($class ne '') {
+            $class =~ s/(?<!^)\s.*$//o;
+            push @args, '-c';
+            push @args, $class;
+        }
+        my $version = `get_key_value /etc.defaults/VERSION majorversion`;
+        if ($version >= 7) {
+            $msg = $pkg . ':' . $msg;
+            $title = $pkg . ':' . $title if defined $title && $title ne '';
+            push @args, '-e';
+            push @args, 'false';
+        }
+    }
+    $title = 'notification:category_system' unless defined $title && $title ne '';
+    push @args, $to;
+    push @args, $title;
+    push @args, $msg;
+    push @args, @params;
+    system('/usr/syno/bin/synodsmnotify', @args);
+    1;
 }
 
 sub _parse_smb_conf
