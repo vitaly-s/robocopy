@@ -88,7 +88,7 @@ sub ProcessCTMD($$$);
 sub ProcessExifInfo($$$);
 sub SwapWords($);
 
-$VERSION = '4.47';
+$VERSION = '4.53';
 
 # Note: Removed 'USM' from 'L' lenses since it is redundant - PH
 # (or is it?  Ref 32 shows 5 non-USM L-type lenses)
@@ -187,7 +187,7 @@ $VERSION = '4.47';
     37.2 => 'Tamron AF 28-300mm f/3.5-6.3 XR Di VC LD Aspherical [IF] Macro (A20)', #38
     37.3 => 'Tamron SP AF 17-50mm f/2.8 XR Di II VC LD Aspherical [IF]', #34
     37.4 => 'Tamron AF 18-270mm f/3.5-6.3 Di II VC LD Aspherical [IF] Macro', #forum2937
-    38 => 'Canon EF 80-200mm f/4.5-5.6', #32
+    38 => 'Canon EF 80-200mm f/4.5-5.6 II', #32 (II added ref https://github.com/Exiv2/exiv2/issues/1906)
     39 => 'Canon EF 75-300mm f/4-5.6',
     40 => 'Canon EF 28-80mm f/3.5-5.6',
     41 => 'Canon EF 28-90mm f/4-5.6', #32
@@ -519,7 +519,8 @@ $VERSION = '4.47';
     507 => 'Canon EF 16-35mm f/4L IS USM', #42
     508 => 'Canon EF 11-24mm f/4L USM or Tamron Lens', #PH
     508.1 => 'Tamron 10-24mm f/3.5-4.5 Di II VC HLD (B023)', #PH
-    624 => 'Sigma 70-200mm f/2.8 DG OS HSM | S', #IB (018)
+    624 => 'Sigma 70-200mm f/2.8 DG OS HSM | S or other Sigma Lens', #IB (018)
+    624.1 => 'Sigma 150-600mm f/5-6.3 | C', #ChrisSkopec
     747 => 'Canon EF 100-400mm f/4.5-5.6L IS II USM or Tamron Lens', #JR
     747.1 => 'Tamron SP 150-600mm f/5-6.3 Di VC USD G2', #50
     748 => 'Canon EF 100-400mm f/4.5-5.6L IS II USM + 1.4x or Tamron Lens', #JR (1.4x Mk III)
@@ -557,7 +558,8 @@ $VERSION = '4.47';
     4158 => 'Canon EF-S 18-55mm f/4-5.6 IS STM', #PH
     4159 => 'Canon EF-M 32mm f/1.4 STM', #42
     4160 => 'Canon EF-S 35mm f/2.8 Macro IS STM', #42
-    4208 => 'Sigma 56mm f/1.4 DC DN | C', #forum10603
+    4208 => 'Sigma 56mm f/1.4 DC DN | C or other Sigma Lens', #forum10603
+    4208.1 => 'Sigma 30mm F1.4 DC DN | C', #git issue#83 (016)
     # (Nano USM lenses - 0x90xx)
     36910 => 'Canon EF 70-300mm f/4-5.6 IS II USM', #42
     36912 => 'Canon EF-S 18-135mm f/3.5-5.6 IS USM', #42
@@ -579,19 +581,25 @@ $VERSION = '4.47';
     61182.7 => 'Canon RF 15-35mm F2.8L IS USM',
     61182.8 => 'Canon RF 24-240mm F4-6.3 IS USM',
     61182.9 => 'Canon RF 70-200mm F2.8L IS USM',
-    61182.10 => 'Canon RF 85mm F2 MACRO IS STM',
-    61182.11 => 'Canon RF 600mm F11 IS STM',
-    61182.12 => 'Canon RF 600mm F11 IS STM + RF1.4x',
-    61182.13 => 'Canon RF 600mm F11 IS STM + RF2x',
-    61182.14 => 'Canon RF 800mm F11 IS STM',
-    61182.15 => 'Canon RF 800mm F11 IS STM + RF1.4x',
-    61182.16 => 'Canon RF 800mm F11 IS STM + RF2x',
-    61182.17 => 'Canon RF 24-105mm F4-7.1 IS STM',
-    61182.18 => 'Canon RF 100-500mm F4.5-7.1L IS USM',
-    61182.19 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF1.4x',
-    61182.20 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF2x',
-    61182.21 => 'Canon RF 70-200mm F4L IS USM', #42
-    61182.22 => 'Canon RF 50mm F1.8 STM', #42
+   '61182.10' => 'Canon RF 85mm F2 MACRO IS STM',
+   '61182.11' => 'Canon RF 600mm F11 IS STM',
+   '61182.12' => 'Canon RF 600mm F11 IS STM + RF1.4x',
+   '61182.13' => 'Canon RF 600mm F11 IS STM + RF2x',
+   '61182.14' => 'Canon RF 800mm F11 IS STM',
+   '61182.15' => 'Canon RF 800mm F11 IS STM + RF1.4x',
+   '61182.16' => 'Canon RF 800mm F11 IS STM + RF2x',
+   '61182.17' => 'Canon RF 24-105mm F4-7.1 IS STM',
+   '61182.18' => 'Canon RF 100-500mm F4.5-7.1L IS USM',
+   '61182.19' => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF1.4x',
+   '61182.20' => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF2x',
+   '61182.21' => 'Canon RF 70-200mm F4L IS USM', #42
+   '61182.22' => 'Canon RF 50mm F1.8 STM', #42
+   '61182.23' => 'Canon RF 14-35mm F4L IS USM', #IB
+   '61182.24' => 'Canon RF 100-400mm F5.6-8 IS USM', #42
+   '61182.25' => 'Canon RF 100-400mm F5.6-8 IS USM + RF1.4x', #42 (NC)
+   '61182.26' => 'Canon RF 100-400mm F5.6-8 IS USM + RF2x', #42 (NC)
+   '61182.27' => 'Canon RF 16mm F2.8 STM', #42
+  #'61182.xx' => 'Canon RF 100mm F2.8L MACRO IS USM',
     65535 => 'n/a',
 );
 
@@ -6727,7 +6735,17 @@ my %ciMaxFocal = (
         PrintConvInv => '$val =~ s/ ?m$//; IsFloat($val) ? $val : 655.35',
     },
     # 22 - values: 0, 1
-    # 23 - values: 0, 21, 22
+    23 => { #JohnMoyer (forum12925)
+        Name => 'ShutterMode',
+        PrintConv => {
+            0 => 'Mechanical',
+            1 => 'Electronic First Curtain',
+            2 => 'Electronic',
+            # 3 => ?
+            # 21 => ?
+            # 22 => ?
+        },
+    },
     25 => { #PH
         Name => 'FlashExposureLock',
         PrintConv => \%offOn,
@@ -6760,6 +6778,12 @@ my %ciMaxFocal = (
             277 => 'Canon RF 100-500mm F4.5-7.1L IS USM + RF2x',
             278 => 'Canon RF 70-200mm F4L IS USM', #42
             280 => 'Canon RF 50mm F1.8 STM', #42
+            281 => 'Canon RF 14-35mm F4L IS USM', #42/IB
+            283 => 'Canon RF 100-400mm F5.6-8 IS USM', #42
+            284 => 'Canon RF 100-400mm F5.6-8 IS USM + RF1.4x', #42 (NC)
+            285 => 'Canon RF 100-400mm F5.6-8 IS USM + RF2x', #42 (NC)
+            288 => 'Canon RF 16mm F2.8 STM', #42
+           #xxx => 'Canon RF 100mm F2.8L MACRO IS USM',
             # Note: add new RF lenses to %canonLensTypes with ID 61182
         },
     },
@@ -8734,6 +8758,7 @@ my %filterConv = (
     #        --> ignored when reading, but offsets are updated when writing
     CMT1 => { # (CR3 files)
         Name => 'IFD0',
+        PreservePadding => 1,
         SubDirectory => {
             TagTable => 'Image::ExifTool::Exif::Main',
             ProcessProc => \&Image::ExifTool::ProcessTIFF,
@@ -8742,6 +8767,7 @@ my %filterConv = (
     },
     CMT2 => { # (CR3 files)
         Name => 'ExifIFD',
+        PreservePadding => 1,
         SubDirectory => {
             TagTable => 'Image::ExifTool::Exif::Main',
             ProcessProc => \&Image::ExifTool::ProcessTIFF,
@@ -8750,6 +8776,7 @@ my %filterConv = (
     },
     CMT3 => { # (CR3 files)
         Name => 'MakerNoteCanon',
+        PreservePadding => 1,
         SubDirectory => {
             TagTable => 'Image::ExifTool::Canon::Main',
             ProcessProc => \&ProcessCMT3,
@@ -8758,6 +8785,7 @@ my %filterConv = (
     },
     CMT4 => { # (CR3 files)
         Name => 'GPSInfo',
+        PreservePadding => 1,
         SubDirectory => {
             TagTable => 'Image::ExifTool::GPS::Main',
             ProcessProc => \&Image::ExifTool::ProcessTIFF,
@@ -8768,6 +8796,7 @@ my %filterConv = (
     THMB => {
         Name => 'ThumbnailImage',
         Groups => { 2 => 'Preview' },
+        PreservePadding => 1,
         RawConv => 'substr($val, 16)',
         Binary => 1,
     },
@@ -8782,6 +8811,7 @@ my %filterConv = (
     WRITE_PROC => 'Image::ExifTool::QuickTime::WriteQuickTime',
     CNOP => {
         Name => 'CanonVRD',
+        PreservePadding => 1,
         SubDirectory => {
             TagTable => 'Image::ExifTool::CanonVRD::Main',
             WriteProc => 'Image::ExifTool::CanonVRD::WriteCanonDR4',
@@ -9253,8 +9283,9 @@ sub PrintLensID(@)
                 push @likely, $tclens;
                 if ($maxAperture) {
                     # (not 100% sure that TC affects MaxAperture, but it should!)
-                    next if $maxAperture < $sa * $tc - 0.15;
-                    next if $maxAperture > $la * $tc + 0.15;
+                    # (RF 24-105mm F4L IS USM shows a MaxAperture of 4.177)
+                    next if $maxAperture < $sa * $tc - 0.18;
+                    next if $maxAperture > $la * $tc + 0.18;
                 }
                 push @matches, $tclens;
             }

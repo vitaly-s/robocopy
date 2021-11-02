@@ -539,7 +539,8 @@ my %sImageRegion = ( # new in 1.5
     NOTES => q{
         This table contains tags defined by the IPTC Extension schema version 1.5. 
         The actual namespace prefix is "Iptc4xmpExt", but ExifTool shortens this for
-        the family 1 group name. (see L<http://www.iptc.org/IPTC4XMP/>)
+        the family 1 group name. (see
+        L<http://www.iptc.org/standards/photo-metadata/iptc-standard/>)
     },
     AboutCvTerm => {
         Struct => \%sCVTermDetails,
@@ -796,6 +797,8 @@ my %sImageRegion = ( # new in 1.5
     audioBitsPerSample  => { Groups => { 2 => 'Audio' }, Writable => 'integer' },
     # new IPTC Extension schema 1.5 property
     ImageRegion => { Groups => { 2 => 'Image' }, List => 'Bag', Struct => \%sImageRegion },
+    # new Extension 1.6 property
+    EventId     => { Name => 'EventID', List => 'Bag' },
 );
 
 #------------------------------------------------------------------------------

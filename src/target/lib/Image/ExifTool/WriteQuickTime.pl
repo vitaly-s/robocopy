@@ -163,6 +163,9 @@ sub ConvInvISO6709($)
         # latitude must have 2 digits before the decimal, and longitude 3,
         # and all values must start with a "+" or "-", and Google Photos
         # requires at least 3 digits after the decimal point
+        # (and as of Apr 2021, Google Photos doesn't accept coordinats
+        #  with more than 5 digits after the decimal place:
+        #  https://exiftool.org/forum/index.php?topic=11055.msg67171#msg67171 )
         my @fmt = ('%s%02d.%s%s','%s%03d.%s%s','%s%d.%s%s');
         foreach (@a) {
             return undef unless Image::ExifTool::IsFloat($_);
@@ -314,7 +317,7 @@ sub FormatQTValue($$;$$)
         if ($writable and $qtFormat{$writable}) {
             $flags = $qtFormat{$writable};
         } else {
-            $flags = $qtFormat{$format} || 0;
+            $flags = $qtFormat{$format || 0} || 0;
         }
     } elsif ($$valPt =~ /^\xff\xd8\xff/) {
         $flags = 0x0d;  # JPG
@@ -846,7 +849,7 @@ sub WriteQuickTime($$$)
                 # --> hold this terminator to the end
                 $term = $hdr;
             } elsif ($n != 0) {
-                $et->Error('File format error');
+                $et->Error("Unknown $n bytes at end of file", 1);
             }
             last;
         }
@@ -1064,6 +1067,9 @@ sub WriteQuickTime($$$)
                     #  3=optional base offset, 4=optional item ID)
                     ChunkOffset => \@chunkOffset,
                 );
+                # set InPlace flag so XMP will be padded properly when
+                # QuickTimePad is used if this is an XMP directory
+                $subdirInfo{InPlace} = 2 if $et->Options('QuickTimePad');
                 # pass the header pointer if necessary (for EXIF IFD's
                 # where the Base offset is at the end of the header)
                 if ($hdrLen and $hdrLen < $size) {
@@ -1086,7 +1092,9 @@ sub WriteQuickTime($$$)
                     $$et{CHANGED} = $oldChanged if $$et{DemoteErrors} > 1;
                     delete $$et{DemoteErrors};
                 }
-                if (defined $newData and not length $newData and $$tagTablePtr{PERMANENT}) {
+                if (defined $newData and not length $newData and ($$tagInfo{Permanent} or
+                    ($$tagTablePtr{PERMANENT} and not defined $$tagInfo{Permanent})))
+                {
                     # do nothing if trying to delete tag from a PERMANENT table
                     $$et{CHANGED} = $oldChanged;
                     undef $newData;
@@ -1094,7 +1102,9 @@ sub WriteQuickTime($$$)
                 $$et{CUR_WRITE_GROUP} = $oldWriteGroup;
                 SetByteOrder('MM');
                 # add back header if necessary
-                if ($start and defined $newData and length $newData) {
+                if ($start and defined $newData and (length $newData or
+                    (defined $$tagInfo{Permanent} and not $$tagInfo{Permanent})))
+                {
                     $newData = substr($buff,0,$start) . $newData;
                     $$_[1] += $start foreach @chunkOffset;
                 }
@@ -1324,6 +1334,13 @@ sub WriteQuickTime($$$)
             }
             # write the new atom if it was modified
             if (defined $newData) {
+                my $sizeDiff = length($buff) - length($newData);
+                if ($sizeDiff > 0 and $$tagInfo{PreservePadding} and $et->Options('QuickTimePad')) {
+                    $newData .= "\0" x $sizeDiff;
+                    $et->VPrint(1, "    ($$tagInfo{Name} padded to original size)");
+                } elsif ($sizeDiff) {
+                    $et->VPrint(1, "    ($$tagInfo{Name} changed size)");
+                }
                 my $len = length($newData) + 8;
                 $len > 0x7fffffff and $et->Error("$$tagInfo{Name} to large to write"), last;
                 # update size in ChunkOffset list for modified 'uuid' atom

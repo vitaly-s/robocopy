@@ -50,7 +50,7 @@ use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 require Exporter;
 
-$VERSION = '3.41';
+$VERSION = '3.47';
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(EscapeXML UnescapeXML);
 
@@ -155,7 +155,7 @@ my %xmpNS = (
     DICOM     => 'http://ns.adobe.com/DICOM/',
    'drone-dji'=> 'http://www.dji.com/drone-dji/1.0/',
     svg       => 'http://www.w3.org/2000/svg',
-    et        => 'http://ns.exiftool.ca/1.0/',
+    et        => 'http://ns.exiftool.org/1.0/',
 #
 # namespaces defined in XMP2.pl:
 #
@@ -195,7 +195,7 @@ my %xmpNS = (
 );
 
 # build reverse namespace lookup
-my %uri2ns = ( 'http://ns.exiftool.org/1.0/' => 'et' ); # (allow exiftool.org as well as exiftool.ca)
+my %uri2ns = ( 'http://ns.exiftool.ca/1.0/' => 'et' ); # (allow exiftool.ca as well as exiftool.org)
 {
     my $ns;
     foreach $ns (keys %nsURI) {
@@ -1533,6 +1533,9 @@ my %sPantryItem = (
                     CameraProfile   => { },
                     LookTable       => { },
                     ToneCurvePV2012 => { List => 'Seq' },
+                    ToneCurvePV2012Red   => { List => 'Seq' },
+                    ToneCurvePV2012Green => { List => 'Seq' },
+                    ToneCurvePV2012Blue  => { List => 'Seq' },
                 },
             },
         }
@@ -2017,6 +2020,11 @@ my %sPantryItem = (
         Groups => { 2 => 'Location' },
         Writable => 'integer',
         PrintConv => {
+            OTHER => sub {
+                my ($val, $inv) = @_;
+                return undef unless $inv and $val =~ /^([-+0-9])/;
+                return($1 eq '-' ? 1 : 0);
+            },
             0 => 'Above Sea Level',
             1 => 'Below Sea Level',
         },
@@ -2134,8 +2142,8 @@ my %sPantryItem = (
     NAMESPACE   => 'exifEX',
     PRIORITY => 0, # not as reliable as actual EXIF tags
     NOTES => q{
-        EXIF tags added by the EXIF 2.31 for XMP specification (see
-        L<http://www.cipa.jp/std/documents/e/DC-X010-2017.pdf>).
+        EXIF tags added by the EXIF 2.32 for XMP specification (see
+        L<https://cipa.jp/std/documents/download_e.html?DC-010-2020_E>).
     },
     Gamma                       => { Writable => 'rational' },
     PhotographicSensitivity     => { Writable => 'integer' },
@@ -2341,6 +2349,9 @@ my %sPantryItem = (
     Scene               => { Groups => { 2 => 'Other' }, List => 'Bag' },
     SubjectCode         => { Groups => { 2 => 'Other' }, List => 'Bag' },
     # Copyright - have seen this in a sample (Jan 2021), but I think it is non-standard
+    # new IPTC Core 1.3 properties
+    AltTextAccessibility  => { Groups => { 2 => 'Other' }, Writable => 'lang-alt' },
+    ExtDescrAccessibility => { Groups => { 2 => 'Other' }, Writable => 'lang-alt' },
 );
 
 # Adobe Lightroom namespace properties (lr) (ref PH)
@@ -3258,8 +3269,14 @@ NoLoop:
             }
         }
         # generate a default tagInfo hash if necessary
-        $tagInfo or $tagInfo = { Name => $name, IsDefault => 1, Priority => 0 };
-
+        unless ($tagInfo) {
+            # shorten tag name if necessary
+            if ($$et{ShortenXmpTags}) {
+                my $shorten = $$et{ShortenXmpTags};
+                $name = &$shorten($name);
+            }
+            $tagInfo = { Name => $name, IsDefault => 1, Priority => 0 };
+        }
         # add tag Namespace entry for tags in variable-namespace tables
         $$tagInfo{Namespace} = $xns if $xns;
         if ($$et{curURI}{$ns} and $$et{curURI}{$ns} =~ m{^http://ns.exiftool.(?:ca|org)/(.*?)/(.*?)/}) {
@@ -3778,6 +3795,7 @@ sub ParseXMPElement($$$;$$$$)
                 # (unless we already extracted shorthand values from this element)
                 if (length $val or not $shorthand) {
                     my $lastProp = $$propList[-1];
+                    $lastProp = '' unless defined $lastProp;
                     if (defined $nodeID) {
                         SaveBlankInfo($blankInfo, $propList, $val);
                     } elsif ($lastProp eq 'rdf:type' and $wasEmpty) {
@@ -3948,7 +3966,7 @@ sub ProcessXMP($$;$)
                         } elsif ($1 eq 'REDXIF') {
                             $type = 'RMD';
                             $mime = 'application/xml';
-                        } else {
+                        } elsif ($1 ne 'fcpxml') { # Final Cut Pro XML
                             return 0;
                         }
                     } elsif ($buf2 =~ /<svg[\s>]/) {
@@ -3958,14 +3976,16 @@ sub ProcessXMP($$;$)
                     } elsif ($buf2 =~ /<plist[\s>]/) {
                         $type = 'PLIST';
                     }
-                    if ($isSVG and $$et{XMP_CAPTURE}) {
-                        $et->Error("ExifTool does not yet support writing of SVG images");
-                        return 0;
-                    }
                 }
                 $isXML = 1;
             } elsif ($2 eq '<rdf:RDF') {
                 $isRDF = 1;     # recognize XMP without x:xmpmeta element
+            } elsif ($2 eq '<svg') {
+                $isSVG = $isXML = 1;
+            }
+            if ($isSVG and $$et{XMP_CAPTURE}) {
+                $et->Error("ExifTool does not yet support writing of SVG images");
+                return 0;
             }
             if ($buff =~ /^\0\0/) {
                 $fmt = 'N';     # UTF-32 MM with or without BOM

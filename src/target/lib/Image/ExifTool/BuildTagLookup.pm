@@ -35,7 +35,7 @@ use Image::ExifTool::Sony;
 use Image::ExifTool::Validate;
 use Image::ExifTool::MacOS;
 
-$VERSION = '3.44';
+$VERSION = '3.46';
 @ISA = qw(Exporter);
 
 sub NumbersFirst($$);
@@ -68,6 +68,7 @@ my %tweakOrder = (
     IPTC    => 'Exif',  # put IPTC after EXIF,
     GPS     => 'XMP',   # etc...
     Composite => 'Extra',
+    CBOR    => 'JSON',
     GeoTiff => 'GPS',
     CanonVRD=> 'CanonCustom',
     DJI     => 'Casio',
@@ -459,7 +460,7 @@ According to the specification, integer-format QuickTime date/time tags
 should be stored as UTC.  Unfortunately, digital cameras often store local
 time values instead (presumably because they don't know the time zone).  For
 this reason, by default ExifTool does not assume a time zone for these
-values.  However, if the L<QuickTimeUTC|../ExifTool.html#QuickTimeUTC> API option is set, then ExifTool will
+values.  However, if the API L<QuickTimeUTC|../ExifTool.html#QuickTimeUTC> option is set, then ExifTool will
 assume these values are properly stored as UTC, and will convert them to
 local time when extracting.
 
@@ -467,6 +468,11 @@ When writing string-based date/time tags, the system time zone is added if
 the PrintConv option is enabled and no time zone is specified.  This is
 because Apple software may display crazy values if the time zone is missing
 for some tags.
+
+By default ExifTool will remove null padding from some QuickTime containers
+in Canon CR3 files when writing, but the
+L<QuickTimePad|../ExifTool.html#QuickTimePad> option may be used to preserve
+the original size by padding with nulls if necessary.
 
 See
 L<https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/>
@@ -2117,7 +2123,7 @@ sub WriteTagNames($$)
         $short = $$shortName{$tableName};
         my @names = split ' ', $short;
         my $class = shift @names;
-        if (@names) {
+        if (@names and $class ne 'Other') {
             # add heading for tables without a Main
             unless ($heading eq $class) {
                 $heading = $class;
@@ -2145,6 +2151,13 @@ sub WriteTagNames($$)
         $short = $$shortName{$tableName};
         $short = $tableName unless $short;
         $url = "$short.html";
+        # handle various tables in "Other.pm"
+        if ($short =~ /^Other (.*)/) {
+            $short = $1;
+            $url = 'Other.html#' . $1;
+        } else {
+            $url = "$short.html";
+        }
         print HTMLFILE "<a href='${url}'>$short</a>";
         ++$count;
     }
