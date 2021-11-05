@@ -54,7 +54,6 @@
 
 Ext.ns("SYNO.SDS.RoboCopy");
 SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
-    simpleProgress: isDsmV4(),
     constructor: function (config, bkTask) {
         this.initVaribles(config);
         var taskid = bkTask ? bkTask.id : config.bkTaskCfg.taskid;
@@ -62,6 +61,19 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             bkTask = SYNO.SDS.BackgroundTaskMgr.addTask({
                 id: taskid,
                 title: this.genBkTitle(this.actionStr, this.fileStr),
+                interval: [{
+                    time: 0,
+                    interval: 1000
+                }, {
+                    time: 3000,
+                    interval: 3000
+                }, {
+                    time: 60000,
+                    interval: 6000
+                }, {
+                    time: 120000,
+                    interval: 10000
+                }],
                 query: {
                     url: config.bkTaskCfg.url,
                     params: {
@@ -139,30 +151,41 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
         }
         if (progress && data.pfile && 0 < progress) {
             var percentText = (progress * 100).toFixed(2) + "&#37;";
+            var msg = Ext.util.Format.htmlEncode(SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pfile || ""));
             var progressText = "";
-            if (Ext.isNumber(data.total_size) && (0 < data.total_size)) {
-                progressText = Ext.util.Format.fileSize(data.processed_size || 0)
-                    + "/" + Ext.util.Format.fileSize(data.total_size);
-            }
-            else if (Ext.isNumber(data.total_count) && (0 < data.total_count)) {
-                progressText = (data.processed_count || 0)
-                    + "/" + data.total_count;
-            }
-            if (this.simpleProgress) {
+            if (isDsmV4()) {
                 progressText = "<center>" + percentText + "</center>";
             }
             else {
-                progressText = '<div><div style="float:left;">' + percentText
-                    + '</div><div style="float: right; padding-right: 28px;">' + progressText
-                    + '</div></div> </br><div style="padding-top: 5px;">' 
-                    + _RC_STR("task", "time_remain") + ": " + this.getRemainTimeStr(data.remaining_time) + "</div>"
+                var remainingTime = _RC_STR("task", "time_remain") + ": " + this.getRemainTimeStr(data.remaining_time);
+                var extInfo = "";
+                if (Ext.isNumber(data.total_size) && (0 < data.total_size)) {
+                    extInfo = Ext.util.Format.fileSize(data.processed_size || 0)
+                        + "/" + Ext.util.Format.fileSize(data.total_size);
+                }
+                else if (Ext.isNumber(data.total_count) && (0 < data.total_count)) {
+                    extInfo = (data.processed_count || 0)
+                        + "/" + data.total_count;
+                }
+                if (isDsmV7()){
+                    msg = '<div ext:qtip="' + msg + '" style="text-overflow:ellipsis; overflow:hidden; white-space: nowrap; width: 360px">' + msg + "</div>";
+                    if (extInfo !== "") {
+                        extInfo = '<div>' + extInfo + '</div>';
+                    }
+                    msg += '<div class="syno-webfm-progress-additional-info">'
+                        + extInfo
+                        + remainingTime
+                        + "</div>";
+                }
+                else {
+                    progressText = '<div><div style="float:left;">' + percentText
+                        + '</div><div style="float: right; padding-right: 28px;">' + extInfo
+                        + '</div></div> </br><div style="padding-top: 5px;">' 
+                        + remainingTime
+                        + "</div>"
+                }
             }
-
-            var msg = Ext.util.Format.htmlEncode(SYNO.SDS.RoboCopy.utils.parseFullPathToFileName(data.pfile || ""));
-            this.getMsgBox().updateProgress(progress, progressText, 
-                //Ext.util.Format.ellipsis(msg, 50, true)
-                msg, true
-            );
+            this.getMsgBox().updateProgress(progress, progressText, msg, true);
         }
     },
     getRemainTimeStr: function(time) {
@@ -213,7 +236,7 @@ SYNO.SDS.RoboCopy.Action = Ext.extend(Ext.Component, {
             msg: msg,
             width: 300,
             progress: c,
-            progressText: c ? "<center>0&#37;</center>" : "",
+            progressText: (c ? (isDsmV7() ? "<span>0&#37;</span>" : "<center>0&#37;</center>") : ""),
             cls: "syno-webfm-progress",
             closable: false,
             buttons: e,
@@ -1208,7 +1231,8 @@ SYNO.SDS.RoboCopy.MainWindow = Ext.extend(SYNO.SDS.AppWindow, {
                 scope: this
             }).start(true)
         };
-        this.getMsgBox().confirm(this.title, _RC_STR("ui", "remove_confirm"), callback, this);
+        var confirmDelete = this.getMsgBox().confirmDelete || this.getMsgBox().confirm;
+        confirmDelete(this.title, _RC_STR("ui", "remove_confirm"), callback, this);
     },
     handleRunNow: function () {
         //this.RELURL = this.jsConfig.jsBaseURL + "/webfm/";

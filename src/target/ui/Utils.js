@@ -50,17 +50,19 @@ _XType_GridPanel = getXType("syno_gridpanel", "grid");
 _XType_DateField = getXType("syno_datefield", "datefield");
 
 isDsmV4 = function() {
-    var version = parseInt(_S("version"), 10);
-    if ((2198 <= version) && (version <= 4244)) {
-        return true;
-    }
-//        var majorversion = _S("majorversion");
-//        var fullversion = _S("fullversion");
-//        if (fullversion) {
-//            version = parseInt(fullversion.substr(fullversion.indexOf("-s") + 2), 10);
-//        }
+//    var version = parseInt(_S("version"), 10);
+    var version = _S("version");
+    return ((2198 <= version) && (version <= 4244));
+//    if ((2198 <= version) && (version <= 4244)) {
 //        return true;
-    return false;
+//    }
+//        var majorversion = _S("majorversion");
+//    return false;
+};
+
+isDsmV7 = function() {
+//    var version = parseInt(_S("version"), 10);
+    return (_S("version") >= 40000);
 };
 
 SYNO.SDS.RoboCopy.GetErrorMessage = function (result, fldSection="ui") {
