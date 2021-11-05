@@ -5,6 +5,22 @@ This package will help organize your collection of photos and videos into a cust
 
 ![screen shot](ScreenShot.png)
 
+## Note for DSM 7
+
+To use this package on DSM 7, you need to set the permissions for the shared folders.
+
+Follow instructions below to set permissions
+
+**Step 1:** Go to **Control Panel > Shared Folder**.
+
+**Step 2:** Select a folder and click **Edit > Permissions**.
+
+**Step 3:** Select **Internal System User** from the drop-down menu.
+
+**Step 4:** Set **Read/Write** access for the **RoboCopy** user.
+
+**Step 5:** Repeat **steps 2-4** for each shared folder you want to use. 
+
 
 ## How to install
 
@@ -117,7 +133,7 @@ Language of returned information and threshold value You can change in settings.
 
 
 ### Tested on
-- software: DSM 4.2, DSM 4.3, DSM 6.1, DSM 6.2
+- software: DSM 4.2, DSM 4.3, DSM 6.1, DSM 6.2, 7.0.1
 - hardware: DS209, DS218+
 
 

@@ -32,7 +32,7 @@ package task_info; {
         my $epoc = time();
         my $rnd = int(rand(4294967296));
 
-        # создаем хэш
+        # create hash
         my $self = {
             id => sprintf("%08lX%08X", $epoc, $rnd),
             created => $epoc,
@@ -107,14 +107,15 @@ package task_info; {
     {
         my ($self, $file) = @_;
         $file = filename($self->{id}, $self->{user}) unless defined $file;
-#       umask(0);
+
+        my $mask = umask(0);
         mkpath(dirname($file), 0, 0777);
         my $text = JSON::XS->new->ascii->convert_blessed->encode($self);
 
         open my $fh, ">", $file || die "could not write $file: $!";
         print $fh $text;
         close $fh;
-        
+        umask($mask);
 #        return 1;
     }
     
